@@ -1,0 +1,314 @@
+# team-app Requirements Registry — Single Source of Truth
+# Version: 0.2 (seeded from docs/req/requirement-candidates.md after PR #5 merge)
+#
+# PROVENANCE & STATUS OF THIS FILE
+#   Every entry below is a direct conversion of one candidate in
+#   docs/req/requirement-candidates.md (ID mapping in `source`). Per that
+#   catalogue's §1, inclusion is NOT approval: all entries enter as
+#   status=candidate until the S1 requirement-finalization meeting confirms
+#   statement/fit criterion/MoSCoW per entry and flips them to implement.
+#   Priorities are PRE-DRAFT values derived from the catalogue's comparison
+#   matrix ("Primary?") and its §7 Package A/B; the team confirms or edits
+#   them in S1 and states the tradeoff explicitly at that point.
+#
+# NOT YET REPRESENTED
+#   - governance-type entries (course type list includes governance): to be
+#     added after the existing source code has been analysed, so they can
+#     point at real components instead of guesses.
+#   - restate-type entries for baseline behaviour the team commits to keep.
+#
+# TBD DISCIPLINE (catalogue §8, binding)
+#   No numeric cost/performance threshold may be written into this registry
+#   before the corresponding baseline experiment is recorded. Entries keep
+#   threshold: TBD + a link to the experiment description until then.
+#
+# FORMAT: see docs/req/req-registry-template.yaml for the field notes and the
+#   candidate vocabularies. This file must always pass docs/req/req-schema.json
+#   (CI blocking gate 3).
+#
+# ID scheme: REQ-TA-<TYPE>-<NNN>
+#   CAND-FR-nn -> FR | CAND-NFR-01 -> COST | CAND-NFR-02 -> PERF
+#   CAND-NFR-03/04/05/07/08 -> QR | CAND-NFR-06 -> SEC | CAND-INV-nn -> INV
+
+requirements:
+
+  # ============================================================
+  # FUNCTIONAL (CAND-FR-01..08)
+  # ============================================================
+  - id: REQ-TA-FR-001
+    type: functional
+    statement: "The user shall be able to select a quick, standard, or deep analysis profile before analysing a stock; the profile determines the analyst set, the debate-round budget, the risk-discussion budget, and the per-analyst tool-round cap."
+    fit_criterion: "profile in {quick, standard, deep}; a valid profile applies the approved profile->settings mapping (analyst set, max_debate_rounds, max_risk_discuss_rounds, max_tool_rounds) exactly; an invalid profile is rejected BEFORE any LLM call with an error naming the legal values; unset profile reproduces v0.7.1 defaults exactly; explicit settings override the profile per key only (precedence rule fixed by ADR and tested); report metadata records requested AND resolved settings."
+    enforcing_component: "default_config.py (profile key + TRADINGAGENTS_* env) / graph/setup.py (analyst registry, round caps) / graph/trading_graph.py run_settings() / cli/main.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-01; introduction p20 'slow and token-burning'; baseline: default_config.py max_debate_rounds/max_risk_discuss_rounds/max_tool_rounds, setup.py analyst map, no profile key in cli/main.py"
+    cross_refs:
+      cost: [REQ-TA-COST-001]
+      performance: [REQ-TA-PERF-001]
+      fr: [REQ-TA-FR-007]
+
+  - id: REQ-TA-FR-002
+    type: functional
+    statement: "The system shall accept a maximum token budget for one analysis run and shall begin no further optional LLM calls once the recorded usage for the run reaches or exceeds that budget."
+    fit_criterion: "with budget N configured, accumulated recorded usage >= N blocks every SUBSEQUENT optional call (no new optional debate/risk round); run terminates with status in {BUDGET_OK, BUDGET_WARNING, BUDGET_EXHAUSTED} plus a machine-readable reason; a single in-flight call may push recorded usage past N (no exact hard cap claimed); provider does not report usage -> run records usage as unavailable instead of estimating; final-report reserve percentage: TBD until the phase-token-share experiment (requirement-candidates.md §8) is recorded."
+    enforcing_component: "cli/stats_handler.py (extend into shared budget tracker visible to graph callers) / graph/conditional_logic.py + graph/setup.py (stop condition) / default_config.py / cli/main.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-02; baseline: token accounting exists only in cli/stats_handler.py, no per-run budget, no --token-budget flag"
+    cross_refs:
+      cost: [REQ-TA-COST-001]
+      qr: [REQ-TA-QR-004]
+      fr: [REQ-TA-FR-007]
+
+  - id: REQ-TA-FR-003
+    type: functional
+    statement: "The system shall conduct the Bull/Bear debate as a structured exchange in which each contribution states a claim, supporting evidence, a counterargument, a response, a confidence value, and any unresolved issue, with machine-readable per-round output."
+    fit_criterion: "each debate round emits a record matching the agreed schema (claim, evidence, counterargument, response, confidence, unresolved issue); every claim carries >=1 evidence reference or is explicitly marked unsupported; invalid structured output is retried once then converted to a controlled error/review state (never silently accepted); debate stops after the configured round count."
+    enforcing_component: "agents/researchers/bull_researcher.py, agents/researchers/bear_researcher.py, agents/structured.py, agents/schemas.py, graph/setup.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-03; baseline: researchers return free text appended to investment_debate_state; structured output exists (agents/structured.py) but is not applied to researchers"
+    cross_refs:
+      qr: [REQ-TA-QR-001]
+      fr: [REQ-TA-FR-005]
+
+  - id: REQ-TA-FR-004
+    type: functional
+    statement: "The system shall validate the final decision against a defined schema (a rating in the five-tier set, entry/stop levels as numeric prices, and the required fields present) before the result is accepted."
+    fit_criterion: "a final decision is accepted only if its rating resolves to exactly one of {Buy, Overweight, Hold, Underweight, Sell} AND required price fields parse as finite numbers; otherwise the run records a non-actionable REVIEW result with a machine-readable reason and presents no tradeable call."
+    enforcing_component: "agents/structured.py, agents/rating.py, agents/schemas.py, agents/trader/trader.py, agents/managers/portfolio_manager.py"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-04; baseline: structured output + rating parsing exist; no end-to-end validation gate (free-text fallback path unvalidated)"
+    cross_refs:
+      inv: [REQ-TA-INV-001]
+
+  - id: REQ-TA-FR-005
+    type: functional
+    statement: "The system shall produce a final recommendation in which each material claim is linked to the source data or agent report that supports it, and which includes a confidence value, main supporting and opposing factors, source identifiers/timestamps, and a 'not investment advice' notice."
+    fit_criterion: "in a sample report every principal reason carries a source identifier traceable to an analyst/agent output or a dated data observation; reported market data includes its observation date; unsupported claims are labelled as unsupported; the report contains the disclaimer."
+    enforcing_component: "reporting.py, report_html.py, agents/state.py, graph/trading_graph.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-05; baseline: reporting.py/report_html.py render sections without per-claim linkage; no disclaimer in src/"
+    cross_refs:
+      fr: [REQ-TA-FR-003]
+      qr: [REQ-TA-QR-002]
+      inv: [REQ-TA-INV-005]
+
+  - id: REQ-TA-FR-006
+    type: functional
+    statement: "Before issuing a final recommendation, the system shall check that required data is available, sufficiently current, and mutually consistent, and shall emit a defined status (COMPLETED, COMPLETED_WITH_WARNINGS, INSUFFICIENT_DATA, AGENT_DISAGREEMENT_REQUIRES_REVIEW) with a machine-readable reason."
+    fit_criterion: "missing mandatory data prevents an unconditional Buy/Sell (yields >= INSUFFICIENT_DATA or a warning); future-dated information relative to the analysis date is rejected; strong analyst disagreement yields AGENT_DISAGREEMENT_REQUIRES_REVIEW; every outcome carries a machine-readable reason code; 'sufficiently current' and 'strong disagreement' thresholds are deterministic constants fixed by ADR (calibration per requirement-candidates.md §8)."
+    enforcing_component: "graph/trading_graph.py, dataflows/date_window.py, dataflows/errors.py, agents/state.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-06; baseline: per-vendor no-data handling and point-in-time bounds exist; no final status enum"
+    cross_refs:
+      inv: [REQ-TA-INV-002, REQ-TA-INV-004]
+      qr: [REQ-TA-QR-001]
+
+  - id: REQ-TA-FR-007
+    type: functional
+    statement: "The system shall provide an evaluation command that runs or compares the baseline and enhanced configurations on the same ticker/analysis date and reports execution time, LLM calls, tokens, estimated cost (when pricing is configured), debate rounds, recommendation, confidence, and completion status, exported to JSON/CSV with percentage reductions."
+    fit_criterion: "given the same ticker and cutoff date the command runs both configurations with pinned model/provider/temperature, exports per-run metrics to JSON or CSV, computes percentage reductions in runtime and tokens, and reports unavailable provider usage as 'unavailable' (no undisclosed estimates); demonstrable on >=3 stock/date cases."
+    enforcing_component: "cli/main.py, backtest.py, graph/trading_graph.py, cli/stats_handler.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-07; baseline: backtest.py scores decisions over a date grid; no baseline-vs-enhanced comparison command"
+    cross_refs:
+      fr: [REQ-TA-FR-001, REQ-TA-FR-002]
+      cost: [REQ-TA-COST-001]
+      performance: [REQ-TA-PERF-001]
+
+  - id: REQ-TA-FR-008
+    type: functional
+    statement: "The system shall be able to re-run an analysis using the exact settings recorded for a prior run (models, providers, analysts, rounds, temperature, data vendors), and shall record those settings in the report metadata."
+    fit_criterion: "given a recorded settings block from a prior run, a new run starts with those settings applied and the new report's run_settings equals the source block for all allowlisted keys; two runs launched from the same recorded settings share identical run_settings; the allowlist never contains secrets or paths; reproducibility is of configuration, not of sampled LLM output."
+    enforcing_component: "graph/trading_graph.py run_settings(), default_config.py, cli/main.py"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-FR-08; baseline: run_settings() records an allowlist but there is no reload-into-new-run command"
+    cross_refs:
+      qr: [REQ-TA-QR-004]
+      fr: [REQ-TA-FR-007]
+
+  # ============================================================
+  # COST / PERFORMANCE (CAND-NFR-01, CAND-NFR-02) — thresholds TBD
+  # until the §8 baseline experiments are recorded
+  # ============================================================
+  - id: REQ-TA-COST-001
+    type: cost
+    statement: "The system shall demonstrate a measured reduction in total LLM tokens per run (input + output) for the quick profile relative to the baseline configuration, with the numeric threshold adopted only after the baseline experiment is recorded."
+    fit_criterion: "metric: total tokens per run, quick profile vs unmodified default configuration, 3-5 fixed ticker/date cases; controlled variables: same provider, model IDs, temperature, analysts, vendors, dates; threshold: TBD until the baseline experiment (requirement-candidates.md §8 row 1) is recorded and a median reduction is computed; verification: automated comparison over the fixed case set via REQ-TA-FR-007 with logged token totals as evidence."
+    enforcing_component: "measurement harness: cli/main.py + backtest.py (REQ-TA-FR-007); lever: REQ-TA-FR-001 quick profile + REQ-TA-FR-002 budget"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-01 (paired with FR-02 per §7 Package A); threshold TBD rule §8"
+    cross_refs:
+      fr: [REQ-TA-FR-001, REQ-TA-FR-002, REQ-TA-FR-007]
+
+  - id: REQ-TA-PERF-001
+    type: performance
+    statement: "The system shall demonstrate a measured reduction in median end-to-end wall-clock time per run for the quick profile relative to the baseline configuration, with the numeric threshold adopted only after latency is measured."
+    fit_criterion: "metric: median end-to-end wall-clock seconds per run, quick profile vs baseline; >=3 repeated cases per configuration on the same provider/network; threshold: TBD until timing is measured (requirement-candidates.md §8 row 2); no absolute target (e.g. 'under 30 s') before API/network latency data exists; verification: timestamp capture around each run via REQ-TA-FR-007; report median and spread."
+    enforcing_component: "measurement harness: cli/main.py + backtest.py (REQ-TA-FR-007); lever: REQ-TA-FR-001"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-02; threshold TBD rule §8"
+    cross_refs:
+      fr: [REQ-TA-FR-001, REQ-TA-FR-007]
+
+  # ============================================================
+  # QUALITY (CAND-NFR-03/04/05/07/08)
+  # ============================================================
+  - id: REQ-TA-QR-001
+    type: quality
+    statement: "The system shall terminate every controlled failure scenario (provider timeout, agent returns invalid JSON, missing API key, stock data unavailable, token budget exhausted) with a defined status and diagnostic message and zero uncaught exceptions."
+    fit_criterion: "all five scenarios have one offline test each using test doubles for the provider/data layer; each asserts the status code, the diagnostic message, and the absence of an uncaught exception; threshold is scenario coverage (all five), not a percentage."
+    enforcing_component: "dataflows/errors.py, agents/structured.py (fallback), graph/conditional_logic.py, test/offline/* (one negative test per scenario)"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-03 (paired with FR-03 per §7 Package A); baseline PARTIAL: graceful degradation exists in places, no uniform per-run completion status"
+    cross_refs:
+      fr: [REQ-TA-FR-002, REQ-TA-FR-006]
+
+  - id: REQ-TA-QR-002
+    type: quality
+    statement: "The system shall make every formally defined material claim in an accepted report traceable to its evidence source and producing agent."
+    fit_criterion: "metric: fraction of formally defined material claims whose source and producing agent are identifiable in sampled reports; baseline attribution percentage TBD (measure first per requirement-candidates.md §8 row 3); intended accepted-result rule: 100% of material claims resolve to evidence (with REQ-TA-INV-005), adopted only after the baseline is known and 'material claim' is defined by ADR; verification: checklist on sampled reports + structural check that each recommendation references an analyst output and a dated observation."
+    enforcing_component: "reporting.py, graph/trading_graph.py, human claim-audit step"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-04 (paired with FR-05); depends on the agreed 'material claim' definition"
+    cross_refs:
+      fr: [REQ-TA-FR-005]
+      inv: [REQ-TA-INV-005]
+      qr: [REQ-TA-QR-004]
+
+  - id: REQ-TA-QR-003
+    type: quality
+    statement: "The system shall keep new components free of boundary violations (a component reading another component's internal state) and shall keep lint and offline suites passing as components are added."
+    fit_criterion: "zero boundary violations among new components (import-layering assertions/structural tests); 'ruff check .' passes; offline suite passes; LLM/data dependencies replaceable by test doubles in unit tests."
+    enforcing_component: "structural tests over src/tradingagents/{agents,graph,dataflows,memory,llm_clients} boundaries; ruff (CI); offline pytest suite (CI)"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-05 (cross-cutting, applies to every chosen candidate)"
+    cross_refs: {}
+
+  - id: REQ-TA-QR-004
+    type: quality
+    statement: "The system shall record a required set of observability fields in every run's structured metadata (profile, models/providers, analysts, rounds, data vendors, token totals, status)."
+    fit_criterion: "all required fields present and correctly typed in every completed run; absent/unavailable values labelled (e.g. 'unavailable'), never omitted; verification: offline test asserting the metadata schema on a completed mocked run; run_settings() and report header extended accordingly."
+    enforcing_component: "graph/trading_graph.py run_settings(), reporting.py report header, test/offline metadata schema test"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-07; baseline PARTIAL: run_settings() records a subset (models, analysts, rounds, vendors)"
+    cross_refs:
+      fr: [REQ-TA-FR-001, REQ-TA-FR-002, REQ-TA-FR-006]
+
+  - id: REQ-TA-QR-005
+    type: quality
+    statement: "The system shall keep 100% of new features' deterministic tests under test/offline, network-free, and passing in any order."
+    fit_criterion: "offline suite runs with no network access and passes under the repo's default selection in isolation and in random order; any network use in an offline test fails a dedicated guard; verification: run offline suite isolated + randomized; network guard (e.g. socket-disabling test hook)."
+    enforcing_component: "test/offline/* (suite-wide), pyproject.toml pytest selection, planned network guard fixture"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-08 (cross-cutting); baseline: offline/live separation and 'not integration' default exist, no order-independence guarantee for new work"
+    cross_refs: {}
+
+  # ============================================================
+  # SECURITY (CAND-NFR-06)
+  # ============================================================
+  - id: REQ-TA-SEC-001
+    type: security
+    statement: "The system shall ensure that no configured secret appears unredacted in logs, reports, prompts, test fixtures, commits, or transcripts."
+    fit_criterion: "zero occurrences (zero-tolerance); an offline test asserts logs redact a known configured API key; a secret scan runs on every PR and blocks merge on failure; .env is git-ignored; verification: offline redaction test around dataflows/net.py get_scrubbed extended to log/report rendering + CI secret-scan gate (tooling choice per requirement-candidates.md §8 row 6)."
+    enforcing_component: "dataflows/net.py get_scrubbed, report/log renderers, CI secret-scan job (to be added)"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-NFR-06; baseline PARTIAL: get_scrubbed exists and is tested; no repo-wide secret-scan CI gate"
+    cross_refs:
+      inv: [REQ-TA-INV-006]
+
+  # ============================================================
+  # INVARIANTS (CAND-INV-01..07) — zero-tolerance; EXISTING entries
+  # are formalisation + negative-test verification work, not new code
+  # ============================================================
+  - id: REQ-TA-INV-001
+    type: invariant
+    statement: "The system shall never present a decision whose rating is invalid, missing, contradictory, or unreadable as a tradeable position."
+    fit_criterion: "zero-tolerance: for any final decision whose rating cannot be resolved to exactly one of {Buy, Overweight, Hold, Underweight, Sell}, recorded final_rating equals REVIEW, in every case, no exception; negative test: no-rating text, two conflicting ratings, and a fullwidth-colon rating each yield REVIEW (test/offline/test_rating_integrity.py)."
+    enforcing_component: "agents/rating.py (RATING_REVIEW, parse_rating, is_review)"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-INV-01; baseline EXISTING (implemented + tested) — formalisation work: invariant row in registry/trace matrix + keep negative test; operational fallback: mark run non-actionable, surface REVIEW + human-review notice, never substitute Hold"
+    cross_refs:
+      fr: [REQ-TA-FR-004]
+
+  - id: REQ-TA-INV-002
+    type: invariant
+    statement: "A run dated d shall never receive data dated after d."
+    fit_criterion: "zero-tolerance: for a run with analysis date d, no data observation with a timestamp later than d is served to any agent; negative tests: window ending after d is clamped to d; a future trade_date raises (test/offline/test_date_boundaries.py, test_tool_date_enforcement.py, test_memory_pointintime.py); fallback: clamp to d + point-in-time notice, or withhold and label unavailable."
+    enforcing_component: "dataflows/date_window.py (as_of, as_of_window, withhold_*), graph/trading_graph.py _validate_trade_date"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-INV-02; baseline EXISTING for dated paths — formalisation: prove vendor coverage is complete, add trace row"
+    cross_refs:
+      fr: [REQ-TA-FR-006]
+
+  - id: REQ-TA-INV-003
+    type: invariant
+    statement: "An analyst shall never exceed the configured maximum number of tool-call rounds."
+    fit_criterion: "zero-tolerance: for every analyst, tool-call rounds in a run <= max_tool_rounds; negative test: a stub model that keeps requesting tools stops at max_tool_rounds and produces a report instead of hitting the recursion limit; fallback: force the wrap-up turn and end the analyst with what it has."
+    enforcing_component: "graph/setup.py (_analyst_graph, more_or_wrap_up, wrap_up)"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-INV-03; baseline EXISTING (implemented) — formalisation: verify a dedicated negative test exists or add one"
+    cross_refs: {}
+
+  - id: REQ-TA-INV-004
+    type: invariant
+    statement: "A run shall not silently omit a mandatory agent's contribution; a failed mandatory agent ends the run in a defined error/warning status naming that agent."
+    fit_criterion: "zero-tolerance: if a mandatory agent fails, the run never reports COMPLETED as if it succeeded; it reports a defined error/warning status naming the agent; negative test (offline, test double): force one mandatory analyst to raise, assert a non-success status naming it; fallback: emit defined status + diagnostic, never present a complete-looking report."
+    enforcing_component: "graph/setup.py, graph/trading_graph.py, agents/state.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-INV-04; baseline PARTIAL — related to FR-006/QR-001, uniform status enforcement does not exist yet"
+    cross_refs:
+      fr: [REQ-TA-FR-006]
+      qr: [REQ-TA-QR-001]
+
+  - id: REQ-TA-INV-005
+    type: invariant
+    statement: "An accepted recommendation shall contain no material claim that cannot be traced to a source (agent output or dated data)."
+    fit_criterion: "zero-tolerance: in every accepted result, each material claim carries a resolvable source reference; an untraceable material claim prevents acceptance (downgrades the status); negative test: an accepted result containing a claim with no source is rejected/downgraded by the checker; fallback: downgrade to warning/review status and label the claim unsupported; depends on the agreed 'material claim' definition (see QR-002)."
+    enforcing_component: "reporting.py, graph/trading_graph.py"
+    priority: should
+    status: candidate
+    source: "requirement-candidates.md CAND-INV-05; baseline NEW/CLAIMED-ONLY — depends on FR-005"
+    cross_refs:
+      fr: [REQ-TA-FR-005]
+      qr: [REQ-TA-QR-002]
+
+  - id: REQ-TA-INV-006
+    type: invariant
+    statement: "A credential shall never appear in logs, reports, prompts, test fixtures, commits, or transcripts."
+    fit_criterion: "zero-tolerance: zero occurrences of any configured secret in any emitted artifact; negative test: configure a dummy key, trigger an error path, assert the key is absent from captured log/error (test/offline/test_get_scrubbed.py); fallback: redact and re-emit the error without the secret; block the PR if the scan finds a secret."
+    enforcing_component: "dataflows/net.py get_scrubbed, report/log renderers, CI secret scan (to be added)"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-INV-06; baseline PARTIAL — get_scrubbed covers query-param keys on the data path; repo-wide coverage + CI gate absent"
+    cross_refs:
+      sec: [REQ-TA-SEC-001]
+
+  - id: REQ-TA-INV-007
+    type: invariant
+    statement: "The analysed company shall be resolved deterministically from the ticker before any agent runs."
+    fit_criterion: "zero-tolerance: the same ticker always yields the same resolved instrument identity, independent of run order or agent behaviour; negative tests: resolve the same ticker repeatedly and via different entry points, assert identical identity (test/offline/test_symbols.py, test_symbol_normalization_paths.py); fallback: reject an unresolvable ticker before the run starts with a clear error."
+    enforcing_component: "dataflows/symbols.py, agents/context.py (resolve_instrument_identity, build_instrument_context), graph/trading_graph.py"
+    priority: must
+    status: candidate
+    source: "requirement-candidates.md CAND-INV-07; baseline EXISTING (implemented + tested) — formalisation: registry/trace rows + keep negative tests"
+    cross_refs: {}

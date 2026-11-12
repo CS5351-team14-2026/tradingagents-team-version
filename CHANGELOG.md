@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Changes that need action when upgrading are listed under "Upgrading from" in their release.
 
+## [Unreleased]
+
+### Added
+
+- CS5351 governance layer: requirements registry + JSON schema under `docs/req/`
+  (registry converted from the candidate catalogue, all entries `status=candidate`),
+  CI blocking gates — requirements schema gate (course gate 3), test-approval gate
+  (gate 1, with the `test-approved` label and PR template), AI-use log update gate
+  (gate 6, warning mode until the log is created at kickoff) — plus an advisory
+  dependency audit (gate 2 partial). Coding-governance documents: `AGENTS.md`
+  (entry point incl. branch model), `Prompt.md` (static launch prompt),
+  `.opencode/permissions.jsonc`, code-governance documents (structural constraints,
+  verification constraints, tool manifest), and QA records (`docs/review-memo.md`,
+  `docs/debt-register.md`, `docs/bug-diary.md`).
+
+### Changed
+
+- Requirements registry template moved from `doc/req/` to `docs/req/`
+  (path per project.pdf p9); name and content unchanged.
+- CI also runs on pushes to the `integration` branch (schema/lint/tests/audit).
+
 ## [0.7.1] — 2026-10-27
 
 Decisions are scored only on final closes and settle across long market holidays, a model's unpadded date no longer reads filings made after the run date, and fixes to portfolios, prices, SEC statements, reports, Azure and Claude settings.
