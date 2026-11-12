@@ -10,6 +10,23 @@ Changes that need action when upgrading are listed under "Upgrading from" in the
 
 ### Added
 
+- Governance requirements `REQ-TA-GOV-001..005` in `docs/req/requirements.yaml`
+  (prompt governance, secret governance, run-config traceability, data-chain
+  governance, checkpoint signature) — all seven requirement types of
+  project.pdf D1 now represented; entries grounded in baseline code located by
+  the 2026-11-13 source analysis, all `status=candidate`.
+- Safety-critical path list grounded in `.opencode/permissions.jsonc`
+  (`agents/rating.py`, `dataflows/{date_window,errors,net,symbols}.py`,
+  `llm_clients/api_key_env.py`); CODEOWNERS/checks deferred (DEBT-004).
+
+### Changed
+
+- `docs/debt-register.md`: DEBT-002 records the decision to keep `pip-audit`
+  advisory until the 2026-11-21 feature freeze; DEBT-003 records the grounded
+  gate-4 trigger paths; DEBT-004 marks the path list as grounded.
+
+### Added
+
 - CS5351 governance layer: requirements registry + JSON schema under `docs/req/`
   (registry converted from the candidate catalogue, all entries `status=candidate`),
   CI blocking gates — requirements schema gate (course gate 3), test-approval gate
