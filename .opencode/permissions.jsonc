@@ -89,9 +89,9 @@
     },
     {
       "id": "safety-critical-paths",
-      "rule": "Changes to safety-critical paths (list produced by the S1 abuse-case round; initially assumed: agents/rating.py, dataflows/date_window.py, dataflows/errors.py, dataflows/net.py) require a referenced ADR and human approval.",
+      "rule": "Changes to safety-critical paths (list grounded by the 2026-11-13 baseline source analysis; CODEOWNERS + safe-path CI checks still pending team reviewer handles / S2 ADRs, see DEBT-004) require a referenced ADR and human approval: agents/rating.py (REVIEW invariant), dataflows/date_window.py (point-in-time), dataflows/errors.py (failure taxonomy), dataflows/net.py (secret scrubbing), dataflows/symbols.py (ticker/path safety), llm_clients/api_key_env.py (credential registry).",
       "applies": ["coder", "verifier", "reviewer"],
-      "enforced_by": "CODEOWNERS + required review (to be added with the S1 path list, DEBT-004)"
+      "enforced_by": "human review on every PR; CODEOWNERS + checks to be added (DEBT-004)"
     }
   ]
 }

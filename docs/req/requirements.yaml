@@ -1,20 +1,22 @@
 # team-app Requirements Registry — Single Source of Truth
-# Version: 0.2 (seeded from docs/req/requirement-candidates.md after PR #5 merge)
+# Version: 0.3 (v0.2: seeded from docs/req/requirement-candidates.md after PR #5;
+#          v0.3: governance entries added, grounded by the 2026-11-13 baseline
+#          source analysis — all seven requirement types of project.pdf D1 p5
+#          are now represented)
 #
 # PROVENANCE & STATUS OF THIS FILE
-#   Every entry below is a direct conversion of one candidate in
-#   docs/req/requirement-candidates.md (ID mapping in `source`). Per that
-#   catalogue's §1, inclusion is NOT approval: all entries enter as
-#   status=candidate until the S1 requirement-finalization meeting confirms
-#   statement/fit criterion/MoSCoW per entry and flips them to implement.
-#   Priorities are PRE-DRAFT values derived from the catalogue's comparison
-#   matrix ("Primary?") and its §7 Package A/B; the team confirms or edits
-#   them in S1 and states the tradeoff explicitly at that point.
+#   Every entry below is a conversion of one candidate in
+#   docs/req/requirement-candidates.md (ID mapping in `source`) or, for the
+#   GOV entries, of a governance mechanism located in the baseline code by the
+#   2026-11-13 source analysis. Per the catalogue's §1, inclusion is NOT
+#   approval: all entries enter as status=candidate until the S1
+#   requirement-finalization meeting confirms statement/fit criterion/MoSCoW
+#   per entry and flips them to implement. Priorities are PRE-DRAFT values
+#   derived from the catalogue's comparison matrix ("Primary?"), its §7
+#   Package A/B, and for GOV the course blocking-gate list; the team confirms
+#   or edits them in S1 and states the tradeoff explicitly at that point.
 #
 # NOT YET REPRESENTED
-#   - governance-type entries (course type list includes governance): to be
-#     added after the existing source code has been analysed, so they can
-#     point at real components instead of guesses.
 #   - restate-type entries for baseline behaviour the team commits to keep.
 #
 # TBD DISCIPLINE (catalogue §8, binding)
@@ -29,6 +31,7 @@
 # ID scheme: REQ-TA-<TYPE>-<NNN>
 #   CAND-FR-nn -> FR | CAND-NFR-01 -> COST | CAND-NFR-02 -> PERF
 #   CAND-NFR-03/04/05/07/08 -> QR | CAND-NFR-06 -> SEC | CAND-INV-nn -> INV
+#   GOV -> governance mechanisms located in the baseline (source analysis)
 
 requirements:
 
@@ -312,3 +315,65 @@ requirements:
     status: candidate
     source: "requirement-candidates.md CAND-INV-07; baseline EXISTING (implemented + tested) — formalisation: registry/trace rows + keep negative tests"
     cross_refs: {}
+
+  # ============================================================
+  # GOVERNANCE — mechanisms located in the baseline by the
+  # 2026-11-13 source analysis (the catalogue had no governance
+  # candidates). All formalisation-anchored, none invented.
+  # ============================================================
+  - id: REQ-TA-GOV-001
+    type: governance
+    statement: "The system shall treat every production LLM prompt surface (inline agent prompts, structured-output schema field descriptions, reflection prompts, and point-in-time withhold notices) as a requirements artifact whose changes are versioned and must pass a semantic evaluation replay against fixed quality thresholds before entering production."
+    fit_criterion: "any diff under src/tradingagents/agents/**, src/tradingagents/agents/schemas.py, src/tradingagents/memory/reflection.py, src/tradingagents/dataflows/date_window.py, or prompts/** triggers the semantic evaluation gate in CI; key runtime prompts exist as versioned files prompts/prompt_vX.Y.yaml; a change merges only when all fixed quality thresholds pass, and a failing threshold blocks the merge and names the threshold; threshold values TBD until the fixed evaluation set is built (docs/debt-register.md DEBT-003)."
+    enforcing_component: ".github/workflows/ci.yml semantic-evaluation job (planned, course gate 4), prompts/prompt_vX.Y.yaml; baseline prompt surfaces (all inline, no template files): agents/*.py, agents/schemas.py field descriptions, memory/reflection.py, dataflows/date_window.py withhold notices"
+    priority: must
+    status: candidate
+    source: "project.pdf p10 gate 4 + p9 prompts/ tree; RE P98 'prompt change = requirement change'; 2026-11-13 source analysis located all prompt surfaces in code"
+    cross_refs: {}
+
+  - id: REQ-TA-GOV-002
+    type: governance
+    statement: "The system shall read API credentials only through the central provider key registry, and shall keep credentials out of logs, reports, run metadata, prompts, test fixtures, commits, and transcripts, with a repository-wide secret scan blocking violations at merge time."
+    fit_criterion: "every provider credential read resolves via llm_clients/api_key_env.py (single source of truth for the 19 provider env vars) or the declared data-vendor key reads (ALPHA_VANTAGE_API_KEY, FRED_API_KEY, TYPESAFE_API_KEY); HTTP error paths go through dataflows/net.py get_scrubbed (query-param key masked, no exception chain carrying the URL); run_settings(), report headers, state logs and the memory log contain no key, endpoint URL, or local path (allowlist test); a secret scan runs on every PR and blocks merge on any configured-secret match; .env persisted 0600."
+    enforcing_component: "llm_clients/api_key_env.py, dataflows/net.py get_scrubbed, graph/trading_graph.py run_settings() allowlist, cli/prompts.py ensure_api_key (0600), CI secret-scan job (to be added, DEBT-002)"
+    priority: must
+    status: candidate
+    source: "project.pdf p10 static-analysis gate + branch protection; 2026-11-13 source analysis: registry/0600/scrubbing/allowlist already present, repo-wide scan absent; enforcement mechanism for REQ-TA-SEC-001 and REQ-TA-INV-006"
+    cross_refs:
+      sec: [REQ-TA-SEC-001]
+      inv: [REQ-TA-INV-006]
+
+  - id: REQ-TA-GOV-003
+    type: governance
+    statement: "The system shall record an allowlisted block of run settings (package version, provider and model per tier, selected analysts, debate and risk round budgets, output language, data and tool vendor chains) in every run's report header and state log, and shall never record endpoints, credentials, or local paths."
+    fit_criterion: "every completed run's report header and full_states_log JSON carry all run_settings() allowlist keys; the allowlist key set is sufficient for a faithful settings re-run (aligned with REQ-TA-FR-008 — temperature, max_tool_rounds and reasoning-effort keys are currently missing and shall be added before FR-008 acceptance); backend_url, keys and local paths absent from every recorded block (allowlist test)."
+    enforcing_component: "graph/trading_graph.py run_settings() (allowlist, lines 255-275), reporting.py _header, dataflows/config.py per-run ContextVar"
+    priority: must
+    status: candidate
+    source: "project.pdf p5 D1 traceability + introduction p25 higher-grade; 2026-11-13 source analysis: allowlist exists, key-set gap vs FR-008 identified"
+    cross_refs:
+      fr: [REQ-TA-FR-008]
+      qr: [REQ-TA-QR-004]
+
+  - id: REQ-TA-GOV-004
+    type: governance
+    statement: "The system shall dispatch every data request only along the explicitly configured vendor chain, shall surface vendor failures through the typed error taxonomy without silent fallback, and shall degrade optional data categories only with an explicit sentinel marker."
+    fit_criterion: "requests route exactly along data_vendors/tool_vendors as configured (an unconfigured vendor is never contacted); vendor failures surface as DATA_UNAVAILABLE vs NO_DATA_AVAILABLE messages per the dataflows/errors.py taxonomy; optional categories (macro_data, prediction_markets) degrade to an explicit unavailable sentinel, never silently empty; point-in-time withhold notices are emitted when live-only data is refused for a historical run."
+    enforcing_component: "dataflows/router.py (route_to_vendor chain walk, 200-297), dataflows/errors.py, dataflows/date_window.py withhold helpers"
+    priority: must
+    status: candidate
+    source: "introduction p25 production-grade; 2026-11-13 source analysis: no-silent-fallback policy, taxonomy and withholding already implemented"
+    cross_refs:
+      fr: [REQ-TA-FR-006]
+      inv: [REQ-TA-INV-002]
+
+  - id: REQ-TA-GOV-005
+    type: governance
+    statement: "The system shall bind checkpoint resume identity to a run signature derived from the graph-affecting configuration, so that a run resumed under changed analysts, models, rounds, or portfolio state starts fresh rather than replaying mismatched state."
+    fit_criterion: "checkpoint thread_id is sha256(ticker:date:run-signature); any config change that alters the signature invalidates prior checkpoints (resume starts fresh; resume input feeds None to avoid state duplication); checkpointing stays off by default; behaviour pinned by the checkpoint lifecycle/resume tests (test/offline/test_checkpoint_lifecycle.py, test_checkpoint_resume.py)."
+    enforcing_component: "graph/trading_graph.py run-signature hash (140-165) + begin_checkpoint (192-237), graph/checkpointer.py"
+    priority: must
+    status: candidate
+    source: "2026-11-13 source analysis: implemented in baseline (formalisation, like the EXISTING invariants); production-grade/reproducibility"
+    cross_refs:
+      fr: [REQ-TA-FR-008]
