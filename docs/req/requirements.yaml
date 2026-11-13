@@ -93,7 +93,7 @@ requirements:
     fit_criterion: "in a sample report every principal reason carries a source identifier traceable to an analyst/agent output or a dated data observation; reported market data includes its observation date; unsupported claims are labelled as unsupported; the report contains the disclaimer."
     enforcing_component: "reporting.py, report_html.py, agents/state.py, graph/trading_graph.py"
     priority: must
-    status: candidate
+    status: implement #a5ync
     source: "requirement-candidates.md CAND-FR-05; baseline: reporting.py/report_html.py render sections without per-claim linkage; no disclaimer in src/"
     cross_refs:
       fr: [REQ-TA-FR-003]
@@ -183,7 +183,7 @@ requirements:
     fit_criterion: "metric: fraction of formally defined material claims whose source and producing agent are identifiable in sampled reports; baseline attribution percentage TBD (measure first per requirement-candidates.md §8 row 3); intended accepted-result rule: 100% of material claims resolve to evidence (with REQ-TA-INV-005), adopted only after the baseline is known and 'material claim' is defined by ADR; verification: checklist on sampled reports + structural check that each recommendation references an analyst output and a dated observation."
     enforcing_component: "reporting.py, graph/trading_graph.py, human claim-audit step"
     priority: should
-    status: candidate
+    status: implement #a5ync
     source: "requirement-candidates.md CAND-NFR-04 (paired with FR-05); depends on the agreed 'material claim' definition"
     cross_refs:
       fr: [REQ-TA-FR-005]
@@ -289,7 +289,7 @@ requirements:
     fit_criterion: "zero-tolerance: in every accepted result, each material claim carries a resolvable source reference; an untraceable material claim prevents acceptance (downgrades the status); negative test: an accepted result containing a claim with no source is rejected/downgraded by the checker; fallback: downgrade to warning/review status and label the claim unsupported; depends on the agreed 'material claim' definition (see QR-002)."
     enforcing_component: "reporting.py, graph/trading_graph.py"
     priority: should
-    status: candidate
+    status: implement #a5ync
     source: "requirement-candidates.md CAND-INV-05; baseline NEW/CLAIMED-ONLY — depends on FR-005"
     cross_refs:
       fr: [REQ-TA-FR-005]
