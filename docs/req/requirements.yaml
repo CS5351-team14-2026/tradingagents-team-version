@@ -57,8 +57,8 @@ requirements:
     fit_criterion: "with budget N configured, accumulated recorded usage >= N blocks every SUBSEQUENT optional call (no new optional debate/risk round); run terminates with status in {BUDGET_OK, BUDGET_WARNING, BUDGET_EXHAUSTED} plus a machine-readable reason; a single in-flight call may push recorded usage past N (no exact hard cap claimed); provider does not report usage -> run records usage as unavailable instead of estimating; final-report reserve percentage: TBD until the phase-token-share experiment (requirement-candidates.md §8) is recorded."
     enforcing_component: "cli/stats_handler.py (extend into shared budget tracker visible to graph callers) / graph/conditional_logic.py + graph/setup.py (stop condition) / default_config.py / cli/main.py"
     priority: must
-    status: candidate
-    source: "requirement-candidates.md CAND-FR-02; baseline: token accounting exists only in cli/stats_handler.py, no per-run budget, no --token-budget flag"
+    status: implement
+    source: "requirement-candidates.md CAND-FR-02; baseline: token accounting exists only in cli/stats_handler.py, no per-run budget, no --token-budget flag; assignee: xiaokewei001"
     cross_refs:
       cost: [REQ-TA-COST-001]
       qr: [REQ-TA-QR-004]
@@ -132,7 +132,7 @@ requirements:
     enforcing_component: "graph/trading_graph.py run_settings(), default_config.py, cli/main.py"
     priority: should
     status: candidate
-    source: "requirement-candidates.md CAND-FR-08; baseline: run_settings() records an allowlist but there is no reload-into-new-run command"
+    source: "requirement-candidates.md CAND-FR-008; baseline: run_settings() records an allowlist but there is no reload-into-new-run command"
     cross_refs:
       qr: [REQ-TA-QR-004]
       fr: [REQ-TA-FR-007]
@@ -172,8 +172,8 @@ requirements:
     fit_criterion: "all five scenarios have one offline test each using test doubles for the provider/data layer; each asserts the status code, the diagnostic message, and the absence of an uncaught exception; threshold is scenario coverage (all five), not a percentage."
     enforcing_component: "dataflows/errors.py, agents/structured.py (fallback), graph/conditional_logic.py, test/offline/* (one negative test per scenario)"
     priority: must
-    status: candidate
-    source: "requirement-candidates.md CAND-NFR-03 (paired with FR-03 per §7 Package A); baseline PARTIAL: graceful degradation exists in places, no uniform per-run completion status"
+    status: implement
+    source: "requirement-candidates.md CAND-NFR-03 (paired with FR-03 per §7 Package A); baseline PARTIAL: graceful degradation exists in places, no uniform per-run completion status; assignee: xiaokewei001"
     cross_refs:
       fr: [REQ-TA-FR-002, REQ-TA-FR-006]
 
