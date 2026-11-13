@@ -131,7 +131,7 @@ requirements:
     fit_criterion: "given a recorded settings block from a prior run, a new run starts with those settings applied and the new report's run_settings equals the source block for all allowlisted keys; two runs launched from the same recorded settings share identical run_settings; the allowlist never contains secrets or paths; reproducibility is of configuration, not of sampled LLM output."
     enforcing_component: "graph/trading_graph.py run_settings(), default_config.py, cli/main.py"
     priority: should
-    status: candidate
+    status: implement #Alex
     source: "requirement-candidates.md CAND-FR-008; baseline: run_settings() records an allowlist but there is no reload-into-new-run command"
     cross_refs:
       qr: [REQ-TA-QR-004]
@@ -206,7 +206,7 @@ requirements:
     fit_criterion: "all required fields present and correctly typed in every completed run; absent/unavailable values labelled (e.g. 'unavailable'), never omitted; verification: offline test asserting the metadata schema on a completed mocked run; run_settings() and report header extended accordingly."
     enforcing_component: "graph/trading_graph.py run_settings(), reporting.py report header, test/offline metadata schema test"
     priority: should
-    status: candidate
+    status: implement #Alex
     source: "requirement-candidates.md CAND-NFR-07; baseline PARTIAL: run_settings() records a subset (models, analysts, rounds, vendors)"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-002, REQ-TA-FR-006]
