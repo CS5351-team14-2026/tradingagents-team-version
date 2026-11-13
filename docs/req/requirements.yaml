@@ -44,7 +44,7 @@ requirements:
     fit_criterion: "profile in {quick, standard, deep}; a valid profile applies the approved profile->settings mapping (analyst set, max_debate_rounds, max_risk_discuss_rounds, max_tool_rounds) exactly; an invalid profile is rejected BEFORE any LLM call with an error naming the legal values; unset profile reproduces v0.7.1 defaults exactly; explicit settings override the profile per key only (precedence rule fixed by ADR and tested); report metadata records requested AND resolved settings."
     enforcing_component: "default_config.py (profile key + TRADINGAGENTS_* env) / graph/setup.py (analyst registry, round caps) / graph/trading_graph.py run_settings() / cli/main.py"
     priority: must
-    status: candidate
+    status: implement #WuYu
     source: "requirement-candidates.md CAND-FR-01; introduction p20 'slow and token-burning'; baseline: default_config.py max_debate_rounds/max_risk_discuss_rounds/max_tool_rounds, setup.py analyst map, no profile key in cli/main.py"
     cross_refs:
       cost: [REQ-TA-COST-001]
