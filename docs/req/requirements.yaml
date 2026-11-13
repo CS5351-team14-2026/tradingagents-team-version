@@ -82,7 +82,7 @@ requirements:
     fit_criterion: "a final decision is accepted only if its rating resolves to exactly one of {Buy, Overweight, Hold, Underweight, Sell} AND required price fields parse as finite numbers; otherwise the run records a non-actionable REVIEW result with a machine-readable reason and presents no tradeable call."
     enforcing_component: "agents/structured.py, agents/rating.py, agents/schemas.py, agents/trader/trader.py, agents/managers/portfolio_manager.py"
     priority: should
-    status: candidate
+    status: implement #Zelin Zhou
     source: "requirement-candidates.md CAND-FR-04; baseline: structured output + rating parsing exist; no end-to-end validation gate (free-text fallback path unvalidated)"
     cross_refs:
       inv: [REQ-TA-INV-001]
@@ -217,7 +217,7 @@ requirements:
     fit_criterion: "offline suite runs with no network access and passes under the repo's default selection in isolation and in random order; any network use in an offline test fails a dedicated guard; verification: run offline suite isolated + randomized; network guard (e.g. socket-disabling test hook)."
     enforcing_component: "test/offline/* (suite-wide), pyproject.toml pytest selection, planned network guard fixture"
     priority: should
-    status: candidate
+    status: implement #Zelin Zhou
     source: "requirement-candidates.md CAND-NFR-08 (cross-cutting); baseline: offline/live separation and 'not integration' default exist, no order-independence guarantee for new work"
     cross_refs: {}
 
