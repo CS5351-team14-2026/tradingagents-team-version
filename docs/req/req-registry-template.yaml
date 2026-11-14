@@ -1,0 +1,57 @@
+# team-app Requirements Registry — Single Source of Truth
+# Version: 0.1 (template, seeded with REQ-TA-FR-001)
+# Format: VHIS req-registry.yaml style + the priority / source fields required by the CS5351 project spec
+# ID scheme: REQ-TA-<TYPE>-<NNN>, TYPE in FR | NFR | INV | SEC | GOV | QR | PERF | COST | RESTATE
+#
+# Field notes:
+#   id                  unique ID (validated by pattern in req-schema.json)
+#   type                see type candidates below
+#   statement           one sentence, "shall" wording
+#   fit_criterion       machine-checkable criterion; NFRs always "metric + threshold + verification"
+#   enforcing_component enforcing component (module path / function)
+#   priority            see priority candidates below (MoSCoW)
+#   status              see status candidates below; CI gates require tests + trace only for status=implement
+#   source              origin of the requirement (spec: requirements found by analysing the existing
+#                       repository must be included and linked to their sources)
+#   cross_refs          optional links (nfr / invariant / adr / risk ...); add or remove keys as needed
+#
+# type candidates: functional | invariant | quality | performance | cost | governance | security
+#   (the seven types named in project.pdf D1; restated baseline behaviour uses type=functional
+#    with source pointing at the baseline code)
+#
+# priority candidates (MoSCoW; the spec requires stating the tradeoff explicitly):
+#   must    delivered this semester, part of the demo
+#   should  done if time allows
+#   could   nice to have; dropping it does not hurt the main line
+#   wont    explicitly not done; keep 2-4 wont entries in the registry as tradeoff evidence
+#
+# status candidates (CI gates filter on this; changing a status leaves a churn record):
+#   candidate     proposed, not committed; no test obligation
+#   implement     committed: needs a test matching its fit_criterion + a trace row (CI enforced)
+#   implemented   done: tests and trace in place (flip implement entries here before submission)
+#   defer         committed but postponed: trace row points at the issue/decision
+#   needs_review  ambiguity/conflict open: RE-meeting output, feeds the report's "ambiguity resolution"
+#   rejected      dropped; keep the row + rejection reason for the option ledger
+
+requirements:
+
+  # ============================================================
+  # FUNCTIONAL — FR-01 configurable analysis profiles (seed entry; append the rest in this format)
+  # ============================================================
+  - id: REQ-TA-FR-001
+    type: functional
+    statement: "The user shall be able to select a quick, standard, or deep analysis profile before analysing a stock; the profile determines the analyst set and the debate-round budget."
+    fit_criterion: "profile in {quick, standard, deep}; quick -> exactly 2 analysts AND max_debate_rounds <= 1; deep -> all analysts AND max_debate_rounds in {2,3}; invalid profile -> startup error naming legal values; unset -> equals v0.7.1 baseline defaults; report metadata records profile=<value>."
+    enforcing_component: "default_config.py (TRADINGAGENTS_PROFILE + profile key) / graph/setup.py analyst registry / reporting.py (profile into run metadata)"
+    priority: must
+    status: implement
+    source: "introduction p20 'slow and token-burning'; gpProject.docx FR-01; baseline: default_config.py max_debate_rounds/max_risk_discuss_rounds + setup.py analyst map"
+    cross_refs:
+      nfr: [REQ-TA-NFR-001, REQ-TA-NFR-002]
+
+  # ============================================================
+  # Append further entries in the format above:
+  # FR-002..006 / NFR-001..006 / INV-001..003 (see team-app-需求方案6+6.md §1–§3)
+  # restate entries (parallel analysts, model tiering, round caps, point-in-time, memory log, ...)
+  # 2-4 wont entries (priority: wont + rejection rationale in source or statement)
+  # ============================================================
