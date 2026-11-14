@@ -118,7 +118,7 @@ requirements:
     fit_criterion: "given the same ticker and cutoff date the command runs both configurations with pinned model/provider/temperature, exports per-run metrics to JSON or CSV, computes percentage reductions in runtime and tokens, and reports unavailable provider usage as 'unavailable' (no undisclosed estimates); demonstrable on >=3 stock/date cases."
     enforcing_component: "cli/main.py, backtest.py, graph/trading_graph.py, cli/stats_handler.py"
     priority: must
-    status: candidate
+    status: implement #xiangwen Huang
     source: "requirement-candidates.md CAND-FR-07; baseline: backtest.py scores decisions over a date grid; no baseline-vs-enhanced comparison command"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-002]
@@ -158,7 +158,7 @@ requirements:
     fit_criterion: "metric: median end-to-end wall-clock seconds per run, quick profile vs baseline; >=3 repeated cases per configuration on the same provider/network; threshold: TBD until timing is measured (requirement-candidates.md §8 row 2); no absolute target (e.g. 'under 30 s') before API/network latency data exists; verification: timestamp capture around each run via REQ-TA-FR-007; report median and spread."
     enforcing_component: "measurement harness: cli/main.py + backtest.py (REQ-TA-FR-007); lever: REQ-TA-FR-001"
     priority: should
-    status: candidate
+    status: implement #xiangwen Huang
     source: "requirement-candidates.md CAND-NFR-02; threshold TBD rule §8"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-007]
