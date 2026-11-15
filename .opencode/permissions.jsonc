@@ -1,0 +1,97 @@
+// .opencode/permissions.jsonc — machine-readable project permission model
+// (deliverable D3, project.pdf p6). Default is NO read and NO write; every
+// granted path is an explicit whitelist entry.
+//
+// Enforcement layers (defence in depth):
+//   1. OpenCode session configuration loads this model per role.
+//   2. GitHub branch protection + CI gates catch what a session misses
+//      (schema gate, AI-use log gate, test-approval gate, required reviews).
+//   3. Human review on every PR (docs/review-memo.md records the verdict).
+// A planned structural fitness function will additionally assert in CI that
+// changed files fall inside the acting role's whitelist (DEBT-006 in
+// docs/debt-register.md).
+{
+  "default": { "read": false, "write": false },
+
+  "roles": {
+    "planner": {
+      "read": [
+        "AGENTS.md", "Prompt.md", "README.md",
+        "docs/**",
+        "src/**",
+        "test/**",
+        "pyproject.toml"
+      ],
+      "write": []
+    },
+    "coder": {
+      "read": [
+        "AGENTS.md", "Prompt.md",
+        "docs/**",
+        "src/**",
+        "test/**",
+        "prompts/**",
+        "pyproject.toml"
+      ],
+      "write": [
+        "src/**",
+        "test/**",
+        "prompts/**"
+      ]
+    },
+    "verifier": {
+      "read": [
+        "AGENTS.md", "Prompt.md",
+        "docs/**",
+        "src/**",
+        "test/**",
+        "prompts/**",
+        "pyproject.toml"
+      ],
+      "write": [
+        "test/**"
+      ]
+    },
+    "reviewer": {
+      "read": ["**"],
+      "write": [
+        "docs/review-memo.md",
+        "docs/debt-register.md",
+        "docs/bug-diary.md"
+      ]
+    }
+  },
+
+  "guards": [
+    {
+      "id": "no-secrets",
+      "rule": "Never read, write, or echo .env, key files, or any file matching *(.env|*.key|*secret*).",
+      "applies": ["planner", "coder", "verifier", "reviewer"],
+      "enforced_by": "OpenCode session config + CI secret scan (planned, DEBT-002/SEC-001)"
+    },
+    {
+      "id": "human-only-rules-files",
+      "rule": "Never write .opencode/rules.md (project.pdf p6: human-only file). .agent/rules.md content is authored by humans; agents propose changes via PR description instead.",
+      "applies": ["planner", "coder", "verifier", "reviewer"],
+      "enforced_by": "human review on every PR"
+    },
+    {
+      "id": "workflow-changes-need-human-approval",
+      "rule": "Writes under .github/** require an explicit human approval in the PR (branch protection, gate design changes are governance decisions).",
+      "applies": ["coder", "verifier", "reviewer"],
+      "enforced_by": "required human review (branch protection)"
+    },
+    {
+      "id": "registry-schema-gated",
+      "rule": "Writes to docs/req/requirements.yaml must pass docs/req/req-schema.json before merge.",
+      "applies": ["coder", "verifier", "reviewer"],
+      "enforced_by": "CI schema gate (course gate 3)"
+    },
+    {
+      "id": "safety-critical-paths",
+      "rule": "Changes to safety-critical paths (list grounded by the 2026-11-13 baseline source analysis; CODEOWNERS + safe-path CI checks still pending team reviewer handles / S2 ADRs, see DEBT-004) require a referenced ADR and human approval: agents/rating.py (REVIEW invariant), dataflows/date_window.py (point-in-time), dataflows/errors.py (failure taxonomy), dataflows/net.py (secret scrubbing), dataflows/symbols.py (ticker/path safety), llm_clients/api_key_env.py (credential registry).",
+      "applies": ["coder", "verifier", "reviewer"],
+      "enforced_by": "human review on every PR; CODEOWNERS + checks to be added (DEBT-004)"
+    }
+  ]
+}

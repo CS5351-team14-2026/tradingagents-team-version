@@ -1,0 +1,16 @@
+# Debt register — AI-era technical debt (deliverable D4, project.pdf p6)
+
+Categories follow the course list: prompt rot, hallucinated dependencies,
+untouchable code, hidden dependencies, agent-induced bloat, evaluation debt,
+guardrail debt, human/cognitive debt. One row per debt; each carries a concrete
+review trigger. Owner column is filled when someone claims it.
+
+| ID | Category | Description | Risk if ignored | Review trigger | Owner |
+|---|---|---|---|---|---|
+| DEBT-001 | guardrail | Type-checking gate absent; baseline code is untyped and a repo-wide strict pass is unrealistic in the project window | type errors surface as runtime bugs in generated code | first new module lands → scope a type-check job to new modules only, grow the allowlist | 【认领】 |
+| DEBT-002 | guardrail | Dependency audit (`pip-audit`) runs advisory (`continue-on-error: true`) by team decision: stays advisory until the dependency set freezes at the planned feature freeze (2026-11-21), then triage and flip to blocking + required context; the repo-wide secret-scan CI job (SEC-001/INV-006/GOV-002 enforcement) is also still missing — tooling choice pending | known CVEs or leaked keys pass CI | feature freeze (2026-11-21): team triages the audit report → flip to blocking; choose secret-scan tool | 【认领】 |
+| DEBT-003 | evaluation | Semantic evaluation gate (course gate 4) unbuilt: no `prompts/` versioning, no fixed eval set, no quality thresholds. Trigger paths are now grounded by the 2026-11-13 source analysis (all prompts are inline code): `src/tradingagents/agents/**`, `agents/schemas.py`, `memory/reflection.py`, `dataflows/date_window.py`, plus the future `prompts/**` | prompt/model changes ship unmeasured | first `prompts/prompt_vX.Y.yaml` lands → build eval set + job with the paths above | 【认领】 |
+| DEBT-004 | guardrail | Safety-critical path list **grounded** by the 2026-11-13 source analysis and recorded in `.opencode/permissions.jsonc` (`safety-critical-paths` guard): `agents/rating.py`, `dataflows/{date_window,errors,net,symbols}.py`, `llm_clients/api_key_env.py`. Still missing: CODEOWNERS entries (needs team GitHub handles) and safe-path CI checks (contract/security/API-surface/permission) — the checks wait for S2 ADRs so they don't block necessary edits to these files | unsafe edits to rating/date/secret paths merge without ADR + dedicated review | team handles collected → add CODEOWNERS; S2 ADR-001 lands → add safe-path checks | 【认领】 |
+| DEBT-006 | guardrail | Permission fitness function absent: CI does not yet assert that changed files fall inside the acting role's whitelist | role-whitelist drift goes unnoticed | architecture blueprint (S2) lands → implement structural fitness job | 【认领】 |
+| DEBT-007 | human/cognitive | `.opencode/rules.md` and `.agent/rules.md` are empty awaiting human authorship (course human-only rule); `AGENTS.md` §7 temporarily carries the operative equivalents | covenant of record missing; agents governed only by agent-drafted files | next team meeting → humans author both files | 【认领】 |
+| DEBT-008 | hidden dependency | AI-use log not yet created (team not formally kicked off): gate 6 runs in warning mode, so code-touching PRs are not yet log-enforced | supervision evidence gap if code work starts before kickoff | formal kickoff creates `docs/ai-use-log.yaml` → gate hardens automatically | 【认领】 |

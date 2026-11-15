@@ -10,6 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Course blocking gate 5 (project.pdf p10): regression — every change runs
+  # the full previous suite; any regression blocks the merge. The matrix below
+  # is the required-context set referenced by branch protection on main.
   test:
     name: tests (py${{ matrix.python-version }}${{ matrix.tz && format(', {0}', matrix.tz) || '' }})
     runs-on: ubuntu-latest
@@ -51,6 +54,9 @@ jobs:
           # install must import the package and the CLI module.
           python -c "import tradingagents, cli.main; print('clean-install import OK')"
 
+  # Course blocking gate 2 (partial): static analysis — lint on every commit.
+  # Type checking is tracked as DEBT-001; dependency audit runs below as
+  # advisory (DEBT-002) until triaged.
   lint:
     name: ruff (strict, full repo)
     runs-on: ubuntu-latest
@@ -65,3 +71,124 @@ jobs:
         # The repo is fully clean under the strict select, so we lint everything
         # (generated results/ is excluded via pyproject extend-exclude).
         run: ruff check .
+
+  # Course blocking gate 3 (project.pdf p10): the requirements registry must
+  # validate against its JSON schema.
+  schema-gate:
+    name: "gate 3: requirements schema"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install validators
+        run: pip install jsonschema pyyaml
+      - name: Validate requirements registry
+        run: |
+          python tools/ci/validate_req_registry.py \
+            docs/req/req-schema.json \
+            docs/req/requirements.yaml \
+            docs/req/req-registry-template.yaml
+
+  # Course blocking gate 6 (project.pdf p10): a PR that changes code or
+  # prompts without updating the AI-use log is blocked. docs/ai-use-log.yaml
+  # is created at the team's formal kickoff; until then only a warning fires.
+  ai-use-log-gate:
+    name: "gate 6: AI-use log updated"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install log validator deps
+        run: pip install pyyaml
+      - name: Require AI-use log update when src/ or prompts/ change
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          CHANGED="$(git diff --name-only "$BASE" "${{ github.sha }}")"
+          echo "$CHANGED" | sed 's/^/changed: /'
+          if printf '%s\n' "$CHANGED" | grep -qE '^(src/|prompts/)'; then
+            if printf '%s\n' "$CHANGED" | grep -q '^docs/ai-use-log\.yaml$'; then
+              echo "AI-use log updated alongside code/prompt changes: OK"
+            else
+              echo "::error::This PR touches src/ or prompts/ but does not update docs/ai-use-log.yaml (course blocking gate 6). Add one entry per agent session behind this change, then re-run."
+              exit 1
+            fi
+          else
+            echo "No src/ or prompts/ changes: log-update requirement not triggered."
+          fi
+      - name: Validate AI-use log structure
+        run: |
+          if [ -f docs/ai-use-log.yaml ]; then
+            python tools/ci/validate_ai_use_log.py docs/ai-use-log.yaml
+          else
+            echo "::warning::docs/ai-use-log.yaml does not exist yet; it must be created at the team's formal kickoff (deliverable D1). Structure check skipped."
+          fi
+
+  # Course blocking gate 1 (project.pdf p10): a change whose tests were not
+  # approved before implementation must not merge. Workflow: open a test-plan
+  # issue, get it labelled 'test-approved' by a teammate, reference it in the
+  # PR description as "test-plan: #<issue>".
+  test-approval-gate:
+    name: "gate 1: test plan approved"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require an approved test plan when src/ or test/ change
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          CHANGED="$(git diff --name-only "$BASE" "${{ github.sha }}")"
+          echo "$CHANGED" | sed 's/^/changed: /'
+          if printf '%s\n' "$CHANGED" | grep -qE '^(src/|test/)'; then
+            PR="${{ github.event.pull_request.number }}"
+            BODY="$(gh pr view "$PR" --json body --jq .body)"
+            REF="$(printf '%s' "$BODY" | grep -oE 'test-plan:.*#[0-9]+' | grep -oE '[0-9]+$' | head -1)"
+            if [ -z "$REF" ]; then
+              echo "::error::This PR touches src/ or test/ but its description has no 'test-plan: #<issue>' reference (course blocking gate 1). Open a test-plan issue, have a teammate label it 'test-approved', then reference it here."
+              exit 1
+            fi
+            LABELS="$(gh api "repos/${{ github.repository }}/issues/$REF" --jq '.labels[].name')"
+            echo "test plan #$REF labels: $LABELS"
+            printf '%s\n' "$LABELS" | grep -qx 'test-approved' || {
+              echo "::error::Test plan #$REF exists but is not labelled 'test-approved' (course blocking gate 1)."
+              exit 1
+            }
+            echo "Test plan #$REF is approved: OK"
+          else
+            echo "No src/ or test/ changes: test-approval requirement not triggered."
+          fi
+
+  # Course blocking gate 2 (partial): dependency checking. ADVISORY on purpose
+  # until the team triages the first report; flip continue-on-error to false
+  # (and add the job to branch protection) once triaged. Tracked as DEBT-002
+  # in docs/debt-register.md.
+  advisory-deps-audit:
+    name: "gate 2 (advisory): dependency audit"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install package and pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pip-audit
+      - name: Audit dependencies (advisory)
+        run: pip-audit --skip-editable
