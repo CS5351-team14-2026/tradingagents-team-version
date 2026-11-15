@@ -66,12 +66,18 @@ change `final_rating`, the REVIEW rule (REQ-TA-INV-001) or the validation gate
 
 ## 4. Deferred — fail-closed is not activated in this slice
 
-`record_decision` and the run path are **not** wired to downgrade a run. The
-checker is implemented and tested offline, and `material_claims` / `claim_audit`
-are declared in `AgentState`. A decision without claims reports
-`NOT_ASSESSED` (never `ACCEPTED`), but this slice does not convert that into a
-run-level downgrade. Activating fail-closed, and mapping the status onto the
-REQ-TA-FR-006 run-status enum, is a later change.
+The audit is now recorded: `record_decision` runs `audit_material_claims` before
+`_log_state`, and the state log carries `claim_audit` (status, reasons, counts,
+per-claim resolution). The checker is also tested offline, and `material_claims`
+/ `claim_audit` are declared in `AgentState`. A decision without claims reports
+`NOT_ASSESSED` (never `ACCEPTED`).
+
+Run acceptance is still **not** gated on the audit. `claim_enforcement` is a
+reserved boolean (default `False`, env `TRADINGAGENTS_CLAIM_ENFORCEMENT`); no
+behaviour branches on it yet. A `DOWNGRADED` or `NOT_ASSESSED` audit does not
+change `final_rating`, the memory-log entry, or report rendering. Activating
+fail-closed — gating run acceptance on the audit and mapping the status onto the
+REQ-TA-FR-006 run-status enum — is a later change.
 
 ## 5. QR-002 threshold — remains TBD
 
