@@ -4,6 +4,8 @@ Uses LangChain's ``with_structured_output`` so the LLM produces a typed
 ``PortfolioDecision`` directly, in a single call. Its rating is the run's
 ``final_rating``, and the decision is rendered to markdown as
 ``final_trade_decision`` for the memory log, CLI display and saved reports.
+The node also returns ``material_claims``: the structured supporting and
+opposing factors, each linked to a report artifact (ADR-001).
 When a provider does not expose structured output, the agent falls back to
 free-text generation and the rating is read from that text.
 """
@@ -16,7 +18,11 @@ from tradingagents.agents.context import (
     get_portfolio_context_from_state,
 )
 from tradingagents.agents.rating import parse_rating
-from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
+from tradingagents.agents.schemas import (
+    CLAIM_SOURCE_IDS,
+    PortfolioDecision,
+    render_pm_decision,
+)
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
 
 
@@ -72,15 +78,37 @@ Write these sections, in this order, starting with the rating on its own line:
 - **Rating**: exactly one of Buy / Overweight / Hold / Underweight / Sell
 - **Executive Summary**: the call and how to act on it
 - **Investment Thesis**: the evidence that decided it, and what would change it
+- **Supporting Factors**: exactly three material claims that support the rating
+- **Opposing Factors**: exactly three material claims that argue against it
+
+For every factor, give one `source_id` naming the report it came from, chosen
+from: {CLAIM_SOURCE_IDS}. Give `observation_date` as YYYY-MM-DD whenever the
+claim asserts market data (a price or indicator); omit it for qualitative
+claims. Do not name the producing agent: it is derived from the source.
 
 {NO_EXTERNAL_TOOLS}{get_language_instruction()}"""
 
         # The typed rating is the decision; the rendered text only carries it.
         # Read back from text, a rating the thesis quotes could replace it.
         decision = invoke_structured(structured_llm, prompt, "Portfolio Manager")
+        claims = []
         if decision is not None:
             final_trade_decision = render_pm_decision(decision)
             final_rating = decision.rating.value
+            # ADR-001: a material claim is exactly an item in these two lists.
+            claims = [
+                {
+                    "kind": kind,
+                    "text": claim.text,
+                    "source_id": claim.source_id,
+                    "observation_date": claim.observation_date,
+                }
+                for kind, factors in (
+                    ("supporting", decision.supporting_factors),
+                    ("opposing", decision.opposing_factors),
+                )
+                for claim in factors
+            ]
         else:
             final_trade_decision = llm.invoke(prompt).content
             final_rating = parse_rating(final_trade_decision)
@@ -101,6 +129,7 @@ Write these sections, in this order, starting with the rating on its own line:
             "risk_debate_state": new_risk_debate_state,
             "final_trade_decision": final_trade_decision,
             "final_rating": final_rating,
+            "material_claims": claims,
         }
 
     return portfolio_manager_node
