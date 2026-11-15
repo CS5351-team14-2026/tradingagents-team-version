@@ -108,3 +108,66 @@ def test_unsupported_claims_stay_visible_and_labelled_unsupported(tmp_path):
 
     assert "Close was 181.2." in report
     assert "UNSUPPORTED" in report and "UNKNOWN_SOURCE" in report
+
+
+# --- Boundary tests for the number of material claims ---------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("claims", [None, []], ids=["none", "empty-list"])
+def test_zero_claims_is_never_accepted(claims):
+    audit = audit_material_claims(_state(material_claims=claims))
+
+    assert audit["status"] == "NOT_ASSESSED"
+    assert audit["status"] != "ACCEPTED"
+    assert audit["reasons"] == ["NO_CLAIM_METADATA"]
+    assert audit["claims_total"] == 0
+    assert audit["unsupported_claim_ids"] == []
+
+
+@pytest.mark.unit
+def test_one_traceable_market_claim_is_accepted():
+    claims = [{"kind": "supporting", "text": "Close was 181.2.",
+               "source_id": "market_report", "observation_date": "2026-11-14"}]
+    audit = audit_material_claims(_state(material_claims=claims))
+
+    assert audit["status"] == "ACCEPTED"
+    assert audit["reasons"] == []
+    assert audit["claims_total"] == audit["claims_attributed"] == 1
+
+
+@pytest.mark.unit
+def test_one_untraceable_claim_is_downgraded():
+    claims = [{"kind": "supporting", "text": "Close was 181.2.",
+               "source_id": "podcast_transcript", "observation_date": "2026-11-14"}]
+    audit = audit_material_claims(_state(material_claims=claims))
+
+    assert audit["status"] == "DOWNGRADED"
+    assert audit["reasons"] == ["UNKNOWN_SOURCE"]
+    assert audit["unsupported_claim_ids"] == ["s1"]
+
+
+@pytest.mark.unit
+def test_one_undated_market_claim_is_downgraded():
+    claims = [{"kind": "supporting", "text": "Close was 181.2.",
+               "source_id": "market_report", "observation_date": None}]
+    audit = audit_material_claims(_state(material_claims=claims))
+
+    assert audit["status"] == "DOWNGRADED"
+    assert audit["reasons"] == ["UNDATED_MARKET_DATA"]
+    assert audit["unsupported_claim_ids"] == ["s1"]
+
+
+@pytest.mark.unit
+def test_two_traceable_claims_one_each_side_is_accepted():
+    claims = [
+        {"kind": "supporting", "text": "Close was 181.2.",
+         "source_id": "market_report", "observation_date": "2026-11-14"},
+        {"kind": "opposing", "text": "Trader cautious.",
+         "source_id": "trader_investment_plan"},
+    ]
+    audit = audit_material_claims(_state(material_claims=claims))
+
+    assert audit["status"] == "ACCEPTED"
+    assert audit["reasons"] == []
+    assert audit["claims_total"] == audit["claims_attributed"] == 2
