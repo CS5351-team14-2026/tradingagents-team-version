@@ -29,6 +29,7 @@
 #   candidate     proposed, not committed; no test obligation
 #   implement     committed: needs a test matching its fit_criterion + a trace row (CI enforced)
 #   implemented   done: tests and trace in place (flip implement entries here before submission)
+#   restate       baseline behaviour the team commits to keep; existing tests are the evidence
 #   defer         committed but postponed: trace row points at the issue/decision
 #   needs_review  ambiguity/conflict open: RE-meeting output, feeds the report's "ambiguity resolution"
 #   rejected      dropped; keep the row + rejection reason for the option ledger
