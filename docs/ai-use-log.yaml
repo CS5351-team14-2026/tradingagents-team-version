@@ -1,0 +1,26 @@
+# AI-use log — one entry per agent session behind a PR (governance gate 6).
+# Fields: id, date, task. Also record agent, model, prompt_ref, files,
+# human_decision, transcript. Never invent a session.
+entries:
+  - id: AI-2026-11-15-001
+    date: "2026-11-15"
+    task: "FR-005 / QR-002 / INV-005 local vertical slice: ADR-001, material-claim schema, claim ledger in Markdown and HTML, disclaimer, offline traceability tests"
+    agent: opencode
+    model: deepseek/deepseek-flash
+    prompt_ref: "Prompt.md; ADR-001 approved task brief (material claim = structured factor lists, structural source ids, fail-closed deferred)"
+    files:
+      - docs/architecture/adr/001-material-claims.md
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/report_html.py
+      - test/offline/test_material_claims.py
+      - test/offline/test_claim_traceability.py
+      - test/offline/test_traceability_invariant.py
+      - test/offline/test_report_disclaimer.py
+      - test/offline/test_report_html_claims.py
+    human_decision: "Approved ADR-001 decisions: Option A material-claim definition, structural source ids, 3 supporting + 3 opposing claims, producing agent derived from source_id, fail-closed not activated in this slice."
+    transcript: pending
