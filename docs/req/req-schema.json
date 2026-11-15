@@ -60,11 +60,12 @@
             "enum": ["must", "should", "could", "wont"]
           },
           "status": {
-            "description": "Lifecycle; CI gates require tests + trace only for status=implement.",
+            "description": "Lifecycle; CI gates require tests + trace only for status=implement. restate marks baseline behaviour the team commits to keep.",
             "enum": [
               "candidate",
               "implement",
               "implemented",
+              "restate",
               "defer",
               "needs_review",
               "rejected"

@@ -47,11 +47,19 @@ annotated intervention in the session transcript.
   requirements, each citing its ID.
 - Summarise the evidence for the trace matrix (component, test, monitor).
 
+## Step 6 — Record the AI-use log (gate 6)
+
+Before you finish any session that changed code, tests, or prompts: create
+`docs/ai-use-log.yaml` if it does not exist, then append one entry. Required
+fields are `id`, `date`, `task`; also record `agent`, `model`, `prompt_ref`,
+`files`, `human_decision`, and `transcript`. Never invent a session. Commit the
+entry in the same PR as the change; gate 6 blocks otherwise.
+
 ## Hard rules
 
 - Never read, write, or echo secrets (`.env`, API keys).
 - Never touch frozen zones (AGENTS.md §4).
 - Where the registry says `TBD`, output `TBD` and propose the baseline
   experiment — never invent a number.
-- Every session that changes code or prompts gets an entry in
-  `docs/ai-use-log.yaml` (once created at kickoff; gate 6 enforces it).
+- Every session that changes code, tests, or prompts gets an entry in
+  `docs/ai-use-log.yaml` (Step 6; gate 6 enforces it).
