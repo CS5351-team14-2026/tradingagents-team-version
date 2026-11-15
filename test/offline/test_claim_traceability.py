@@ -69,7 +69,7 @@ def test_the_report_names_each_claim_source_next_to_the_claim(tmp_path):
     for claim, source in zip(_state()["material_claims"],
                              ("market_report", "news_report", "fundamentals_report",
                               "sentiment_report", "risk_debate_state.neutral_history",
-                              "trader_investment_plan")):
+                              "trader_investment_plan"), strict=True):
         line = next(line for line in report.splitlines() if claim["text"] in line)
         assert source in line
 
