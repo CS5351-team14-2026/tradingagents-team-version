@@ -24,3 +24,21 @@ entries:
       - test/offline/test_report_html_claims.py
     human_decision: "Approved ADR-001 decisions: Option A material-claim definition, structural source ids, 3 supporting + 3 opposing claims, producing agent derived from source_id, fail-closed not activated in this slice."
     transcript: pending
+
+  - id: AI-2026-11-16-002
+    date: "2026-11-16"
+    task: "FR-005 PM confidence field: schema/prompt/render, tests, and real AAPL validation"
+    agent: opencode
+    model: deepseek-flash
+    prompt_ref: "PM confidence task brief; ADR-001 §5"
+    files:
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - test/offline/test_structured_agents.py
+      - test/offline/test_memory_log.py
+      - test/offline/test_graph_end_to_end.py
+      - test/offline/test_structured_agent_prompts.py
+      - docs/architecture/adr/001-material-claims.md
+      - docs/req/requirements.yaml
+    human_decision: "Approved confidence (low/medium/high) and unconditional QR-002; real AAPL run produced medium confidence and 6/6 ACCEPTED."
+    transcript: pending
