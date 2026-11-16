@@ -13,7 +13,12 @@ from importlib.resources import files
 from markdown_it import MarkdownIt
 
 from tradingagents.agents.rating import run_rating
-from tradingagents.reporting import _override_value, analyst_names
+from tradingagents.reporting import (
+    NOT_INVESTMENT_ADVICE,
+    _override_value,
+    analyst_names,
+    audit_material_claims,
+)
 
 # Ratings by direction, so the page can show which way the call leans.
 _TONE = {"Buy": "up", "Overweight": "up", "Hold": "level", "Underweight": "down", "Sell": "down"}
@@ -128,6 +133,16 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .credit a { color: inherit; text-decoration: none; }
 .credit a.brand { color: var(--accent); }
 .credit a:hover, .credit a:focus-visible { text-decoration: underline; }
+
+/* Evidence linkage: the final recommendation's material claims and their sources. */
+.traceability { font: 0.9rem/1.5 var(--sans); color: var(--muted); }
+.claims { padding-left: 0; list-style: none; font: 0.92rem/1.55 var(--sans); }
+.claims li { margin: 0.55rem 0; padding-left: 0.2rem; }
+.claim-id { display: inline-block; min-width: 1.8rem; color: var(--muted);
+  font: 0.8rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.unsupported { color: var(--down); font-weight: 600; }
+.disclaimer { margin: 3rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--rule);
+  color: var(--muted); font: 0.85rem/1.5 var(--sans); }
 
 /* Three levels of separation: the five groups, the agents within a group, and
    breaks an agent draws inside its own text. */
@@ -250,7 +265,58 @@ def _run_details(final_state: dict, settings: dict | None) -> list[tuple[str, st
         details.append(("Version", escape(f"TradingAgents {s('version', '?')}")))
     if final_state.get("memory_note"):
         details.append(("Memory log", escape(final_state["memory_note"])))
+    if final_state.get("material_claims"):
+        audit = audit_material_claims(final_state)
+        details.append(("Traceability", _fields([
+            audit["status"],
+            f"{audit['claims_attributed']}/{audit['claims_total']} claims attributed",
+        ])))
     return details
+
+
+def _claim_ledger(final_state: dict, parts, number: int) -> str:
+    """The evidence section: each material claim, its source link and date, or UNSUPPORTED."""
+    if not final_state.get("material_claims"):
+        return ""
+    audit = audit_material_claims(final_state)
+    if audit["status"] == "NOT_ASSESSED":
+        return ""
+    anchors = {
+        agent: f"#s{n}-{m}"
+        for n, (_heading, _folder, written) in enumerate(parts, 1)
+        for m, (agent, _filename, _text) in enumerate(written, 1)
+    }
+    summary = (f'<p class="traceability">Traceability: <strong>{escape(audit["status"])}</strong>'
+               f' — {audit["claims_attributed"]} of {audit["claims_total"]} material claims attributed')
+    if audit["reasons"]:
+        summary += f' ({escape(", ".join(audit["reasons"]))})'
+    summary += ".</p>"
+
+    groups = []
+    for label, kind in (("Supporting factors", "supporting"), ("Opposing factors", "opposing")):
+        claims = [detail for detail in audit["claims"] if detail["kind"] == kind]
+        if not claims:
+            continue
+        rows = []
+        for detail in claims:
+            if detail["attributed"]:
+                agent = escape(str(detail["producer"]))
+                href = anchors.get(detail["producer"])
+                source = f'<a href="{href}">{agent}</a>' if href else agent
+                meta = f'source: <code>{escape(str(detail["source_id"]))}</code> ({source})'
+                if detail["observation_date"]:
+                    observed = escape(detail["observation_date"])
+                    meta += f' · <time datetime="{observed}">{observed}</time>'
+            else:
+                meta = (f'<span class="unsupported">UNSUPPORTED</span> '
+                        f'({escape(", ".join(detail["reasons"]))})')
+            rows.append(f'<li id="claim-{escape(detail["id"])}">'
+                        f'<span class="claim-id">{escape(detail["id"])}</span> '
+                        f'{escape(str(detail["text"]))} — {meta}</li>')
+        groups.append(f'<h3>{escape(label)}</h3><ul class="claims">{"".join(rows)}</ul>')
+
+    return (f'<section id="s{number}"><h2>Evidence Linkage</h2>{summary}'
+            f'{"".join(groups)}</section>')
 
 
 def render_report(ticker: str, final_state: dict, settings: dict | None, parts) -> str:
@@ -283,6 +349,10 @@ def render_report(ticker: str, final_state: dict, settings: dict | None, parts) 
             body.append(f'<h3 id="s{n}-{m}">{escape(agent)}</h3>\n{_render_agent_text(md, text)}')
         body.append("</section>")
 
+    ledger = _claim_ledger(final_state, parts, len(parts) + 1)
+    if ledger:
+        body.append(ledger)
+
     page_title = " ".join(x for x in (ticker, date, rating) if x)
     return f"""<!doctype html>
 <html lang="en">
@@ -305,6 +375,7 @@ def render_report(ticker: str, final_state: dict, settings: dict | None, parts) 
 <main>
 {"".join(body)}
 </main>
+<p class="disclaimer">{escape(NOT_INVESTMENT_ADVICE)}</p>
 <footer class="credit"><a href="{_PROJECT}" rel="noopener">TradingAgents</a> powered by <a class="brand" href="{_ORG}" rel="noopener">Tauric Research</a></footer>
 </div>
 <a class="to-top" href="#top">Top</a>

@@ -1,4 +1,4 @@
-"""The graph adopts a resolved profile (REQ-TA-FR-001; ADR-001).
+"""The graph adopts a resolved profile (REQ-TA-FR-001; ADR-002).
 
 These tests pin that ``TradingAgentsGraph`` wires the profile's analyst set and
 three round caps into the compiled graph, rejects an unknown profile before any
@@ -277,6 +277,7 @@ def _pre_change_reference_signature(config, analysts, asset_type="stock"):
     """
     not_in_signature = frozenset({
         "results_dir", "data_cache_dir", "memory_log_path", "checkpoint_enabled", "llm_max_retries",
+        "claim_enforcement",
     })
     settings = {k: v for k, v in config.items() if k not in not_in_signature}
     digest = hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()[:12]
@@ -378,3 +379,29 @@ def test_the_pre_change_signature_for_a_fixed_config_is_unchanged(tmp_path, monk
     expected = ("analysts=market,news|debate=1|risk=1|asset=stock|portfolio=none|"
                 "analysts=parallel|memory=parallel|settings=28bd6315ccc7")
     assert graph._run_signature("stock") == expected
+
+
+@pytest.mark.unit
+def test_a_missing_or_false_claim_enforcement_yields_the_same_signature(tmp_path, monkeypatch, offline):
+    """REQ-TA-FR-001: claim_enforcement is reserved/inert, so a legacy config that
+    lacks the key and a config carrying the False default must produce the same
+    signature — an existing checkpoint still resumes — and keep the 03e7d48 value."""
+    base = {
+        "results_dir": "X", "data_cache_dir": "Y", "memory_log_path": "Z",
+        "checkpoint_enabled": False, "llm_max_retries": None,
+        "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_tool_rounds": 20,
+        "llm_provider": "openai", "deep_think_llm": "d", "quick_think_llm": "q",
+    }
+
+    def _signature(config):
+        graph = trading_graph.TradingAgentsGraph.__new__(trading_graph.TradingAgentsGraph)
+        graph.selected_analysts = ("market", "news")
+        graph.config = config
+        return graph._run_signature("stock")
+
+    legacy = _signature(dict(base))
+    with_default = _signature({**base, "claim_enforcement": False})
+
+    assert with_default == legacy
+    assert legacy == ("analysts=market,news|debate=1|risk=1|asset=stock|portfolio=none|"
+                      "analysts=parallel|memory=parallel|settings=28bd6315ccc7")

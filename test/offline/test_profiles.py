@@ -1,4 +1,4 @@
-"""Analysis-profile resolution (REQ-TA-FR-001; ADR-001).
+"""Analysis-profile resolution (REQ-TA-FR-001; ADR-002).
 
 The four settings a profile bundles are the analyst set, the Bull/Bear debate
 budget, the risk-discussion budget and the per-analyst tool-round cap. These

@@ -2262,3 +2262,50 @@ I used `git add -N` (intent-to-add) to show the diff of the untracked files. Let
 - 其余 `...` 仅剩 `resolve_profile(explicit=...)`（伪代码，非测试引用）。
 
 未做提交、推送或 PR。等你后续自行操作。
+
+---
+
+### 第 16 轮 — 合并 origin/integration（f64d0ea）
+
+#### 用户提示词 · 2026-11-16
+
+当前在 feat/fr-001-analysis-profiles，正在合并 origin/integration（f64d0ea）。
+
+请先审查两处冲突并给出解决方案。report_html.py 要保留两边所需导入，使分析模式信息和 Evidence Linkage、免责声明能同时出现在报告里。docs/ai-use-log.yaml 要用一个 entries 列表保留双方记录。
+
+请同时说明如何验证自动合并后的 claim_enforcement 配置是否影响旧 checkpoint 签名。先给出方案，停下来等我确认。
+
+#### 人工决定 · 2026-11-16
+
+- 确认按方案解决两处冲突：report_html.py 保留双方需要的导入；ai-use-log.yaml 用一个 entries 列表保留双方原始记录。
+- checkpoint 决定：保留旧版本兼容性。要求用离线测试对照“旧配置缺省 claim_enforcement”与“增加默认 claim_enforcement=False”在未指定 profile 时是否得到相同签名；先复现差异，再做最小修复，保留原有固定签名期望值。
+- 定向检查 HTML 报告、checkpoint、AI-use log 后停下等审核。
+
+#### OpenCode 回复 · 2026-11-16
+
+冲突解决：
+
+- `src/tradingagents/report_html.py`：合并为单个导入块，保留 `NOT_INVESTMENT_ADVICE`、`_override_value`、`analyst_names`、`audit_material_claims`，使分析模式信息与 Evidence Linkage、免责声明共存。
+- `docs/ai-use-log.yaml`：单个 `entries:` 列表，按日期保留 `AIUSE-FR001-OPENCODE-01`（2026-11-13）与 `AI-2026-11-15-001`（2026-11-15）。
+
+checkpoint 签名复现（未指定 profile，同一基础配置）：
+
+- 旧配置（缺 `claim_enforcement` 键）：`...settings=28bd6315ccc7`（基线固定值）。
+- 合并后默认（`claim_enforcement=False`）：`...settings=6eea36dfe52d` → 不同，旧 checkpoint 失配。
+- 根因：`_run_signature()` 序列化整个 config 进摘要，`claim_enforcement` 不在 `_NOT_IN_SIGNATURE` 中，而 `default_config.py` 把它作为默认键加入。
+
+最小修复：在 `src/tradingagents/graph/trading_graph.py` 的 `_NOT_IN_SIGNATURE` 中加入 `claim_enforcement`。该项为 reserved/inert（ADR-001 fail-closed 未激活，无行为分支），排除出签名正确。修复后旧配置与 `False` 默认签名一致，保留 `28bd6315ccc7` 固定期望值。新增回归测试 `test_profiles_graph.py::test_a_missing_or_false_claim_enforcement_yields_the_same_signature`，并同步更新测试内 `_pre_change_reference_signature` 的排除集。
+
+定向测试结果：
+
+- checkpoint：`test_profiles_graph.py` + `test_claim_audit_recording.py` → 30 passed。
+- HTML 报告：`test_report_html.py`、`test_report_html_claims.py`、`test_report_disclaimer.py`、`test_profiles_report.py`、`test_claim_traceability.py`、`test_material_claims.py`、`test_traceability_invariant.py` → 58 passed。
+- AI-use log：`tools/ci/validate_ai_use_log.py docs/ai-use-log.yaml` → PASSED（2 entries）。
+- `ruff check` 触及文件 → All checks passed。
+- 全量离线套件 → 1526 passed, 6 skipped，无回归。
+
+交付记录（2026-11-16）：
+
+- 保留 PR #27 合入的 ADR-001（material-claims，`docs/architecture/adr/001-material-claims.md`）。FR-001 的架构决策记录由 ADR-001 改为 ADR-002，文件重命名为 `docs/architecture/ADR-002-analysis-profiles.md`，并更新标题、FR-001 trace、`default_config.py`、`trading_graph.py`、`test_cli_profile.py`、`test_profiles.py`、`test_profiles_graph.py` 及 ai-use-log 文件清单中的引用。material-claim 的 ADR-001 引用保持不变。
+- ADR-002 补充说明：`claim_enforcement` 目前是占位配置，从 checkpoint 签名排除是为了保留旧运行的兼容性。
+- 本轮未提交、未推送。

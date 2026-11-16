@@ -22,6 +22,7 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_MAX_RISK_ROUNDS":      "max_risk_discuss_rounds",
     "TRADINGAGENTS_MAX_TOOL_ROUNDS":      "max_tool_rounds",
     "TRADINGAGENTS_CHECKPOINT_ENABLED":   "checkpoint_enabled",
+    "TRADINGAGENTS_CLAIM_ENFORCEMENT":    "claim_enforcement",
     "TRADINGAGENTS_BENCHMARK_TICKER":     "benchmark_ticker",
     "TRADINGAGENTS_TEMPERATURE":          "temperature",
     "TRADINGAGENTS_LLM_MAX_RETRIES":      "llm_max_retries",
@@ -127,6 +128,10 @@ def build_default_config() -> dict:
         # Checkpoint/resume: when True, LangGraph saves state after each node
         # so a crashed run can resume from the last successful step.
         "checkpoint_enabled": False,
+        # Reserved: no behaviour is wired to it yet. The intent is to let a later
+        # change gate run acceptance on the material-claim audit (ADR-001); the
+        # audit is recorded now, but fail-closed is not activated.
+        "claim_enforcement": False,
         # Output language for analyst reports and final decision
         # Internal agent debate stays in English for reasoning quality
         "output_language": "English",
@@ -210,7 +215,7 @@ def build_default_config() -> dict:
 DEFAULT_CONFIG = build_default_config()
 
 
-# Analysis profiles (Implements: ADR-001; REQ-TA-FR-001).
+# Analysis profiles (Implements: ADR-002; REQ-TA-FR-001).
 # A profile bundles the four settings that trade cost against depth: the
 # analyst set, the Bull/Bear debate budget, the risk-discussion budget and the
 # per-analyst tool-round cap. The values are fixed by the approved ADR; the
@@ -252,7 +257,7 @@ _PROFILE_KEYS = (
 
 @dataclass(frozen=True)
 class ResolvedProfile:
-    """The settings one analysis run will actually use (Implements: ADR-001).
+    """The settings one analysis run will actually use (Implements: ADR-002).
 
     ``requested_profile`` is what the user asked for (``None`` when no profile
     was given); ``overrides`` records only the fields an explicit input set, so
@@ -286,7 +291,7 @@ def resolve_profile(
 ) -> ResolvedProfile:
     """Resolve one run's four settings from a profile plus explicit overrides.
 
-    Implements: ADR-001; REQ-TA-FR-001.
+    Implements: ADR-002; REQ-TA-FR-001.
 
     Precedence, per field: an explicit value beats the profile's value beats the
     built-in default. Only fields present in ``explicit`` are overridden, so a

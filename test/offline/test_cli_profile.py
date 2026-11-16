@@ -1,4 +1,4 @@
-"""The CLI selects and applies an analysis profile (REQ-TA-FR-001; ADR-001).
+"""The CLI selects and applies an analysis profile (REQ-TA-FR-001; ADR-002).
 
 These tests drive the real CLI seams — ``requested_profile``, ``unattended_gaps``,
 ``_prompt_selections``, ``_build_run_config`` and ``run_analysis`` — offline, with

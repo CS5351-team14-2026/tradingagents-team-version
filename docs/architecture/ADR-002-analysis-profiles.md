@@ -1,4 +1,4 @@
-# ADR-001 — Three analysis profiles (quick / standard / deep)
+# ADR-002 — Three analysis profiles (quick / standard / deep)
 
 - Status: Accepted (2026-11-13)
 - Requirements: REQ-TA-FR-001 (must, implement); relates REQ-TA-INV-003, REQ-TA-QR-004, REQ-TA-GOV-003
@@ -116,6 +116,12 @@ A legacy/omitted-profile call therefore keeps the pre-change signature for any
 tool cap (20 or a custom one), while a profile or explicit override that changes
 the analysts or rounds yields a distinct signature and never resumes a stale
 checkpoint.
+
+`claim_enforcement` (introduced by ADR-001 for material-claim fail-closed, still
+inert) is a placeholder config: it is excluded from the checkpoint signature so a
+run that predates the key and a run carrying its `False` default share one
+signature, keeping old checkpoints resumable. Without that exclusion the added
+default key would silently change every signature and strand existing runs.
 
 ## Consequences
 

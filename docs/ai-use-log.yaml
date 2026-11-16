@@ -1,4 +1,6 @@
-# One entry per agent session that changed code, tests, or prompts.
+# AI-use log — one entry per agent session behind a PR (governance gate 6).
+# Fields: id, date, task. Also record agent, model, prompt_ref, files,
+# human_decision, transcript. Never invent a session.
 entries:
   - id: AIUSE-FR001-OPENCODE-01
     date: "2026-11-13"
@@ -9,7 +11,7 @@ entries:
     prompt_ref: "transcripts/FR-001-opencode.md#第-4-轮"
     files:
       - docs/ai-use-log.yaml
-      - docs/architecture/ADR-001-analysis-profiles.md
+      - docs/architecture/ADR-002-analysis-profiles.md
       - docs/architecture/FR-001-trace.md
       - src/cli/main.py
       - src/cli/run.py
@@ -37,4 +39,53 @@ entries:
       For S5, WuYu required the metadata to distinguish explicit overrides
       from automatically selected analysts and approved the code after review.
       The final round aligned the ADR and traceability record with the implementation.
+    transcript: transcripts/FR-001-opencode.md
+  - id: AI-2026-11-15-001
+    date: "2026-11-15"
+    task: "FR-005 / QR-002 / INV-005 local vertical slice: ADR-001, material-claim schema, claim ledger in Markdown and HTML, disclaimer, offline traceability tests"
+    agent: opencode
+    model: deepseek/deepseek-flash
+    prompt_ref: "Prompt.md; ADR-001 approved task brief (material claim = structured factor lists, structural source ids, fail-closed deferred)"
+    files:
+      - docs/architecture/adr/001-material-claims.md
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/report_html.py
+      - test/offline/test_material_claims.py
+      - test/offline/test_claim_traceability.py
+      - test/offline/test_traceability_invariant.py
+      - test/offline/test_report_disclaimer.py
+      - test/offline/test_report_html_claims.py
+    human_decision: "Approved ADR-001 decisions: Option A material-claim definition, structural source ids, 3 supporting + 3 opposing claims, producing agent derived from source_id, fail-closed not activated in this slice."
+    transcript: pending
+  - id: AI-2026-11-16-002
+    date: "2026-11-16"
+    task: "FR-001 delivery: merge origin/integration (f64d0ea) into feat/fr-001-analysis-profiles; resolve report_html.py and ai-use-log.yaml conflicts; keep legacy checkpoint signatures with the reserved claim_enforcement config; renumber the FR-001 ADR to ADR-002 alongside the merged ADR-001."
+    agent: opencode
+    model: CS5351/DeepSeek-V4-Flash
+    session: ses_e2c5c6316ffeMQol8wdW1QhJXV
+    prompt_ref: "transcripts/FR-001-opencode.md#第-16-轮--合并-originintegrationf64d0ea"
+    files:
+      - docs/ai-use-log.yaml
+      - docs/architecture/ADR-002-analysis-profiles.md
+      - docs/architecture/FR-001-trace.md
+      - src/tradingagents/default_config.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/report_html.py
+      - test/offline/test_profiles_graph.py
+      - transcripts/FR-001-opencode.md
+    human_decision: >-
+      WuYu approved the two-conflict resolution (report_html keeps both imports;
+      ai-use-log keeps both entries in one list), directed that legacy checkpoint
+      compatibility be preserved (a config without claim_enforcement and a config
+      with its False default must share one signature at baseline, reproduced
+      first then minimally fixed, pinning the existing fixed signature), and kept
+      PR #27's ADR-001 while renaming the FR-001 ADR to ADR-002 with a note that
+      claim_enforcement is a placeholder excluded from the signature for
+      compatibility. Approved targeted HTML/checkpoint/ai-use-log checks before
+      review. Not committed.
     transcript: transcripts/FR-001-opencode.md

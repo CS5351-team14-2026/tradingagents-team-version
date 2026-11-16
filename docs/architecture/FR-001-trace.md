@@ -1,7 +1,7 @@
 # REQ-TA-FR-001 — traceability record
 
 - Requirement: `docs/req/requirements.yaml` → REQ-TA-FR-001 (must, implement)
-- ADR: `docs/architecture/ADR-001-analysis-profiles.md`
+- ADR: `docs/architecture/ADR-002-analysis-profiles.md`
 - Approved test plan: [Issue #14](https://github.com/CS5351-team14-2026/tradingagents-team-version/issues/14)
 - Pre-change baseline: `03e7d48`, 1407 offline tests passed.
 - FR-001 evidence: 71 profile tests. The full offline suite was rerun with
