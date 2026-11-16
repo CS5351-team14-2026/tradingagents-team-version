@@ -68,6 +68,7 @@ def test_record_decision_writes_an_accepted_claim_audit(tmp_path):
     assert logged["status"] == "ACCEPTED"
     assert logged["reasons"] == []
     assert logged["claims_total"] == logged["claims_attributed"] == 1
+    assert _logged(tmp_path)["material_claims"] == state["material_claims"]
 
 
 @pytest.mark.unit

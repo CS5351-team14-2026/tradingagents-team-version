@@ -465,6 +465,7 @@ class TradingAgentsGraph:
             "final_trade_decision": final_state["final_trade_decision"],
             "final_rating": run_rating(final_state),
             "claim_audit": final_state.get("claim_audit"),
+            "material_claims": final_state.get("material_claims", []),
             "run_settings": self.run_settings(),
         }
 
