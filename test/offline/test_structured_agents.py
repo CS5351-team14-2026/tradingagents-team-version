@@ -212,6 +212,32 @@ def test_invoke_structured_falls_back_when_result_is_none():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("first", ["none", "raise"], ids=["returns-none", "raises"])
+def test_invoke_structured_retries_once_before_free_text(first):
+    # The deepseek-flash flake: one structured attempt returns no parsed result
+    # (or raises); a second structured attempt can still succeed, and dropping
+    # straight to free text loses structured fields such as material_claims.
+    from tradingagents.agents.structured import invoke_structured_or_freetext
+
+    decision = PortfolioDecision(
+        rating=PortfolioRating.HOLD, executive_summary="s", investment_thesis="t")
+    structured = MagicMock()
+    structured.invoke.side_effect = (
+        [None, decision] if first == "none" else [RuntimeError("transient"), decision]
+    )
+    plain = MagicMock()
+    plain.invoke.return_value = MagicMock(content="FREETEXT")
+
+    out = invoke_structured_or_freetext(
+        structured, plain, "prompt", render=lambda r: r.rating.value, agent_name="t"
+    )
+
+    assert out == "Hold"
+    assert structured.invoke.call_count == 2
+    plain.invoke.assert_not_called()
+
+
+@pytest.mark.unit
 class TestTraderAgent:
     def test_structured_path_produces_rendered_markdown(self):
         captured = {}
