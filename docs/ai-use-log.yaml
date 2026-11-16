@@ -24,3 +24,17 @@ entries:
       - test/offline/test_report_html_claims.py
     human_decision: "Approved ADR-001 decisions: Option A material-claim definition, structural source ids, 3 supporting + 3 opposing claims, producing agent derived from source_id, fail-closed not activated in this slice."
     transcript: pending
+  - id: AI-2026-11-16-001
+    date: "2026-11-16"
+    task: "REQ-TA-QR-003 component-boundary enforcement: AST structural check over agents/graph/dataflows/memory/llm_clients for statically parseable cross-component private imports and alias reads (public and own-component private allowed; absolute/relative private import, private-module imports, and alias/package-alias/full-path reads rejected; scope- and statement-order-aware resolution; dynamic access out of static scope), plus a scripted-LLM + fixed-market-data offline graph run asserting both test doubles are exercised"
+    agent: opencode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; test-plan #25 (test-approved)"
+    files:
+      - test/offline/test_layering.py
+      - test/offline/test_graph_end_to_end.py
+      - docs/architecture/trace-matrix.md
+      - transcripts/qr-003-implementation.md
+      - docs/ai-use-log.yaml
+    human_decision: "Approved Stage 1 (component-boundary test) and Stage 2 (LLM-double assertion) after iterative review rounds; Windows ruff and full offline suite (1483 passed) confirmed green before acceptance."
+    transcript: transcripts/qr-003-implementation.md
