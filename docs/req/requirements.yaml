@@ -197,8 +197,8 @@ requirements:
     statement: "The system shall keep new components free of boundary violations (a component reading another component's internal state) and shall keep lint and offline suites passing as components are added."
     fit_criterion: "zero boundary violations among new components (import-layering assertions/structural tests); 'ruff check .' passes; offline suite passes; LLM/data dependencies replaceable by test doubles in unit tests."
     enforcing_component: "structural tests over src/tradingagents/{agents,graph,dataflows,memory,llm_clients} boundaries; ruff (CI); offline pytest suite (CI)"
-    priority: wont  # unclaimed at S1 scope freeze
-    status: candidate
+    priority: should
+    status: implement #WuYu
     source: "requirement-candidates.md CAND-NFR-05 (cross-cutting, applies to every chosen candidate)"
     cross_refs: {}
 
