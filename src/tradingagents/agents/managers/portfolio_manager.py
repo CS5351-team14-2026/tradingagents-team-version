@@ -103,10 +103,17 @@ Ground every conclusion in specific evidence from the analysts. The risk debate 
 Write these sections, in this order, starting with the rating on its own line:
 
 - **Rating**: exactly one of Buy / Overweight / Hold / Underweight / Sell
+- **Confidence**: exactly one of low / medium / high
 - **Executive Summary**: the call and how to act on it
 - **Investment Thesis**: the evidence that decided it, and what would change it
 - **Supporting Factors**: exactly three material claims that support the rating
 - **Opposing Factors**: exactly three material claims that argue against it
+
+Set **Confidence** from the evidence and the analysts' disagreement:
+- **low**: the evidence is thin, or the analysts strongly disagree.
+- **medium**: the evidence is adequate but mixed, or disagreement is material.
+- **high**: the evidence is strong and consistent across analysts, with only
+  minor disagreement.
 
 For every factor, give one `source_id` naming the report it came from, chosen
 from: {CLAIM_SOURCE_IDS}. Give `observation_date` as YYYY-MM-DD whenever the
