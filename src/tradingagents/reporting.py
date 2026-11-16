@@ -17,6 +17,17 @@ def analyst_names(keys) -> list[str]:
     return ["sentiment" if key == "social" else key for key in keys or []]
 
 
+def _override_value(value):
+    """Render one explicit-override value for the report header.
+
+    An overridden analyst set reads as a comma list of the names users know; any
+    other value (a round count) prints as-is.
+    """
+    if isinstance(value, (list, tuple)):
+        return ", ".join(analyst_names(value))
+    return value
+
+
 def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     """The report's title and what produced it: analysis date, version, models, analysts, vendors."""
     lines = [f"# Trading Analysis Report: {ticker}", ""]
@@ -37,7 +48,15 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         lines.append(f"- TradingAgents {s('version', '?')}: {models}")
         lines.append(f"- Analysts: {', '.join(analyst_names(s('analysts')))}; "
                      f"research debate rounds {s('max_debate_rounds', '?')}, "
-                     f"risk debate rounds {s('max_risk_discuss_rounds', '?')}")
+                     f"risk debate rounds {s('max_risk_discuss_rounds', '?')}, "
+                     f"tool rounds per analyst {s('max_tool_rounds', '?')}")
+        # What was asked for versus what took effect (Implements: REQ-TA-FR-001).
+        if s("profile_requested"):
+            lines.append(f"- Analysis profile: {s('profile_requested')} (requested)")
+        overrides = s("profile_overrides") or {}
+        if overrides:
+            lines.append("- Explicit overrides: " + ", ".join(
+                f"{key}={_override_value(value)}" for key, value in overrides.items()))
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             lines.append("- Data vendors: " + ", ".join(f"{k} {v}" for k, v in vendors.items()))

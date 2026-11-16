@@ -12,6 +12,7 @@ from cli import updates
 from cli.display import (
     console,
 )
+from cli.models import AnalystType
 from cli.prefs import load_last_run, sanitize, save_last_run
 from cli.prompts import (
     ask_anthropic_effort,
@@ -25,6 +26,7 @@ from cli.prompts import (
     detect_asset_type,
     ensure_api_key,
     ensure_signed_in,
+    filter_analysts_for_asset_type,
     get_ticker,
     parse_analysis_date,
     parse_analysts,
@@ -37,7 +39,7 @@ from cli.prompts import (
     select_research_depth,
     select_shallow_thinking_agent,
 )
-from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.default_config import DEFAULT_CONFIG, PROFILE_MAPPING
 from tradingagents.llm_clients.factory import REASONING_EFFORT_PROVIDERS
 from tradingagents.llm_clients.openai_client import check_endpoint
 
@@ -55,14 +57,43 @@ def depth_from_env() -> bool:
                 and os.environ.get("TRADINGAGENTS_MAX_RISK_ROUNDS"))
 
 
+def requested_profile(flags) -> str | None:
+    """The analysis profile this run asks for, or None (Implements: REQ-TA-FR-001).
+
+    ``--profile`` wins over ``TRADINGAGENTS_PROFILE`` so an explicit flag always
+    takes effect over the environment.
+    """
+    value = flags.get("profile") if flags else None
+    if value is None:
+        value = os.environ.get("TRADINGAGENTS_PROFILE") or None
+    if value is not None and value not in PROFILE_MAPPING:
+        legal = ", ".join(PROFILE_MAPPING)
+        raise ValueError(f"unknown profile {value!r}; choose from {legal}")
+    return value
+
+
 def unattended_gaps(flags) -> list[str]:
-    """The flags and environment variables a run with no terminal still needs."""
+    """The flags and environment variables a run with no terminal still needs.
+
+    A selected profile supplies the analyst set and the round budgets, so those
+    are not reported as gaps; every other required input is still checked
+    (Implements: REQ-TA-FR-001).
+    """
     env = os.environ.get
-    gaps = [f"--{name}" for name in ("ticker", "date", "analysts") if flags.get(name) is None]
+
+    def profile_selected() -> bool:
+        try:
+            return requested_profile(flags) is not None
+        except ValueError:
+            return False
+
+    has_profile = profile_selected()
+    needed = ("ticker", "date") if has_profile else ("ticker", "date", "analysts")
+    gaps = [f"--{name}" for name in needed if flags.get(name) is None]
     gaps += [f"--{name} or --no-{name}" for name in ("save", "show") if flags.get(name) is None]
     if not env("TRADINGAGENTS_OUTPUT_LANGUAGE"):
         gaps.append("TRADINGAGENTS_OUTPUT_LANGUAGE")
-    if not depth_from_env():
+    if not has_profile and not depth_from_env():
         gaps.append("TRADINGAGENTS_MAX_DEBATE_ROUNDS and TRADINGAGENTS_MAX_RISK_ROUNDS")
     if not env("TRADINGAGENTS_LLM_PROVIDER"):
         gaps.append("TRADINGAGENTS_LLM_PROVIDER")
@@ -214,10 +245,17 @@ def _prompt_selections(prefs, flags):
         )
         output_language = ask_output_language(prefs.get("output_language"))
 
-    # Step 4: Select analysts
+    # Step 4: Select analysts. A selected profile supplies the analyst set, so the
+    # question is skipped; --analysts still overrides it (Implements: REQ-TA-FR-001).
     prefs = sanitize(prefs, asset_type.value)
+    profile_name = requested_profile(flags)
+    profile_mapping = PROFILE_MAPPING[profile_name] if profile_name else None
     if flags.get("analysts") is not None:
         selected_analysts = _from_flag(parse_analysts, flags["analysts"], asset_type)
+    elif profile_mapping is not None:
+        allowed = filter_analysts_for_asset_type(list(AnalystType), asset_type)
+        chosen = [AnalystType(key) for key in profile_mapping["analysts"]]
+        selected_analysts = [analyst for analyst in allowed if analyst in chosen]
     else:
         console.print(
             create_question_box(
@@ -229,11 +267,21 @@ def _prompt_selections(prefs, flags):
         f"[green]Selected analysts:[/green] {', '.join(analyst.value for analyst in selected_analysts)}"
     )
 
-    # Step 5: Research depth (skipped when both round counts are set via env).
-    # Research depth maps to the debate + risk round counts; when both are
-    # supplied through TRADINGAGENTS_MAX_DEBATE_ROUNDS / _MAX_RISK_ROUNDS we keep
-    # the run non-interactive and honor the env values (#977).
-    if depth_from_env():
+    # Step 5: Research depth (skipped when both round counts are set via env, or
+    # when a profile supplies the budgets). Research depth maps to the debate +
+    # risk round counts; when both are supplied through
+    # TRADINGAGENTS_MAX_DEBATE_ROUNDS / _MAX_RISK_ROUNDS or a profile, the run
+    # stays non-interactive and those values are honored (#977, FR-001).
+    if profile_mapping is not None:
+        selected_research_depth = profile_mapping["max_debate_rounds"]
+        # The profile supplies the budgets; the concrete numbers (after any
+        # explicit/env override) are shown once as the run's effective
+        # configuration, so no possibly-stale 3/3 hint is printed here.
+        console.print(
+            f"[green]✓ Research depth from profile {profile_name} "
+            "(effective rounds shown below)[/green]"
+        )
+    elif depth_from_env():
         selected_research_depth = DEFAULT_CONFIG["max_debate_rounds"]
         console.print(
             f"[green]✓ Research depth from environment:[/green] "

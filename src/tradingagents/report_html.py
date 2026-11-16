@@ -13,7 +13,7 @@ from importlib.resources import files
 from markdown_it import MarkdownIt
 
 from tradingagents.agents.rating import run_rating
-from tradingagents.reporting import analyst_names
+from tradingagents.reporting import _override_value, analyst_names
 
 # Ratings by direction, so the page can show which way the call leans.
 _TONE = {"Buy": "up", "Overweight": "up", "Hold": "level", "Underweight": "down", "Sell": "down"}
@@ -233,7 +233,15 @@ def _run_details(final_state: dict, settings: dict | None) -> list[tuple[str, st
         details.append(("Debate rounds", " ".join((
             _group("research", _fields([s("max_debate_rounds", "?")])),
             _group("risk", _fields([s("max_risk_discuss_rounds", "?")])),
+            _group("tools", _fields([s("max_tool_rounds", "?")])),
         ))))
+        # What was asked for versus what took effect (Implements: REQ-TA-FR-001).
+        if s("profile_requested"):
+            details.append(("Analysis profile", escape(f"{s('profile_requested')} (requested)")))
+        overrides = s("profile_overrides") or {}
+        if overrides:
+            details.append(("Explicit overrides", _fields(
+                [f"{key}={_override_value(value)}" for key, value in overrides.items()])))
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             details.append(("Data vendors", " ".join(

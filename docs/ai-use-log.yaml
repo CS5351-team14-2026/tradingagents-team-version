@@ -1,0 +1,40 @@
+# One entry per agent session that changed code, tests, or prompts.
+entries:
+  - id: AIUSE-FR001-OPENCODE-01
+    date: "2026-11-13"
+    task: "REQ-TA-FR-001 S1–S5: implement and verify the quick, standard, and deep analysis profiles."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    session: ses_e2c5c6316ffeMQol8wdW1QhJXV
+    prompt_ref: "transcripts/FR-001-opencode.md#第-4-轮"
+    files:
+      - docs/ai-use-log.yaml
+      - docs/architecture/ADR-001-analysis-profiles.md
+      - docs/architecture/FR-001-trace.md
+      - src/cli/main.py
+      - src/cli/run.py
+      - src/cli/selections.py
+      - src/tradingagents/default_config.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/report_html.py
+      - src/tradingagents/reporting.py
+      - test/offline/test_cli_commands.py
+      - test/offline/test_cli_memory_log.py
+      - test/offline/test_cli_profile.py
+      - test/offline/test_cli_profile_e2e.py
+      - test/offline/test_profiles.py
+      - test/offline/test_profiles_graph.py
+      - test/offline/test_profiles_report.py
+      - test/offline/test_rating_integrity.py
+    human_decision: >-
+      WuYu selected the final profile mapping and approved the implementation
+      plan in rounds 2–5. A teammate added test-approved to Issue #14 before
+      S1 began in round 6. WuYu approved S1 before S2 and requested corrections
+      to environment overrides and legacy checkpoint compatibility in S2.
+      For S3, WuYu requested complete resolved settings across reports and the
+      state log. For S4, WuYu required the CLI and graph to use the same
+      effective analysts and limits, including existing crypto filtering.
+      For S5, WuYu required the metadata to distinguish explicit overrides
+      from automatically selected analysts and approved the code after review.
+      The final round aligned the ADR and traceability record with the implementation.
+    transcript: transcripts/FR-001-opencode.md
