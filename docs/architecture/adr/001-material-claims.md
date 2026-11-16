@@ -86,13 +86,18 @@ change `final_rating`, the memory-log entry, or report rendering. Activating
 fail-closed — gating run acceptance on the audit and mapping the status onto the
 REQ-TA-FR-006 run-status enum — is a later change.
 
-## 5. QR-002 threshold — remains TBD
+## 5. QR-002 — unconditional traceability
 
-No attribution percentage is set by this ADR. The baseline attribution fraction
-must first be measured per `docs/req/requirement-candidates.md` §8 row 3 (a
-fixed sample of N reports from defined cases), recorded, and only then may an
-accepted-result rule entry replace `TBD` in `docs/req/requirements.yaml`.
-Until that measurement is recorded, the threshold is **TBD**.
+The sample was measured on 2026-11-13 (NVDA, 0700.HK, BABA; deepseek-flash for
+both tiers): 3/3 runs ACCEPTED, 18/18 material claims attributed. The confidence
+validation run on 2026-11-12 (AAPL, same models) also produced 6/6 ACCEPTED with
+`confidence = medium`.
+
+Following that evidence, REQ-TA-QR-002 is unconditional: every formally defined
+material claim in an accepted report must resolve to a report artifact and a
+derivable producing agent. An untraceable claim makes the report not accepted
+(REQ-TA-INV-005). No percentage threshold is set; a fraction would allow a
+report with untraceable claims to pass.
 
 ## 6. Token cost
 
