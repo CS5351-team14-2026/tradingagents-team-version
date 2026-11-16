@@ -17,7 +17,7 @@ from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients import create_tier_client, tier_provider
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
-from tradingagents.reporting import write_report_tree
+from tradingagents.reporting import audit_material_claims, write_report_tree
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
@@ -359,6 +359,8 @@ class TradingAgentsGraph:
     def record_decision(self, company_name, trade_date, final_state):
         """Record a finished run: its state log, and its decision in the memory log
         for reflection on the next same-ticker run. propagate() and the CLI both end here."""
+        audit = audit_material_claims(final_state)
+        final_state["claim_audit"] = audit
         self._log_state(trade_date, final_state)
         decision = final_state.get("final_trade_decision")
         if not decision:
@@ -462,6 +464,9 @@ class TradingAgentsGraph:
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
             "final_rating": run_rating(final_state),
+            "claim_audit": final_state.get("claim_audit"),
+            "material_claims": final_state.get("material_claims", []),
+            "claim_fallback": final_state.get("claim_fallback"),
             "run_settings": self.run_settings(),
         }
 

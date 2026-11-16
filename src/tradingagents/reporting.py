@@ -24,6 +24,9 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         lines.append(f"- Analysis date: {final_state['trade_date']}")
     if final_state.get("final_trade_decision"):
         lines.append(f"- Rating: {run_rating(final_state)}")
+    traceability = _traceability_header(final_state)
+    if traceability:
+        lines.append(traceability)
     lines.append(f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     if settings:
         s = settings.get
@@ -44,6 +47,216 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     if final_state.get("memory_note"):
         lines.append(f"- Memory log: {final_state['memory_note']}")
     return "\n".join(lines) + "\n\n"
+
+
+# The material-claim contract fixed by ADR-001: the final recommendation's
+# supporting and opposing factor lists, this many per side.
+CLAIMS_PER_SIDE = 3
+
+# The report's own artifacts are the closed source vocabulary. ``source_id``
+# resolves to (producing agent, state path); the model never names the agent.
+_ANALYST_SOURCES = frozenset({
+    "market_report", "sentiment_report", "news_report", "fundamentals_report",
+})
+# Claims that assert market data must carry the observation's date.
+_MARKET_DATA_SOURCES = frozenset({"market_report"})
+_NOT_A_SOURCE = frozenset({"final_trade_decision"})
+
+# REQ-TA-FR-005: every report ends with this notice, in text and HTML alike.
+NOT_INVESTMENT_ADVICE = (
+    "Not investment advice. This report is for research and information purposes "
+    "only and is not investment, financial, or trading advice."
+)
+
+
+def source_vocabulary() -> dict[str, tuple[str, tuple[str, ...]]]:
+    """The artifacts a material claim may cite: source_id -> (agent, state path)."""
+    vocabulary = {}
+    for _heading, _folder, agents in _SECTIONS:
+        for agent, _filename, path in agents:
+            if ".".join(path) in _NOT_A_SOURCE:
+                continue
+            vocabulary[".".join(path)] = (agent, path)
+    return vocabulary
+
+
+def _artifact_value(final_state: dict, path: tuple[str, ...]):
+    value = final_state
+    for key in path:
+        value = value.get(key) if isinstance(value, dict) else None
+    return value
+
+
+def _iso_date(value) -> str | None:
+    """A canonical ``YYYY-MM-DD`` date, or None for anything else."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return None
+    return value if parsed.strftime("%Y-%m-%d") == value else None
+
+
+def _claim_items(final_state: dict) -> list[dict]:
+    """The run's claims in stable order, with deterministic ids (s1..., o1...)."""
+    raw = final_state.get("material_claims")
+    if not isinstance(raw, list):
+        return []
+    counts = {"supporting": 0, "opposing": 0}
+    items = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        declared = entry.get("kind")
+        kind = declared if declared in counts else "supporting"
+        counts[kind] += 1
+        items.append({
+            "id": f"{kind[0]}{counts[kind]}",
+            "kind": kind,
+            "declared_kind": declared,
+            "text": entry.get("text"),
+            "source_id": entry.get("source_id"),
+            "observation_date": entry.get("observation_date"),
+        })
+    return items
+
+
+def audit_material_claims(final_state: dict) -> dict:
+    """Check that every material claim resolves to a report artifact (ADR-001).
+
+    Pure: no I/O and no LLM. Implements REQ-TA-FR-005, REQ-TA-QR-002 and
+    REQ-TA-INV-005. A run with no claim metadata is ``NOT_ASSESSED``, never
+    ``ACCEPTED``; this slice does not downgrade the run itself.
+    """
+    items = _claim_items(final_state)
+    if not items:
+        reasons = ["NO_CLAIM_METADATA"]
+        if final_state.get("claim_fallback") == "free_text":
+            reasons.append("PM_FREETEXT_FALLBACK")
+        return {
+            "status": "NOT_ASSESSED",
+            "reasons": reasons,
+            "claims_total": 0,
+            "claims_attributed": 0,
+            "unsupported_claim_ids": [],
+            "claims": [],
+        }
+
+    vocabulary = source_vocabulary()
+    trade_date = _iso_date(final_state.get("trade_date"))
+    reasons: list[str] = []
+    unsupported: list[str] = []
+    details: list[dict] = []
+
+    def note(reason: str) -> None:
+        if reason not in reasons:
+            reasons.append(reason)
+
+    for item in items:
+        claim_reasons: list[str] = []
+        if item["declared_kind"] not in ("supporting", "opposing"):
+            claim_reasons.append("INVALID_CLAIM")
+        if not isinstance(item["text"], str) or not item["text"].strip():
+            claim_reasons.append("UNTRACEABLE_CLAIM")
+
+        source_id = item["source_id"]
+        producer = None
+        if not isinstance(source_id, str) or source_id not in vocabulary:
+            claim_reasons.append("UNKNOWN_SOURCE")
+        else:
+            producer, path = vocabulary[source_id]
+            if not _artifact_value(final_state, path):
+                producer = None
+                claim_reasons.append("UNKNOWN_SOURCE")
+
+        raw_date = item["observation_date"]
+        observed = _iso_date(raw_date)
+        if raw_date not in (None, ""):
+            if observed is None or (trade_date is not None and observed > trade_date):
+                claim_reasons.append("INVALID_OBSERVATION_DATE")
+        elif source_id in _MARKET_DATA_SOURCES:
+            claim_reasons.append("UNDATED_MARKET_DATA")
+
+        claim_reasons = list(dict.fromkeys(claim_reasons))
+        attributed = not claim_reasons
+        if not attributed:
+            unsupported.append(item["id"])
+            for reason in claim_reasons:
+                note(reason)
+        details.append({
+            "id": item["id"],
+            "kind": item["kind"],
+            "text": item["text"],
+            "source_id": source_id,
+            "producer": producer,
+            "observation_date": observed if observed else None,
+            "attributed": attributed,
+            "reasons": claim_reasons,
+        })
+
+    for kind in ("supporting", "opposing"):
+        if sum(1 for item in items if item["kind"] == kind) > CLAIMS_PER_SIDE:
+            note("CLAIM_LIMIT_EXCEEDED")
+
+    attributed_details = [detail for detail in details if detail["attributed"]]
+    if attributed_details:
+        if not any(detail["source_id"] in _ANALYST_SOURCES for detail in attributed_details):
+            note("NO_ANALYST_REFERENCE")
+        if not any(detail["observation_date"] for detail in attributed_details):
+            note("NO_DATED_OBSERVATION")
+
+    return {
+        "status": "DOWNGRADED" if reasons else "ACCEPTED",
+        "reasons": reasons,
+        "claims_total": len(items),
+        "claims_attributed": len(attributed_details),
+        "unsupported_claim_ids": unsupported,
+        "claims": details,
+    }
+
+
+def render_claim_ledger(final_state: dict) -> str:
+    """The markdown claim ledger: each factor with its source, date or UNSUPPORTED label."""
+    items = _claim_items(final_state)
+    if not items:
+        return ""
+    audit = audit_material_claims(final_state)
+    details = {detail["id"]: detail for detail in audit["claims"]}
+    status = (f"**Traceability: {audit['status']}** — "
+              f"{audit['claims_attributed']} of {audit['claims_total']} material claims attributed.")
+    if audit["reasons"]:
+        status += " Reasons: " + ", ".join(audit["reasons"]) + "."
+
+    lines = ["## Evidence Linkage", "", status]
+    for label, kind in (("Supporting factors", "supporting"), ("Opposing factors", "opposing")):
+        group = [item for item in items if item["kind"] == kind]
+        if not group:
+            continue
+        lines.extend(["", f"### {label}"])
+        for item in group:
+            detail = details[item["id"]]
+            line = f'- **{item["id"]}** "{item["text"]}" — '
+            if detail["attributed"]:
+                line += f"source: `{item['source_id']}` ({detail['producer']})"
+                if detail["observation_date"]:
+                    line += f" @ {detail['observation_date']}"
+            else:
+                line += f"UNSUPPORTED ({', '.join(detail['reasons'])})"
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def _traceability_header(final_state: dict) -> str | None:
+    """The header line for a report that carries material claims."""
+    if not final_state.get("material_claims"):
+        return None
+    audit = audit_material_claims(final_state)
+    line = (f"- Traceability: {audit['status']} "
+            f"({audit['claims_attributed']}/{audit['claims_total']} material claims attributed)")
+    if audit["reasons"]:
+        line += f"; {', '.join(audit['reasons'])}"
+    return line
 
 
 # The report's sections in order: (heading, folder, [(agent, file, state path)]).
@@ -89,6 +302,16 @@ def _report_parts(final_state: dict) -> list[tuple[str, str, list[tuple[str, str
     return parts
 
 
+def _report_document(ticker: str, final_state: dict, settings: dict | None,
+                     sections: list[str]) -> str:
+    """The complete markdown report: header, sections, claim ledger, disclaimer."""
+    body = _header(ticker, final_state, settings) + "\n\n".join(sections)
+    ledger = render_claim_ledger(final_state)
+    if ledger:
+        body += "\n\n" + ledger
+    return body + "\n\n---\n\n" + NOT_INVESTMENT_ADVICE + "\n"
+
+
 def write_report_tree(final_state: dict, ticker: str, save_path, settings: dict | None = None,
                       html: bool = True) -> Path:
     """Save a completed run's reports to ``save_path``; return the complete-report path.
@@ -111,7 +334,7 @@ def write_report_tree(final_state: dict, ticker: str, save_path, settings: dict 
         sections.append(f"## {heading}\n\n{content}")
 
     (save_path / "complete_report.md").write_text(
-        _header(ticker, final_state, settings) + "\n\n".join(sections), encoding="utf-8"
+        _report_document(ticker, final_state, settings, sections), encoding="utf-8"
     )
     if html:
         from tradingagents.report_html import render_report
