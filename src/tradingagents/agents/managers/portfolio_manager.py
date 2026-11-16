@@ -12,6 +12,8 @@ free-text generation and the rating is read from that text.
 
 from __future__ import annotations
 
+import logging
+
 from tradingagents.agents.context import (
     get_instrument_context_from_state,
     get_language_instruction,
@@ -24,6 +26,31 @@ from tradingagents.agents.schemas import (
     render_pm_decision,
 )
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
+
+logger = logging.getLogger(__name__)
+
+
+def _invoke_json_mode(llm, prompt) -> PortfolioDecision | None:
+    """Retry the decision as JSON before free text (deepseek-flash misses tool calls).
+
+    A json_mode result is still a structured decision, so the claims/rating path
+    is unchanged and ``claim_fallback`` stays ``None`` (ADR-001).
+    """
+    try:
+        structured_json = llm.with_structured_output(PortfolioDecision, method="json_mode")
+    except (NotImplementedError, AttributeError) as exc:
+        logger.warning("PM: json_mode retry failed (binding: %s)", exc)
+        return None
+    try:
+        result = structured_json.invoke(prompt)
+        if result is None:
+            raise ValueError("json_mode returned no result")
+        if isinstance(result, PortfolioDecision):
+            return result
+        return PortfolioDecision.model_validate_json(result)
+    except Exception as exc:
+        logger.warning("PM: json_mode retry failed (%s)", exc)
+        return None
 
 
 def create_portfolio_manager(llm):
@@ -91,6 +118,8 @@ claims. Do not name the producing agent: it is derived from the source.
         # The typed rating is the decision; the rendered text only carries it.
         # Read back from text, a rating the thesis quotes could replace it.
         decision = invoke_structured(structured_llm, prompt, "Portfolio Manager")
+        if decision is None:
+            decision = _invoke_json_mode(llm, prompt)
         claims = []
         if decision is not None:
             final_trade_decision = render_pm_decision(decision)
