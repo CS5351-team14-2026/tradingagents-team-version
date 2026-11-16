@@ -79,6 +79,11 @@ class AgentState(MessagesState):
         "Result of the pure claim-traceability audit (ADR-001; REQ-TA-QR-002; "
         "REQ-TA-INV-005): status, reasons, counts and per-claim resolution",
     ]
+    claim_fallback: Annotated[
+        str | None,
+        "What produced the final decision when it was not the structured output "
+        "(ADR-001): 'free_text' when the Portfolio Manager fell back, else None",
+    ]
     past_context: Annotated[str, "Memory log context for the Portfolio Manager (same-ticker decisions + cross-ticker lessons), written by the Memory Log step"]
     memory_note: Annotated[str, "What the Memory Log step could not settle or read this run, for the report; empty when all went well"]
     portfolio_context: Annotated[str, "Caller-supplied holdings and cash, rendered at run start; empty when not provided"]

@@ -64,11 +64,13 @@ def test_record_decision_writes_an_accepted_claim_audit(tmp_path):
     ])
     _graph(tmp_path).record_decision("NVDA", TRADE_DATE, state)
 
-    logged = _logged(tmp_path)["claim_audit"]
+    logged_entry = _logged(tmp_path)
+    logged = logged_entry["claim_audit"]
     assert logged["status"] == "ACCEPTED"
     assert logged["reasons"] == []
     assert logged["claims_total"] == logged["claims_attributed"] == 1
-    assert _logged(tmp_path)["material_claims"] == state["material_claims"]
+    assert logged_entry["material_claims"] == state["material_claims"]
+    assert logged_entry["claim_fallback"] is None
 
 
 @pytest.mark.unit
@@ -122,3 +124,16 @@ def test_a_downgraded_audit_does_not_change_the_rating_or_memory_log(tmp_path):
     assert _logged(tmp_path)["final_rating"] == "Hold"
     entries = graph.memory_log.load_entries()
     assert [(entry["ticker"], entry["rating"]) for entry in entries] == [("NVDA", "Hold")]
+
+
+@pytest.mark.unit
+def test_record_decision_writes_the_claim_fallback_marker(tmp_path):
+    state = _state(material_claims=None, claim_fallback="free_text")
+    _graph(tmp_path).record_decision("NVDA", TRADE_DATE, state)
+
+    logged = _logged(tmp_path)
+    assert logged["claim_fallback"] == "free_text"
+    assert logged["claim_audit"]["status"] == "NOT_ASSESSED"
+    assert logged["claim_audit"]["reasons"] == [
+        "NO_CLAIM_METADATA", "PM_FREETEXT_FALLBACK",
+    ]

@@ -72,6 +72,13 @@ per-claim resolution). The checker is also tested offline, and `material_claims`
 / `claim_audit` are declared in `AgentState`. A decision without claims reports
 `NOT_ASSESSED` (never `ACCEPTED`).
 
+A structured-output miss is now distinguishable from a model that emitted no
+claims: the Portfolio Manager records `claim_fallback="free_text"` when the
+decision came from the plain-text fallback, and the audit then reports
+`NO_CLAIM_METADATA` followed by `PM_FREETEXT_FALLBACK`. When the structured
+call succeeded, `claim_fallback` is `None`. The fallback text itself is not
+parsed for claims.
+
 Run acceptance is still **not** gated on the audit. `claim_enforcement` is a
 reserved boolean (default `False`, env `TRADINGAGENTS_CLAIM_ENFORCEMENT`); no
 behaviour branches on it yet. A `DOWNGRADED` or `NOT_ASSESSED` audit does not

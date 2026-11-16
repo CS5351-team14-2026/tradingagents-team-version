@@ -171,3 +171,19 @@ def test_two_traceable_claims_one_each_side_is_accepted():
     assert audit["status"] == "ACCEPTED"
     assert audit["reasons"] == []
     assert audit["claims_total"] == audit["claims_attributed"] == 2
+
+
+@pytest.mark.unit
+def test_a_free_text_fallback_names_the_fallback_reason():
+    audit = audit_material_claims(_state(material_claims=None, claim_fallback="free_text"))
+
+    assert audit["status"] == "NOT_ASSESSED"
+    assert audit["reasons"] == ["NO_CLAIM_METADATA", "PM_FREETEXT_FALLBACK"]
+
+
+@pytest.mark.unit
+def test_a_structured_run_with_no_claims_has_only_no_claim_metadata():
+    audit = audit_material_claims(_state(material_claims=[], claim_fallback=None))
+
+    assert audit["status"] == "NOT_ASSESSED"
+    assert audit["reasons"] == ["NO_CLAIM_METADATA"]

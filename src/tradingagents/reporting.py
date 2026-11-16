@@ -131,9 +131,12 @@ def audit_material_claims(final_state: dict) -> dict:
     """
     items = _claim_items(final_state)
     if not items:
+        reasons = ["NO_CLAIM_METADATA"]
+        if final_state.get("claim_fallback") == "free_text":
+            reasons.append("PM_FREETEXT_FALLBACK")
         return {
             "status": "NOT_ASSESSED",
-            "reasons": ["NO_CLAIM_METADATA"],
+            "reasons": reasons,
             "claims_total": 0,
             "claims_attributed": 0,
             "unsupported_claim_ids": [],

@@ -130,6 +130,9 @@ claims. Do not name the producing agent: it is derived from the source.
             "final_trade_decision": final_trade_decision,
             "final_rating": final_rating,
             "material_claims": claims,
+            # ADR-001: makes a structured-output miss visible to the audit,
+            # which otherwise cannot tell it from a model that emitted no claims.
+            "claim_fallback": None if decision is not None else "free_text",
         }
 
     return portfolio_manager_node
