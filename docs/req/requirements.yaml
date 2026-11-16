@@ -182,11 +182,11 @@ requirements:
   - id: REQ-TA-QR-002
     type: quality
     statement: "The system shall make every formally defined material claim in an accepted report traceable to its evidence source and producing agent."
-    fit_criterion: "metric: fraction of formally defined material claims whose source and producing agent are identifiable in sampled reports; baseline attribution percentage TBD (measure first per requirement-candidates.md §8 row 3); intended accepted-result rule: 100% of material claims resolve to evidence (with REQ-TA-INV-005), adopted only after the baseline is known and 'material claim' is defined by ADR; verification: checklist on sampled reports + structural check that each recommendation references an analyst output and a dated observation."
-    enforcing_component: "reporting.py, graph/trading_graph.py, human claim-audit step"
+    fit_criterion: "every formally defined material claim in an accepted report resolves to a report artifact and a derivable producing agent; any untraceable claim makes the report not accepted (REQ-TA-INV-005); verification: structural audit_material_claims on the fixed sample plus a sampled human checklist."
+    enforcing_component: "reporting.py (audit_material_claims), graph/trading_graph.py (claim_audit), human claim-audit step"
     priority: should
     status: implement #a5ync
-    source: "requirement-candidates.md CAND-NFR-04 (paired with FR-05); depends on the agreed 'material claim' definition"
+    source: "requirement-candidates.md CAND-NFR-04 (paired with FR-05); material-claim definition fixed by ADR-001; baseline sample recorded in ADR-001 §5"
     cross_refs:
       fr: [REQ-TA-FR-005]
       inv: [REQ-TA-INV-005]
