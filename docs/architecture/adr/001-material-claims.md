@@ -64,27 +64,28 @@ This status is a **report-level traceability status**, not a rating. It does not
 change `final_rating`, the REVIEW rule (REQ-TA-INV-001) or the validation gate
 (REQ-TA-FR-004).
 
-## 4. Deferred — fail-closed is not activated in this slice
+## 4. Activated — fail-closed claim acceptance
 
-The audit is now recorded: `record_decision` runs `audit_material_claims` before
-`_log_state`, and the state log carries `claim_audit` (status, reasons, counts,
-per-claim resolution). The checker is also tested offline, and `material_claims`
-/ `claim_audit` are declared in `AgentState`. A decision without claims reports
-`NOT_ASSESSED` (never `ACCEPTED`).
+Run acceptance is gated on the audit. In `record_decision`, before `_log_state`,
+the system computes `claim_audit` and `claim_acceptance`:
 
-A structured-output miss is now distinguishable from a model that emitted no
+- `ACCEPTED` when the audit is ACCEPTED and enforcement is on.
+- `REJECTED` when the audit is DOWNGRADED or NOT_ASSESSED under enforcement;
+  the Markdown and HTML reports carry the non-acceptance notice.
+- `NOT_ENFORCED` when `claim_enforcement` is off; this never reads as acceptance.
+
+`claim_enforcement` now defaults to **True** (env
+`TRADINGAGENTS_CLAIM_ENFORCEMENT`). Acceptance is a report property: the
+`final_rating`, the memory-log entry and the `propagate()` signature are
+unchanged (INV-001 / FR-004 stay untouched).
+
+A structured-output miss is distinguishable from a model that emitted no
 claims: the Portfolio Manager records `claim_fallback="free_text"` when the
 decision came from the plain-text fallback, and the audit then reports
-`NO_CLAIM_METADATA` followed by `PM_FREETEXT_FALLBACK`. When the structured
-call succeeded, `claim_fallback` is `None`. The fallback text itself is not
-parsed for claims.
-
-Run acceptance is still **not** gated on the audit. `claim_enforcement` is a
-reserved boolean (default `False`, env `TRADINGAGENTS_CLAIM_ENFORCEMENT`); no
-behaviour branches on it yet. A `DOWNGRADED` or `NOT_ASSESSED` audit does not
-change `final_rating`, the memory-log entry, or report rendering. Activating
-fail-closed — gating run acceptance on the audit and mapping the status onto the
-REQ-TA-FR-006 run-status enum — is a later change.
+`NO_CLAIM_METADATA` followed by `PM_FREETEXT_FALLBACK`; under enforcement that
+run is REJECTED. When the structured call succeeded, `claim_fallback` is `None`.
+The fallback text itself is not parsed for claims. Mapping the verdict onto the
+REQ-TA-FR-006 run-status enum remains out of scope.
 
 ## 5. QR-002 — unconditional traceability
 
@@ -127,5 +128,7 @@ not assumed.
 - The structured Portfolio Manager call gains two bounded lists; existing
   fixtures remain valid because both lists default to empty.
 - Reports gain an evidence ledger and the "not investment advice" notice.
-- INV-005 is checkable offline as a pure function; run-level enforcement is
-  explicitly deferred.
+- The PM prompt now carries the four analyst reports as primary evidence and
+  requires at least one claim to cite one of them.
+- INV-005 is enforced at run acceptance: a downgraded or not-assessed report is
+  REJECTED and rendered with the non-acceptance notice.
