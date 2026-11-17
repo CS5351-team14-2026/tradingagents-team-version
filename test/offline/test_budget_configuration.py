@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from io import StringIO
+
 import pytest
+from rich.console import Console
+from rich.text import Text
 from typer.testing import CliRunner
 
 import cli.main as cli_main
@@ -18,6 +22,20 @@ def _config(monkeypatch, raw=None):
     if raw is not None:
         monkeypatch.setenv("TRADINGAGENTS_TOKEN_BUDGET", raw)
     return default_config.build_default_config()
+
+
+@pytest.fixture(params=[False, True], ids=["plain", "ansi"])
+def budget_cli_output(monkeypatch, request):
+    """REQ-TA-FR-002: exercise real CLI rendering with and without ANSI styles."""
+    output = StringIO()
+
+    def make_console(*args, **kwargs):
+        kwargs.update(file=output, force_terminal=request.param, legacy_windows=False,
+                      color_system="standard" if request.param else None, width=120)
+        return Console(*args, **kwargs)
+
+    monkeypatch.setattr("typer.rich_utils.Console", make_console)
+    return output, request.param
 
 
 @pytest.mark.unit
@@ -89,21 +107,27 @@ def test_req_fr002_cli_omitted_budget_preserves_existing_run_and_flags_shape(mon
 
 @pytest.mark.unit
 @pytest.mark.parametrize("raw", ["-1", "1.5", "true"])
-def test_req_fr002_cli_invalid_budget_stops_before_analysis(monkeypatch, raw):
+def test_req_fr002_cli_invalid_budget_stops_before_analysis(monkeypatch, raw, budget_cli_output):
     monkeypatch.setattr(cli_main, "run_analysis", lambda **kwargs: pytest.fail("analysis started"))
 
     result = CliRunner().invoke(cli_main.app, ["--token-budget", raw])
 
+    stream, ansi = budget_cli_output
+    output = result.output + stream.getvalue()
+    assert ("\x1b[" in output) == ansi
     assert result.exit_code != 0
-    assert "token-budget" in result.output
+    assert "--token-budget" in Text.from_ansi(output).plain
 
 
 @pytest.mark.unit
-def test_req_fr002_cli_help_explains_budget_can_be_exceeded():
+def test_req_fr002_cli_help_explains_budget_can_be_exceeded(budget_cli_output):
     result = CliRunner().invoke(cli_main.app, ["--help"])
 
+    stream, ansi = budget_cli_output
+    output = result.output + stream.getvalue()
+    assert ("\x1b[" in output) == ansi
     assert result.exit_code == 0
-    text = " ".join(result.output.split())
+    text = " ".join(Text.from_ansi(output).plain.split())
     assert "--token-budget" in text
     assert "required" in text and "exceed" in text
 

@@ -246,3 +246,63 @@ step adds only the true authorization record; the final 1945-test default
 and fixed-seed randomized evidence above remains the executable acceptance
 result. Remote identity and normal-push eligibility are checked through Git
 before publication; the actual push outcome is reported after it completes.
+
+## CI ANSI assertion repair and publication authorization (2026-11-18)
+
+The human supplied the full Python 3.11 CI output: four failed assertions,
+2002 passed, one skipped and one deselected. The failing cases were the three
+invalid-budget parameter cases and the help-text case in
+`test/offline/test_budget_configuration.py`. Invalid parameters already exited
+with code 2 and help exited with code 0. Rich inserted ANSI styles inside
+`--token-budget`, preventing the raw string assertions from finding it.
+A controlled in-memory reproduction confirmed that decoding ANSI with
+`rich.text.Text.from_ansi(...).plain` restores the contiguous option name.
+
+The human then instructed, verbatim:
+
+> 我已经把那个PR关掉了,那针对这个bug你先帮我在本地修改，然后再推送到远端仓库的Fr002分支
+
+This authorizes the local test repair, verification, commit and normal push
+to `origin/feat/FR-002`. It does not authorize test-plan approval, the
+`test-approved` label, or creating, reopening or merging a PR.
+
+The initial local worktree was clean on `feat/FR-002` at `500e236`.
+The remote feature branch contained the human's integration conflict-resolution
+merge. After fetching, local `feat/FR-002` was fast-forwarded to
+`43f730b54efac6b59f08d24086ff645f00261abf`, matching the remote feature tip.
+Git network access used the existing Windows web proxy for the individual
+command; no persistent proxy configuration or credential content was changed.
+
+The repair changes only the two affected test functions and adds a local
+parametrized fixture. Each function exercises real Typer/Rich rendering in
+both plain and forced-ANSI modes using StringIO. It verifies that the requested
+mode actually emits or omits ANSI styles, then decodes the output before
+checking the option/help text. The invalid-input guard still fails if analysis
+starts, and the exit/help semantic assertions remain. Read-only delegated
+review found no blockers. No production implementation, dependency, workflow,
+requirement, interface or budget policy changed. The only other edited files
+are this record and `docs/ai-use-log.yaml`, with all prior entries preserved.
+
+Actual verification:
+
+- Focused configuration module: **42 passed in 5.38s**, including both modes.
+- Whole-repository `ruff check .`: **passed**.
+- Registry and template schema validation: **passed** using system Python.
+- The first full isolated run had **2004 passed and one failed**. Its temporary
+  pre-collection socket guard incorrectly blocked the existing offline
+  localhost callback test. The runner was corrected to allow only numeric
+  `127.0.0.1`; the repository test was unchanged. That focused callback test
+  then passed, and the full suite was rerun.
+- Final full `pytest -q`, Windows/Python **3.12.10**: **2005 passed, 6 skipped,
+  1 deselected, 24 warnings, 100 subtests passed in 65.79s**. Five skips are
+  existing Windows/POSIX limitations; one is absent optional `langchain_aws`.
+  Existing configuration excludes the integration test.
+- Verification used temporary work/profile/cache directories, a clean
+  environment, disabled dotenv discovery, external-network refusal and UTF-8
+  mode. No live provider or paid experiment ran. No repository isolation
+  fixture or CI configuration was changed.
+
+Log validation, preservation of the prior 20 entries, three-file scope and
+`git diff --check` are checked before commit. Push success and local/remote SHA
+equality are verified after the network operation; they are not presumed here.
+The local results do not claim that remote Python 3.11-3.14 CI has passed.

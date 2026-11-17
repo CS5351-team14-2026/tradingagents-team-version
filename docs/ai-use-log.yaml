@@ -526,3 +526,39 @@ entries:
     verification: "Quick real-graph/scripted-provider integration trial passed; no real provider call or measured production speedup claimed. See local validation report for full regression."
     transcript: "Detailed records and PR/issue drafts retained locally by xiangwen Huang."
 
+  - id: AI-2026-11-18-codex-fr002-ansi-fix
+    date: "2026-11-18"
+    task: "REQ-TA-FR-002: repair CLI test assertions for plain and ANSI-styled Typer/Rich output, verify, and publish to feat/FR-002."
+    agent: "Codex with delegated read-only review"
+    model: "GPT-6 (system identification; exact deployed revision not supplied)"
+    prompt_ref: "Current human repair/publication instruction; transcripts/FR-002-codex.md"
+    files:
+      - test/offline/test_budget_configuration.py
+      - docs/ai-use-log.yaml
+      - transcripts/FR-002-codex.md
+    human_decision: >-
+      The human stated that the PR was closed and instructed:
+      "我已经把那个PR关掉了,那针对这个bug你先帮我在本地修改，然后再推送到远端仓库的Fr002分支".
+      This authorizes the scoped local repair, commit and normal push to
+      origin/feat/FR-002. It does not approve a test plan, apply test-approved,
+      or authorize creating, reopening or merging a PR.
+    verification: >-
+      The supplied Python 3.11 CI log had four assertion failures caused by
+      ANSI styles splitting --token-budget; the parser/help exit behavior was
+      correct. A controlled reproduction confirmed the split. The repair
+      exercises actual CLI rendering in plain and forced-ANSI modes and uses
+      Rich Text.from_ansi before semantic assertions. Focused configuration
+      tests: 42 passed. Final full pytest -q on Windows/Python 3.12.10:
+      2005 passed, 6 skipped, 1 deselected, 24 warnings, 100 subtests passed
+      in 65.79s. The first full verification had 2004 passes and one localhost
+      callback failure caused by the temporary pre-collection network guard;
+      permitting only numeric 127.0.0.1 in that runner resolved it. No
+      repository test was skipped or changed to bypass that failure. Runs
+      used isolated temporary profile/work/cache directories, disabled dotenv
+      discovery and external networking, and Python UTF-8 mode. Whole-repo
+      Ruff and registry/template schema validation passed. Base HEAD is
+      43f730b54efac6b59f08d24086ff645f00261abf after fast-forwarding the
+      existing remote merge. Prior log entries are preserved. Remote Python
+      matrix CI has not been rerun; log/scope/diff checks precede commit.
+    transcript: transcripts/FR-002-codex.md
+
