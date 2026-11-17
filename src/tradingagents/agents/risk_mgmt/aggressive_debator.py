@@ -5,6 +5,8 @@ from tradingagents.agents.context import (
     opponent_argument_or_opening,
     report_or_absent,
 )
+from tradingagents.llm_clients.invocation import CallSpec, invoke_with_budget
+from tradingagents.run_budget import CallRole
 
 
 def create_aggressive_debator(llm):
@@ -45,7 +47,8 @@ Here is the current conversation history: {history} Here are the last arguments 
 
 Engage actively by addressing any specific concerns raised, refuting the weaknesses in their logic, and asserting the benefits of risk-taking to outpace market norms. Maintain a focus on debating and persuading, not just presenting data. Challenge each counterpoint to underscore why a high-risk approach is optimal. Output conversationally as if you are speaking without any special formatting.""" + get_language_instruction()
 
-        response = llm.invoke(prompt)
+        response = invoke_with_budget(
+            llm, prompt, call=CallSpec(phase="risk.aggressive", role=CallRole.OPTIONAL))
 
         argument = f"Aggressive Analyst: {response.content}"
 

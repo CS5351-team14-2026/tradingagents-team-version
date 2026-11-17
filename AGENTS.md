@@ -70,6 +70,79 @@ profile→settings mapping; the shared evidence-citation format for FR-03/FR-05)
 Until an interface is written here, agents must not invent cross-module APIs —
 propose them in the execution plan and wait for approval.
 
+### FR-002 usage and budget contract (approved 2026-11-18)
+
+The human first approved the FR-002 plan, all recommended policy decisions
+D1–D10, and **S1 only**, then explicitly authorized "继续实现s2和s3".
+The accepted S1–S3 contract is
+`docs/architecture/ADR-003-run-token-budget.md`:
+
+- `tradingagents.run_budget` owns the per-run usage ledger, immutable usage
+  observations/snapshots, and `RunBudgetContext`; `current_run_context()` and
+  `RunBudgetContext.activate()` share that context across public call paths.
+- `llm_clients.usage.normalize_usage` and `UsageCallbackHandler` adapt provider
+  observations into the ledger. `cli.stats_handler.StatsCallbackHandler` is an
+  adapter to the same accounting source, not a second token accumulator.
+- An absent token count is unavailable, never an estimated or fabricated zero.
+  Partial reported usage is a known lower bound, not a complete run total.
+- The staged implementation connects S1 observation, S2 per-invocation
+  admission/routing and S3 public configuration, durable accounting and
+  metadata/reporting. Historical stage evidence is retained in the trace;
+  implementation authorization does not replace stage verification.
+- Budget status is independent of the existing `completed`/`failed` run
+  lifecycle. No exact hard cap or final-report reserve percentage is claimed;
+  the reserve remains TBD pending the phase-token-share experiment.
+
+On 2026-11-18 the human additionally instructed: "继续实现s2和s3". This
+authorizes the planned S2 and S3, with separate stage verification/reporting.
+The approved `llm_clients.invocation.invoke_with_budget` boundary uses
+`CallSpec(phase, role, call_id)` and a distinct `BudgetInvocationRefused`
+control outcome. Structured retries/fallbacks receive separate admission;
+callbacks correlate nested model events through the logical call identity.
+The detailed contract and subsequent stage evidence remain in ADR-003 and
+`docs/architecture/FR-002-trace.md`.
+
+The implemented S3 interfaces are registered here under that approval:
+
+- `config["token_budget"]` accepts a non-negative integer excluding booleans;
+  `None` disables enforcement and preserves historical checkpoint signatures.
+  `TRADINGAGENTS_TOKEN_BUDGET` supplies the default, and explicit CLI
+  `--token-budget N` wins. Zero is valid. Python callers supply the config or
+  an explicit `RunBudgetContext`; a conflicting configured limit is rejected.
+  `max_tokens`, profiles, round caps and SDK retries retain their own meanings.
+- `graph.checkpointer.BudgetLedgerStore(data_dir, ticker, thread_id)` exposes
+  `load()`, `save_state(state)` and `clear()`. The tracker exposes
+  `bind_persistence(writer)`, `restore_state(state)`, `recover_inflight()`,
+  `mark_history_unavailable(reason_code)` and `raise_if_unhealthy()`.
+  Each event commits an allowlisted cumulative snapshot, under the tracker
+  lock, before admission returns. Revision plus generation compare-and-swap
+  prevents competing/stale writers from overwriting history. Private SQLite
+  paths or connections are not cross-module interfaces.
+- Restored phases already containing a started call make a replayed request an
+  optional retry. An analyst's `.wrap_up` phase is independent of its initial
+  phase. Lost/incompatible history and accounting failure raise the public
+  `BudgetLedgerError` control result and end the analysis with `failed`/REVIEW;
+  no recommendation is invented or written to normal decision memory.
+- `TradingAgentsGraph.observation_scope()`, `propagate()` and public
+  `stream_run()` share the run context. Public `begin_checkpoint()` / stream /
+  `end_checkpoint()` callers receive automatic context setup and restoration;
+  every begin is paired with end in a `finally`.
+- `run_record.build_run_record(..., budget: BudgetSnapshot | None = None)` and
+  `build_budget_metadata(snapshot, *, usage=None)` serialize schema `2` with
+  `run_metadata.budget`: `limit`, `enforcement_enabled`, `status`,
+  `reason_codes`, `known_tokens`, `usage_state`, `blocked_calls`.
+  Existing `completed`/`failed` statuses and legacy flat keys remain.
+  `replayable_settings.token_budget` is added only when enforcement is enabled.
+- Successful synthesis remains `completed` if budget-ledger cleanup fails;
+  the persisted record adds the cleanup reason and `BUDGET_WARNING`, retaining
+  `BUDGET_EXHAUSTED` precedence. Explicit `clear_checkpoint` clears that
+  thread's graph and budget history. Standalone/backtest-tail settlement has
+  a separate canonical record and context; it cannot charge the last analysis.
+
+No final-report reserve, warning proximity threshold or quantitative target
+is introduced. Calibration remains TBD until the separately approved
+phase-token-share experiment; no experiment is implied by implementation.
+
 ## 7. Verification requirements for generated code
 
 - `ruff check .` passes (strict, full repo)

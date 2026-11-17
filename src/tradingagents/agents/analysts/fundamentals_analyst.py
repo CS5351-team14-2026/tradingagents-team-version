@@ -54,7 +54,7 @@ def create_fundamentals_analyst(llm):
         prompt = prompt.partial(current_date=current_date)
         prompt = prompt.partial(instrument_context=instrument_context)
 
-        result, report = take_turn(prompt, llm, TOOLS, state["messages"])
+        result, report = take_turn(prompt, llm, TOOLS, state["messages"], phase="fundamentals_analyst")
 
         return {
             "messages": [result],

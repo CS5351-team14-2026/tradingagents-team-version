@@ -4,7 +4,7 @@ import os
 import sys
 import time
 import webbrowser
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -34,6 +34,7 @@ from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.run_budget import RunBudgetContext, RunBudgetTracker
 from tradingagents.run_record import build_usage_summary
 
 
@@ -112,7 +113,8 @@ def _build_run_config(selections: dict, checkpoint: bool | None, profile: str | 
     return config
 
 
-def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, profile: str | None = None):
+def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, profile: str | None = None,
+                 token_budget: int | None = None):
     flags = dict(flags or {})
     # A profile is recognised and validated first — before the unattended-gap
     # check, the interactive questions and any model client — so an unknown
@@ -137,8 +139,10 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
     selections = get_user_selections(flags)
 
     config = _build_run_config(selections, checkpoint, profile=profile_name)
+    if token_budget is not None:
+        config["token_budget"] = token_budget
 
-    stats_handler = StatsCallbackHandler()
+    stats_handler = StatsCallbackHandler(RunBudgetTracker(config.get("token_budget")))
 
     # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
     selected_set = {analyst.value for analyst in selections["analysts"]}
@@ -224,7 +228,10 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
 
     # The alternate screen keeps a layout taller than the window from redrawing
     # by scrolling; the final report prints after this block, on the normal screen.
-    with Live(layout, refresh_per_second=4, screen=True):
+    # The graph's constructor callbacks and the CLI's stream callbacks share
+    # this run's ledger (ADR-003; REQ-TA-FR-002, REQ-TA-QR-004).
+    observation_scope = graph.observation_scope if hasattr(graph, "observation_scope") else nullcontext
+    with RunBudgetContext(stats_handler.tracker).activate(), observation_scope(), Live(layout, refresh_per_second=4, screen=True):
         # Initial display
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
@@ -278,18 +285,17 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
         # Recompile with a checkpointer and inject the thread_id so --checkpoint
         # actually saves and resumes on the CLI path (#1249); a no-op when
         # checkpointing is disabled. Torn down in the finally below.
-        checkpoint_tid = graph.begin_checkpoint(
-            selections["ticker"], selections["analysis_date"], selections["asset_type"], portfolio
-        )
-        if checkpoint_tid is not None:
-            args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = checkpoint_tid
-            _announce_checkpoint_state(graph, selections["ticker"], selections["analysis_date"])
-
         # Stream the analysis. On resume, feed None so LangGraph continues the
         # interrupted run instead of re-appending the initial state (#1249); the
         # try/finally tears the checkpointer down even if the stream raises.
         trace = []
         try:
+            checkpoint_tid = graph.begin_checkpoint(
+                selections["ticker"], selections["analysis_date"], selections["asset_type"], portfolio
+            )
+            if checkpoint_tid is not None:
+                args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = checkpoint_tid
+                _announce_checkpoint_state(graph, selections["ticker"], selections["analysis_date"])
             for messages, chunk in graph.stream_run(graph.checkpoint_input(init_agent_state), **args):
                 for message in messages:
                     msg_id = getattr(message, "id", None)
@@ -379,7 +385,8 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
                         message_buffer.update_report_section(
                             "final_trade_decision", f"### Neutral Analyst Analysis\n{neu_hist}"
                         )
-                    if judge and message_buffer.agent_status.get("Portfolio Manager") != "completed":
+                    if (judge and not chunk.get("budget_termination")
+                            and message_buffer.agent_status.get("Portfolio Manager") != "completed"):
                         message_buffer.update_agent_status("Portfolio Manager", "in_progress")
                         message_buffer.update_report_section(
                             "final_trade_decision", f"### Portfolio Manager Decision\n{judge}"
@@ -408,17 +415,21 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             if hasattr(graph, "set_run_observations"):
                 graph.set_run_observations(
                     usage=build_usage_summary(stats_handler.get_stats()),
-                    status=record.STATUS_COMPLETED,
+                    status=graph.run_settings().get("run_metadata", {}).get("status", record.STATUS_COMPLETED),
                     started_at=_iso_timestamp(start_time),
                     completed_at=_iso_timestamp(time.time()),
                 )
 
             # Clean run: log the decision (which persists the record written
             # above), then drop this run's checkpoint so a later run starts fresh.
-            graph.record_decision(selections["ticker"], selections["analysis_date"], final_state)
-            graph.clear_checkpoint_on_success(
-                selections["ticker"], selections["analysis_date"], selections["asset_type"], portfolio
-            )
+            if stats_handler.tracker.limit is not None:
+                graph.clear_checkpoint_on_success(
+                    selections["ticker"], selections["analysis_date"], selections["asset_type"], portfolio)
+                graph.record_decision(selections["ticker"], selections["analysis_date"], final_state)
+            else:
+                graph.record_decision(selections["ticker"], selections["analysis_date"], final_state)
+                graph.clear_checkpoint_on_success(
+                    selections["ticker"], selections["analysis_date"], selections["asset_type"], portfolio)
         except BaseException:
             # REQ-TA-QR-004: a run that throws after startup still records
             # structured metadata with status=failed. The state log cannot be
@@ -439,11 +450,12 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             # Always restore the plain uncheckpointed graph, even on failure.
             graph.end_checkpoint()
 
-        for agent in message_buffer.agent_status:
-            message_buffer.update_agent_status(agent, "completed")
+        failed = graph.run_settings().get("run_metadata", {}).get("status") == record.STATUS_FAILED
+        for agent, status in message_buffer.agent_status.items():
+            message_buffer.update_agent_status(agent, "error" if failed and status != "completed" else "completed")
 
         message_buffer.add_message(
-            "System", f"Completed analysis for {selections['analysis_date']}"
+            "System", f"{'Analysis ended for review' if failed else 'Completed analysis'} for {selections['analysis_date']}"
         )
         message_buffer.add_message("System", analyst_wall_time_tracker.format_summary())
 
@@ -454,7 +466,8 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
     # Post-analysis prompts (outside Live context for clean interaction)
-    console.print("\n[bold cyan]Analysis Complete![/bold cyan]\n")
+    console.print("\n[bold cyan]Analysis ended for review.[/bold cyan]\n" if failed else
+                  "\n[bold cyan]Analysis Complete![/bold cyan]\n")
 
     # A decision nobody can read is not a position. Say so here rather than
     # leaving the run to look like a normal result.

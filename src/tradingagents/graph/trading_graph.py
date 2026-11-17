@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ from tradingagents.dataflows.date_window import get_current_date, is_historical
 from tradingagents.dataflows.symbols import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG, _coerce, resolve_profile
 from tradingagents.llm_clients import create_tier_client, tier_provider
+from tradingagents.llm_clients.invocation import BudgetInvocationRefused
+from tradingagents.llm_clients.usage import UsageCallbackHandler
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
 from tradingagents.reporting import (
@@ -23,8 +26,24 @@ from tradingagents.reporting import (
     evaluate_claim_acceptance,
     write_report_tree,
 )
+from tradingagents.run_budget import (
+    BUDGET_EXHAUSTED,
+    BUDGET_STATE_VERSION,
+    BUDGET_WARNING,
+    BudgetLedgerError,
+    BudgetSnapshot,
+    RunBudgetContext,
+    RunBudgetTracker,
+    current_run_context,
+)
 
-from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
+from .checkpointer import (
+    BudgetLedgerStore,
+    checkpoint_step,
+    clear_checkpoint,
+    get_checkpointer,
+    thread_id,
+)
 from .conditional_logic import ConditionalLogic
 from .propagation import Propagator
 from .setup import GraphSetup
@@ -121,7 +140,11 @@ class TradingAgentsGraph:
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
-        self.callbacks = callbacks or []
+        # Validate the public per-run budget before constructing any provider.
+        RunBudgetTracker(self.config.get("token_budget"))
+        # One observer serves CLI and direct graph callers (FR-002/QR-004).
+        self.usage_handler = UsageCallbackHandler()
+        self.callbacks = [*(callbacks or []), self.usage_handler]
 
         # Resolve the profile before any model client is built: an unknown
         # profile must fail here, naming the legal values, rather than after a
@@ -303,7 +326,8 @@ class TradingAgentsGraph:
             claim_enforcement=_HISTORICAL_CLAIM_ENFORCEMENT)
 
     def _signature_from(self, asset_type: str, portfolio, *, in_signature_exclusions,
-                        claim_enforcement=_HISTORICAL_CLAIM_ENFORCEMENT) -> str:
+                        claim_enforcement=_HISTORICAL_CLAIM_ENFORCEMENT,
+                        include_budget=True) -> str:
         """Build the checkpoint signature with the given config exclusions.
 
         ``claim_enforcement`` is only folded in when it is *not* excluded (the
@@ -313,8 +337,12 @@ class TradingAgentsGraph:
         """
         settings = {
             k: v for k, v in self.config.items()
-            if k not in in_signature_exclusions and k != "claim_enforcement"
+            if k not in in_signature_exclusions and k not in {"claim_enforcement", "token_budget"}
         }
+        limit = self._effective_budget_limit() if include_budget else None
+        if limit is not None:
+            settings["token_budget"] = limit
+            settings["budget_policy_version"] = BUDGET_STATE_VERSION
         if "claim_enforcement" not in in_signature_exclusions:
             settings["claim_enforcement"] = claim_enforcement
         digest = hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()[:12]
@@ -369,12 +397,60 @@ class TradingAgentsGraph:
         """
         trade_date = _validate_trade_date(trade_date)
 
-        with run_config(self.config), \
+        with self.observation_scope(), run_config(self.config), \
                 self.checkpoint_scope(company_name, trade_date, asset_type, portfolio) as thread_id_value:
             return self._run_graph(
                 company_name, trade_date, asset_type=asset_type,
                 checkpoint_thread_id=thread_id_value, portfolio=portfolio,
             )
+
+    @contextmanager
+    def observation_scope(self):
+        """Share one run's measured usage across model and graph callbacks.
+
+        Implements: ADR-003; REQ-TA-FR-002, REQ-TA-QR-004.
+        A caller's active context (for example the CLI's) is reused. Every
+        fresh analysis otherwise starts a new ledger, even on a reused graph.
+        """
+        context = current_run_context()
+        limit = self.config.get("token_budget")
+        if context is not None and limit is not None and context.tracker.limit != limit:
+            raise ValueError("active run context token budget conflicts with graph configuration")
+        context = context or RunBudgetContext(RunBudgetTracker(limit))
+        previous_context = getattr(self, "_observation_context", None)
+        self._observation_context = context
+        self._run_usage = None
+        self._run_status = None
+        self._run_started_at = None
+        self._run_completed_at = None
+        self._usage_history_unavailable = False
+        self._budget_setup_error = None
+        self._budget_cleanup_reason = None
+        self._budget_store = None
+        with context.activate():
+            try:
+                yield context.tracker
+            finally:
+                self._run_usage = self._observed_usage(context.tracker)
+                self._run_budget = context.tracker.snapshot()
+                self._observation_context = previous_context
+
+    def _effective_budget_limit(self):
+        context = current_run_context()
+        if context is not None and context is getattr(self, "_observation_context", None):
+            return context.tracker.limit
+        return self.config.get("token_budget")
+
+    def _observed_usage(self, tracker):
+        """Keep pre-resume unknown history incomplete (ADR-003; FR-002/QR-004).
+
+        Budget-enabled runs restore their durable cumulative ledger. A legacy
+        unbudgeted resume cannot claim its observed remainder is the whole run.
+        """
+        usage = record.build_usage_summary(tracker.snapshot().to_stats())
+        if getattr(self, "_usage_history_unavailable", False):
+            usage = replace(usage, usage_complete=False)
+        return usage
 
     def begin_checkpoint(self, company_name, trade_date, asset_type: str = "stock", portfolio=None) -> str | None:
         """Recompile the graph with a per-ticker checkpointer and return the
@@ -387,13 +463,31 @@ class TradingAgentsGraph:
         lived only inside ``propagate`` and the CLI streamed the checkpointer-less
         graph, making the flag a no-op.
         """
+        try:
+            return self._begin_checkpoint(company_name, trade_date, asset_type, portfolio)
+        except BaseException:
+            try:
+                self.end_checkpoint()
+            except Exception:
+                logger.warning("Checkpoint teardown after setup failure failed", exc_info=True)
+            raise
+
+    def _begin_checkpoint(self, company_name, trade_date, asset_type, portfolio):
         self._resuming = False
         if not self.config.get("checkpoint_enabled"):
             return None
+        active = current_run_context()
+        if (self.config.get("token_budget") is not None or (active is not None and active.tracker.limit is not None)) and (
+                current_run_context() is None or current_run_context() is not getattr(self, "_observation_context", None)):
+            # Public begin/stream/end callers get the same run lifetime as
+            # propagate and the CLI. end_checkpoint restores their context.
+            self._checkpoint_observation_scope = self.observation_scope()
+            self._checkpoint_observation_scope.__enter__()
         signature = self._run_signature(asset_type, portfolio)
         self._integration_signature = self._integration_run_signature(asset_type, portfolio)
-        self._checkpointer_ctx = get_checkpointer(self.config["data_cache_dir"], company_name)
-        saver = self._checkpointer_ctx.__enter__()
+        checkpoint_context = get_checkpointer(self.config["data_cache_dir"], company_name)
+        saver = checkpoint_context.__enter__()
+        self._checkpointer_ctx = checkpoint_context
         self.graph = self.workflow.compile(checkpointer=saver)
 
         # Prefer this build's own (pre-PR#27, ``claim_enforcement`` dropped)
@@ -412,12 +506,51 @@ class TradingAgentsGraph:
         self._resuming = chosen is not None
         if chosen is not None:
             self._resume_signature, step = chosen
+            self._usage_history_unavailable = self._effective_budget_limit() is None
             logger.info("Resuming from step %d for %s on %s", step, company_name, trade_date)
         else:
             self._resume_signature = signature
             logger.info("Starting fresh for %s on %s", company_name, trade_date)
         self._thread_id = thread_id(company_name, date, self._resume_signature)
+        if self._effective_budget_limit() is not None:
+            self._unbudgeted_signatures = (
+                self._signature_from(asset_type, portfolio, in_signature_exclusions=_NOT_IN_SIGNATURE,
+                                     include_budget=False),
+                self._signature_from(asset_type, portfolio, in_signature_exclusions=_POST_PR27_NOT_IN_SIGNATURE,
+                                     include_budget=False),
+            )
+            self._prepare_budget_ledger(data_dir, company_name, date)
         return self._thread_id
+
+    def _prepare_budget_ledger(self, data_dir, ticker, date):
+        """Restore committed usage independently of graph checkpoint commits.
+
+        REQ-TA-FR-002: absent or incompatible accounting requires an explicit
+        fresh-run choice (clear checkpoint), never an implicit zero reset.
+        """
+        tracker = current_run_context().tracker
+        try:
+            store = BudgetLedgerStore(data_dir, ticker, self._thread_id)
+            self._budget_store = store
+            state = store.load()
+            if self._resuming:
+                if state is None:
+                    raise BudgetLedgerError("BUDGET_HISTORY_UNAVAILABLE")
+                tracker.restore_state(state)
+                tracker.recover_inflight()
+            elif state is not None:
+                raise BudgetLedgerError("BUDGET_CHECKPOINT_MISMATCH")
+            else:
+                # An old unbudgeted checkpoint cannot supply the missing usage
+                # when a caller enables a budget for that same analysis.
+                if any(checkpoint_step(data_dir, ticker, date, candidate) is not None
+                       for candidate in self._unbudgeted_signatures):
+                    raise BudgetLedgerError("BUDGET_HISTORY_UNAVAILABLE")
+            tracker.bind_persistence(store.save_state)
+        except (BudgetLedgerError, ValueError) as exc:
+            error = exc if isinstance(exc, BudgetLedgerError) else BudgetLedgerError("BUDGET_LEDGER_INVALID")
+            tracker.mark_history_unavailable(error.reason_code)
+            self._budget_setup_error = error
 
     def checkpoint_input(self, init_state):
         """The value to stream/invoke: ``None`` to resume an existing checkpoint,
@@ -427,17 +560,27 @@ class TradingAgentsGraph:
         re-passing the initial state instead appends it through the message
         reducer, duplicating messages in the resumed state (#1249).
         """
-        return None if self._resuming else init_state
+        return None if self._resuming and getattr(self, "_budget_setup_error", None) is None else init_state
 
     def end_checkpoint(self):
         """Restore the plain uncheckpointed graph after a checkpointed run."""
-        if self._checkpointer_ctx is not None:
-            self._checkpointer_ctx.__exit__(None, None, None)
+        checkpoint_context = self._checkpointer_ctx
+        try:
+            if checkpoint_context is not None:
+                checkpoint_context.__exit__(None, None, None)
+        finally:
             self._checkpointer_ctx = None
-            self.graph = self.workflow.compile()
-        self._resuming = False
-        self._thread_id = None
-        self._resume_signature = None
+            try:
+                if checkpoint_context is not None:
+                    self.graph = self.workflow.compile()
+            finally:
+                self._resuming = False
+                self._thread_id = None
+                self._resume_signature = None
+                scope = getattr(self, "_checkpoint_observation_scope", None)
+                if scope is not None:
+                    self._checkpoint_observation_scope = None
+                    scope.__exit__(None, None, None)
 
     @contextmanager
     def checkpoint_scope(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
@@ -455,9 +598,21 @@ class TradingAgentsGraph:
         resumed either checkpoint must not leave it behind to be re-resumed
         (ADR-002; REQ-TA-FR-001).
         """
-        if not self.config.get("checkpoint_enabled"):
+        if not self.config.get("checkpoint_enabled") or getattr(self, "_run_status", None) == record.STATUS_FAILED:
             return
         data_dir, date = self.config["data_cache_dir"], str(trade_date)
+        store = getattr(self, "_budget_store", None)
+        if store is not None:
+            # Commit the terminal record before retiring its recovery history.
+            # Cleanup failure does not invalidate an already valid synthesis.
+            self.write_run_record(company_name, date)
+            try:
+                store.clear()
+            except BudgetLedgerError as exc:
+                self._budget_cleanup_reason = exc.reason_code
+                logger.warning("Budget checkpoint cleanup failed: %s", exc.reason_code)
+                self.write_run_record(company_name, date)
+                return
         for signature in {self._run_signature(asset_type, portfolio),
                           self._integration_run_signature(asset_type, portfolio)}:
             clear_checkpoint(data_dir, company_name, date, signature)
@@ -475,6 +630,8 @@ class TradingAgentsGraph:
         bare instance, or a caller with no token accounting) leaves the record's
         usage fields null with ``usage_complete`` false.
         """
+        if usage is not None and getattr(self, "_usage_history_unavailable", False):
+            usage = replace(usage, usage_complete=False)
         self._run_usage = usage
         self._run_status = status
         self._run_started_at = started_at
@@ -569,6 +726,26 @@ class TradingAgentsGraph:
         }
 
         usage = getattr(self, "_run_usage", None)
+        budget = getattr(self, "_run_budget", None)
+        if not isinstance(budget, BudgetSnapshot):
+            budget = None
+        context = current_run_context()
+        if context is not None and context is getattr(self, "_observation_context", None):
+            # Snapshot before persistence, including observations of in-graph
+            # reflection. Never infer completeness from initialized counters.
+            usage = self._observed_usage(context.tracker)
+            budget = context.tracker.snapshot()
+        if budget is not None and getattr(self, "_usage_history_unavailable", False):
+            budget = replace(budget, usage_complete=False, total_tokens=None,
+                             usage_state="partial" if budget.known_tokens is not None else "unavailable")
+        cleanup_reason = getattr(self, "_budget_cleanup_reason", None)
+        if budget is not None and isinstance(cleanup_reason, str):
+            budget = replace(budget, status=(BUDGET_EXHAUSTED if budget.status == BUDGET_EXHAUSTED
+                                             else BUDGET_WARNING),
+                             reason_codes=(*budget.reason_codes, cleanup_reason))
+        limit = budget.limit if budget is not None else cfg.get("token_budget")
+        if limit is not None:
+            replayable_settings["token_budget"] = limit
         status = getattr(self, "_run_status", None) or record.STATUS_COMPLETED
 
         # Legacy flat keys (migration strategy C): the shape existing report and
@@ -601,6 +778,7 @@ class TradingAgentsGraph:
             completed_at=getattr(self, "_run_completed_at", None),
             version=tradingagents.__version__,
             legacy=legacy,
+            budget=budget,
         )
         return record_obj.to_dict()
 
@@ -650,9 +828,13 @@ class TradingAgentsGraph:
         try:
             # Another run settling the same log does the work; this one goes on.
             done = self.settle_all_pending(wait=False)
+            if getattr(done, "budget_skipped", []):
+                note = "Past reflections were stopped by the token budget and stay pending."
             if done.failed:
-                note = (f"{len(done.failed)} past decision(s) could not be settled this run "
-                        "and stay pending.")
+                note = (note + " " if note else "") + (
+                    f"{len(done.failed)} past decision(s) could not be settled this run and stay pending.")
+        except BudgetLedgerError:
+            raise
         except Exception as exc:
             logger.warning("Settling past decisions failed: %s", exc)
             note = f"Past decisions could not be settled this run ({type(exc).__name__}); they stay pending."
@@ -673,8 +855,10 @@ class TradingAgentsGraph:
         analyzing a ticker (a backtest sweep, a scheduled job) calls this to
         settle it now. Returns what was settled and what failed.
         """
-        with run_config(self.config):
-            return settlement.settle_pending(company_name, self.memory_log, self.reflector, self.config)
+        with self._settlement_observation_scope() as outcome, run_config(self.config):
+            result = settlement.settle_pending(company_name, self.memory_log, self.reflector, self.config)
+            outcome["failed"] = bool(getattr(result, "failed", []))
+            return result
 
     def settle_all_pending(self, wait: bool = True) -> settlement.Settlement:
         """Settle every ticker's decisions whose holding window has now traded (#1445).
@@ -683,8 +867,52 @@ class TradingAgentsGraph:
         otherwise keep its decisions pending, and their lessons out of later runs.
         With ``wait=False`` a pass already running on the same log is not waited for.
         """
-        with run_config(self.config):
-            return settlement.settle_all_pending(self.memory_log, self.reflector, self.config, wait=wait)
+        with self._settlement_observation_scope() as outcome, run_config(self.config):
+            result = settlement.settle_all_pending(self.memory_log, self.reflector, self.config, wait=wait)
+            outcome["failed"] = bool(getattr(result, "failed", []))
+            return result
+
+    @contextmanager
+    def _settlement_observation_scope(self):
+        """Observe standalone settlement separately from the last analysis.
+
+        In-graph reflection shares the analysis that triggers it (ADR-003 D9;
+        REQ-TA-FR-002). Backtest-tail and scheduler calls have their own ledger.
+        Standalone records retain their own usage and lifecycle result.
+        """
+        active = current_run_context()
+        context = (active if active is not None and active is getattr(self, "_observation_context", None)
+                   else RunBudgetContext(RunBudgetTracker(self.config.get("token_budget"))))
+        standalone = context is not active
+        started_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        status = record.STATUS_COMPLETED
+        outcome = {"failed": False}
+        with context.activate():
+            try:
+                yield outcome
+            except BaseException:
+                status = record.STATUS_FAILED
+                raise
+            finally:
+                if standalone:
+                    # A separate canonical record makes tail reflection costs
+                    # inspectable without changing the last analysis record.
+                    run = record.build_run_record(
+                        replayable_settings={"operation": "settlement", **(
+                            {"token_budget": context.tracker.limit} if context.tracker.limit is not None else {})},
+                        usage=record.build_usage_summary(context.tracker.snapshot().to_stats()),
+                        budget=context.tracker.snapshot(),
+                        status=record.STATUS_FAILED if outcome["failed"] else status,
+                        started_at=started_at,
+                        completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+                        version=tradingagents.__version__,
+                    ).to_dict()
+                    self.last_settlement_record = run
+                    if self.config.get("results_dir"):
+                        directory = Path(self.config["results_dir"]) / "settlements"
+                        directory.mkdir(parents=True, exist_ok=True)
+                        (directory / f"{context.tracker.run_id}.json").write_text(
+                            json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def record_decision(self, company_name, trade_date, final_state):
         """Record a finished run: its state log, and its decision in the memory log
@@ -701,6 +929,9 @@ class TradingAgentsGraph:
         final_state["claim_acceptance"] = evaluate_claim_acceptance(
             final_state, enforced=bool(self.config.get("claim_enforcement", False)))
         self._log_state(trade_date, final_state)
+        if final_state.get("budget_termination"):
+            # A diagnostic REVIEW is not a recommendation to reflect on.
+            return
         decision = final_state.get("final_trade_decision")
         if not decision:
             logger.warning("No final decision for %s on %s; nothing added to the memory log",
@@ -715,7 +946,10 @@ class TradingAgentsGraph:
                    checkpoint_thread_id: str | None = None, portfolio=None):
         """Execute the graph and write the resulting state to disk and memory log."""
         init_agent_state = self.create_run_state(company_name, trade_date, asset_type, portfolio)
-        args = self.propagator.get_graph_args()
+        # Constructor and graph callbacks can both see one event: the shared
+        # ledger deduplicates its run_id (ADR-003; REQ-TA-FR-002).
+        observer = getattr(self, "usage_handler", None)
+        args = self.propagator.get_graph_args(callbacks=[observer] if observer else None)
 
         # Inject the checkpoint thread_id (from checkpoint_scope) so the same
         # ticker+date+graph-shape resumes; a different one starts fresh (#1089).
@@ -725,14 +959,16 @@ class TradingAgentsGraph:
         # None resumes an existing checkpoint; init_agent_state starts fresh (#1249).
         graph_input = self.checkpoint_input(init_agent_state)
         started_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        self._run_started_at = started_at
         try:
-            if self.debug:
+            context = current_run_context()
+            if self.debug or (context is not None and context.tracker.limit is not None):
                 # A state repeats the messages before it, so each prints once (#1027).
                 final_state, printed = {}, set()
                 for messages, state in self.stream_run(graph_input, **args):
                     for msg in messages:
                         key = getattr(msg, "id", None) or (type(msg).__name__, getattr(msg, "content", None))
-                        if key not in printed:
+                        if self.debug and key not in printed:
                             printed.add(key)
                             msg.pretty_print()
                     if state is not None:
@@ -762,16 +998,47 @@ class TradingAgentsGraph:
         # rather than the pre-observation defaults.
         self.set_run_observations(
             usage=getattr(self, "_run_usage", None),
-            status=record.STATUS_COMPLETED,
+            status=getattr(self, "_run_status", None) or record.STATUS_COMPLETED,
             started_at=getattr(self, "_run_started_at", None) or started_at,
             completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
         )
-        self.record_decision(company_name, trade_date, final_state)
-
-        # Clear checkpoint on successful completion to avoid stale state.
-        self.clear_checkpoint_on_success(company_name, trade_date, asset_type, portfolio)
+        if self._effective_budget_limit() is not None:
+            self.clear_checkpoint_on_success(company_name, trade_date, asset_type, portfolio)
+            self.record_decision(company_name, trade_date, final_state)
+        else:
+            self.record_decision(company_name, trade_date, final_state)
+            self.clear_checkpoint_on_success(company_name, trade_date, asset_type, portfolio)
 
         return final_state, run_rating(final_state)
+
+    def _budget_failure_state(self, error, partial: dict) -> dict:
+        """End a curtailed required path with diagnostics, not a made-up trade.
+
+        Implements ADR-003; REQ-TA-FR-002/QR-001/INV-001. This is independent
+        from the existing QR-004 completed/failed lifecycle vocabulary.
+        """
+        state = dict(partial)
+        for key in ("market_report", "news_report", "sentiment_report", "fundamentals_report",
+                    "investment_plan", "trader_investment_plan"):
+            state.setdefault(key, "")
+        state.setdefault("investment_debate_state", {
+            "bull_history": "", "bear_history": "", "history": "", "current_response": "", "count": 0,
+        })
+        state.setdefault("risk_debate_state", {
+            "aggressive_history": "", "conservative_history": "", "neutral_history": "",
+            "history": "", "latest_speaker": "", "count": 0,
+        })
+        state["final_rating"] = "REVIEW"
+        state["final_trade_decision"] = (
+            "**Rating**: REVIEW\n\nAnalysis could not produce a valid final recommendation. "
+            f"The run budget could not safely continue during {error.phase}. "
+            f"Reason: {', '.join(error.reason_codes)}. Retained reports are available for review."
+        )
+        state["material_claims"] = []
+        state["budget_termination"] = {"phase": error.phase, "reason_codes": list(error.reason_codes)}
+        self._run_status = record.STATUS_FAILED
+        self._run_completed_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        return state
 
     def stream_run(self, graph_input, **args):
         """Stream a run as ``(messages, state)`` pairs.
@@ -784,12 +1051,27 @@ class TradingAgentsGraph:
         analysts' reports only when the slowest has finished, so their messages
         and reports come from their own finished steps ("tasks") as they happen.
         """
+        context = current_run_context()
+        if context is None or context is not getattr(self, "_observation_context", None):
+            with self.observation_scope():
+                yield from self._stream_run(graph_input, **args)
+        else:
+            yield from self._stream_run(graph_input, **args)
+
+    def _stream_run(self, graph_input, **args):
+        """Execute within the public stream's shared run context (FR-002)."""
         args = {**args, "stream_mode": ["values", "tasks"]}
+        if getattr(self, "_budget_setup_error", None) is not None:
+            yield [], self._budget_failure_state(self._budget_setup_error, dict(graph_input or {}))
+            return
         # The graph's own config serves every tool call, as in propagate(), even
         # when the process-wide config has changed since. Each step runs in the
         # run's context, so the caller keeps its own between steps.
         context = run_config_context(self.config)
         stream = context.run(self.graph.stream, graph_input, subgraphs=True, **args)
+        partial = dict(graph_input or {})
+        if graph_input is None and args.get("config", {}).get("configurable", {}).get("thread_id"):
+            partial.update(self.graph.get_state(args["config"]).values)
         try:
             while (step := context.run(next, stream, None)) is not None:
                 namespace, mode, chunk = step
@@ -797,10 +1079,14 @@ class TradingAgentsGraph:
                     result = chunk.get("result") if mode == "tasks" else None
                     if isinstance(result, dict):
                         report = {k: v for k, v in result.items() if k != "messages" and v}
+                        partial.update(report)
                         if result.get("messages") or report:
                             yield result.get("messages", []), report or None
                 elif mode == "values":
+                    partial.update(chunk)
                     yield chunk.get("messages", []), chunk
+        except (BudgetInvocationRefused, BudgetLedgerError) as exc:
+            yield [], self._budget_failure_state(exc, partial)
         finally:
             context.run(stream.close)
 
@@ -837,6 +1123,8 @@ class TradingAgentsGraph:
             "claim_fallback": final_state.get("claim_fallback"),
             "run_settings": self.run_settings(),
         }
+        if final_state.get("budget_termination"):
+            entry["budget_termination"] = final_state["budget_termination"]
 
         # A ticker that would escape the results directory is rejected.
         safe_ticker = safe_ticker_component(final_state["company_of_interest"])

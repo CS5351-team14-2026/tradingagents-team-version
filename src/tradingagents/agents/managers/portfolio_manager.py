@@ -27,6 +27,12 @@ from tradingagents.agents.schemas import (
     render_pm_decision,
 )
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
+from tradingagents.llm_clients.invocation import (
+    BudgetInvocationRefused,
+    CallSpec,
+    invoke_with_budget,
+)
+from tradingagents.run_budget import BudgetLedgerError, CallRole
 
 logger = logging.getLogger(__name__)
 
@@ -57,27 +63,35 @@ def primary_analyst_evidence(state) -> str:
     )
 
 
-def _invoke_json_mode(llm, prompt) -> PortfolioDecision | None:
+def _invoke_json_mode(llm, prompt, *, role: CallRole) -> tuple[PortfolioDecision | None, bool]:
     """Retry the decision as JSON before free text (deepseek-flash misses tool calls).
 
     A json_mode result is still a structured decision, so the claims/rating path
     is unchanged and ``claim_fallback`` stays ``None`` (ADR-001).
+    The second value records whether a model request was attempted; binding an
+    unsupported mode consumes no attempt and leaves the first plain call required.
     """
     try:
         structured_json = llm.with_structured_output(PortfolioDecision, method="json_mode")
     except (NotImplementedError, AttributeError) as exc:
         logger.warning("PM: json_mode retry failed (binding: %s)", exc)
-        return None
+        return None, False
     try:
-        result = structured_json.invoke(prompt)
+        result = invoke_with_budget(
+            structured_json,
+            prompt,
+            call=CallSpec(phase="portfolio_manager", role=role),
+        )
         if result is None:
             raise ValueError("json_mode returned no result")
         if isinstance(result, PortfolioDecision):
-            return result
-        return PortfolioDecision.model_validate_json(result)
+            return result, True
+        return PortfolioDecision.model_validate_json(result), True
+    except (BudgetInvocationRefused, BudgetLedgerError):
+        raise
     except Exception as exc:
         logger.warning("PM: json_mode retry failed (%s)", exc)
-        return None
+        return None, True
 
 
 def create_portfolio_manager(llm):
@@ -162,9 +176,17 @@ traceability check.
 
         # The typed rating is the decision; the rendered text only carries it.
         # Read back from text, a rating the thesis quotes could replace it.
-        decision = invoke_structured(structured_llm, prompt, "Portfolio Manager")
+        decision = invoke_structured(
+            structured_llm, prompt, "Portfolio Manager", phase="portfolio_manager",
+        )
+        attempted = structured_llm is not None
         if decision is None:
-            decision = _invoke_json_mode(llm, prompt)
+            decision, json_attempted = _invoke_json_mode(
+                llm,
+                prompt,
+                role=CallRole.OPTIONAL if attempted else CallRole.REQUIRED,
+            )
+            attempted = attempted or json_attempted
         claims = []
         if decision is not None:
             final_trade_decision = render_pm_decision(decision)
@@ -184,7 +206,14 @@ traceability check.
                 for claim in factors
             ]
         else:
-            final_trade_decision = llm.invoke(prompt).content
+            final_trade_decision = invoke_with_budget(
+                llm,
+                prompt,
+                call=CallSpec(
+                    phase="portfolio_manager",
+                    role=CallRole.OPTIONAL if attempted else CallRole.REQUIRED,
+                ),
+            ).content
             final_rating = parse_rating(final_trade_decision)
 
         new_risk_debate_state = {
@@ -198,6 +227,9 @@ traceability check.
             "current_neutral_response": risk_debate_state["current_neutral_response"],
             "count": risk_debate_state["count"],
         }
+        for field in ("budget_skipped", "budget_reason_codes"):
+            if field in risk_debate_state:
+                new_risk_debate_state[field] = risk_debate_state[field]
 
         return {
             "risk_debate_state": new_risk_debate_state,

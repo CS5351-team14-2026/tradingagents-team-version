@@ -88,6 +88,7 @@ def create_trader(llm):
             messages,
             render_trader_proposal,
             "Trader",
+            phase="trader",
         )
 
         return {

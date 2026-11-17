@@ -4,6 +4,8 @@ from tradingagents.agents.context import (
     opponent_argument_or_opening,
     report_or_absent,
 )
+from tradingagents.llm_clients.invocation import CallSpec, invoke_with_budget
+from tradingagents.run_budget import CallRole
 
 
 def create_bear_researcher(llm):
@@ -50,7 +52,8 @@ Last bull argument: {current_response}
 Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the {target_label}.
 """ + get_language_instruction()
 
-        response = llm.invoke(prompt)
+        response = invoke_with_budget(
+            llm, prompt, call=CallSpec(phase="research.bear", role=CallRole.OPTIONAL))
 
         argument = f"Bear Analyst: {response.content}"
 

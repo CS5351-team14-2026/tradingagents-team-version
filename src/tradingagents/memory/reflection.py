@@ -2,6 +2,9 @@
 
 from typing import Any
 
+from tradingagents.llm_clients.invocation import CallSpec, invoke_with_budget
+from tradingagents.run_budget import CallRole
+
 
 class Reflector:
     """Handles reflection on trading decisions."""
@@ -60,4 +63,8 @@ class Reflector:
                 ),
             ),
         ]
-        return self.quick_thinking_llm.invoke(messages).content
+        return invoke_with_budget(
+            self.quick_thinking_llm,
+            messages,
+            call=CallSpec(phase="reflection", role=CallRole.OPTIONAL),
+        ).content

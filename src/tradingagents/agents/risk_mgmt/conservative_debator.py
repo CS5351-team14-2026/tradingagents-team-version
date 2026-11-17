@@ -5,6 +5,8 @@ from tradingagents.agents.context import (
     opponent_argument_or_opening,
     report_or_absent,
 )
+from tradingagents.llm_clients.invocation import CallSpec, invoke_with_budget
+from tradingagents.run_budget import CallRole
 
 
 def create_conservative_debator(llm):
@@ -45,7 +47,8 @@ Here is the current conversation history: {history} Here is the last response fr
 
 Engage by questioning their optimism and emphasizing the potential downsides they may have overlooked. Address each of their counterpoints to showcase why a conservative stance is ultimately the safest path for the firm's assets. Focus on debating and critiquing their arguments to demonstrate the strength of a low-risk strategy over their approaches. Output conversationally as if you are speaking without any special formatting.""" + get_language_instruction()
 
-        response = llm.invoke(prompt)
+        response = invoke_with_budget(
+            llm, prompt, call=CallSpec(phase="risk.conservative", role=CallRole.OPTIONAL))
 
         argument = f"Conservative Analyst: {response.content}"
 

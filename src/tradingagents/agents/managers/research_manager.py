@@ -19,6 +19,19 @@ def create_research_manager(llm):
         history = state["investment_debate_state"].get("history", "")
 
         investment_debate_state = state["investment_debate_state"]
+        if investment_debate_state.get("budget_skipped"):
+            # A curtailed debate is not an ordinary empty debate. Supply only
+            # reports the analysts actually produced to the required synthesis.
+            evidence = "\n".join(
+                f"{key}: {state[key]}"
+                for key in ("market_report", "sentiment_report", "news_report", "fundamentals_report")
+                if state.get(key)
+            )
+            history += (
+                "\n[Budget control: optional research contributions were skipped. "
+                "The debate may be incomplete.]\n"
+                f"Available primary analyst evidence:\n{evidence or '[No analyst report available.]'}"
+            )
 
         prompt = f"""As the Research Manager and debate facilitator, your role is to critically evaluate this round of debate and deliver a clear, actionable investment plan for the trader.
 
@@ -56,6 +69,7 @@ Write these sections, in this order, starting with the recommendation on its own
             prompt,
             render_research_plan,
             "Research Manager",
+            phase="research_manager",
         )
 
         new_investment_debate_state = {
@@ -65,6 +79,9 @@ Write these sections, in this order, starting with the recommendation on its own
             "current_response": investment_plan,
             "count": investment_debate_state["count"],
         }
+        for field in ("budget_skipped", "budget_reason_codes"):
+            if field in investment_debate_state:
+                new_investment_debate_state[field] = investment_debate_state[field]
 
         return {
             "investment_debate_state": new_investment_debate_state,

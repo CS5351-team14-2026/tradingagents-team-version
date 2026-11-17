@@ -266,3 +266,203 @@ entries:
       standalone run record persisted, observations attached before successful
       persistence) and authorized a single live Quick-profile smoke test.
     verification: "focused QR-004 tests: 20 passed; full offline suite: 1613 passed, 1 skipped, 1 deselected; ruff check . clean; detect-secrets 0 findings. A live DeepSeek smoke attempt returned HTTP 401 (invalid configured credential) so the successful provider-backed path was not exercised; the failure path was validated end to end (schema-version 1 record persisted, status failed, timestamps recorded, replayable settings separated from observational metadata, no secret-like value or absolute path). Successful-run metadata/status/report-header/token rendering are covered by deterministic offline tests."
+  - id: AI-2026-11-18-codex-fr002-s1
+    date: "2026-11-18"
+    task: "REQ-TA-FR-002 S1 only: shared per-run usage/budget ledger, provider normalization, observation-only CLI/graph wiring, QR-004 completeness compatibility, foundation offline tests and approved interface/ADR registration."
+    agent: "Codex, with delegated s1_tracker, s1_usage and s1_docs work in this supervised conversation"
+    model: "GPT-6 (system identification; exact deployed revision not supplied)"
+    prompt_ref: "transcripts/FR-002-codex.md#plan-presented-and-human-approval; Prompt.md Steps 4-6"
+    files:
+      - AGENTS.md
+      - docs/ai-use-log.yaml
+      - docs/architecture/ADR-003-run-token-budget.md
+      - docs/architecture/FR-002-trace.md
+      - src/cli/display.py
+      - src/cli/run.py
+      - src/cli/stats_handler.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/llm_clients/usage.py
+      - src/tradingagents/run_budget.py
+      - src/tradingagents/run_record.py
+      - test/offline/test_budget_entrypoints.py
+      - test/offline/test_budget_usage.py
+      - test/offline/test_token_budget.py
+      - transcripts/FR-002-codex.md
+    human_decision: >-
+      The human said: "采用全部推荐方案，批准本计划及 **S1** 实施".
+      This accepts D1-D10 in ADR-003 and authorizes S1 only. S2 graph invocation
+      and routing enforcement, and S3 public budget configuration, budget
+      reporting and durable checkpoint accounting still require stage approval.
+      No later stage, live experiment, commit, push or merge is authorized here.
+    verification: >-
+      Final ruff check . passed. Full pytest -q through the repository's
+      configured offline/live collection and not-integration selection:
+      1753 passed, 6 skipped, 1 deselected, 24 warnings, 100 subtests passed
+      in 47.95s. Execution used Python UTF-8 mode, a temporary working directory,
+      a clean environment and disabled dotenv discovery in a temporary runner;
+      no repository fixture, dependency, CI configuration or local credential
+      file was changed. Five skips are Windows/POSIX incompatibilities and one
+      is the unavailable optional langchain_aws package. Earlier full runs
+      exposed Windows default-decoding failures and a new test's stale snapshot
+      assertion; UTF-8 execution and the assertion fix resolved them. The final
+      run also covers canonical usage wrappers with Anthropic/Google hints.
+      Registry and registry-template validation against req-schema.json passed
+      using the existing system Python; the project and bundled interpreters
+      lacked jsonschema. The AI-use-log validator passed with 13 well-formed
+      entries and git diff --check passed. New-file whitespace is also checked
+      separately before stage close. No live
+      provider/network experiment was performed. FR-002 is not fully delivered
+      by this observation-only stage.
+    transcript: transcripts/FR-002-codex.md
+  - id: AI-2026-11-18-codex-fr002-s2
+    date: "2026-11-18"
+    task: "REQ-TA-FR-002 S2: per-invocation budget admission, analyst wrap-up, optional research/risk/reflection skipping and controlled REVIEW termination; retain QR-004 lifecycle and no-budget behaviour."
+    agent: "Codex with delegated agent, graph and memory implementation/review"
+    model: "GPT-6 (system identification; exact deployed revision not supplied)"
+    prompt_ref: "transcripts/FR-002-codex.md; approved original FR-002 plan; Prompt.md Steps 4-6"
+    files:
+      - AGENTS.md
+      - docs/ai-use-log.yaml
+      - docs/architecture/ADR-003-run-token-budget.md
+      - docs/architecture/FR-002-trace.md
+      - src/cli/run.py
+      - src/tradingagents/llm_clients/invocation.py
+      - src/tradingagents/llm_clients/usage.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/agents/structured.py
+      - src/tradingagents/agents/analysts/turn.py
+      - src/tradingagents/agents/analysts/market_analyst.py
+      - src/tradingagents/agents/analysts/news_analyst.py
+      - src/tradingagents/agents/analysts/fundamentals_analyst.py
+      - src/tradingagents/agents/analysts/sentiment_analyst.py
+      - src/tradingagents/agents/managers/research_manager.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/trader/trader.py
+      - src/tradingagents/agents/researchers/bull_researcher.py
+      - src/tradingagents/agents/researchers/bear_researcher.py
+      - src/tradingagents/agents/risk_mgmt/aggressive_debator.py
+      - src/tradingagents/agents/risk_mgmt/conservative_debator.py
+      - src/tradingagents/agents/risk_mgmt/neutral_debator.py
+      - src/tradingagents/graph/setup.py
+      - src/tradingagents/graph/conditional_logic.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/memory/reflection.py
+      - src/tradingagents/memory/settlement.py
+      - test/offline/test_budget_calls.py
+      - test/offline/test_budget_concurrency.py
+      - test/offline/test_budget_graph_routing.py
+      - test/offline/test_budget_invocation.py
+      - test/offline/test_budget_memory.py
+      - test/offline/test_budget_termination.py
+      - transcripts/FR-002-codex.md
+    human_decision: >-
+      After S1 verification the human directed moving work to a feature branch
+      following existing names. The local feat/FR-002 branch was created from
+      the verified integration HEAD and linked to the existing remote branch;
+      all S1 edits were preserved, with no commit or push. The human then said
+      "继续实现s2和s3", explicitly authorizing both remaining approved stages.
+      They are verified and reported separately, and no live experiment or
+      reserve percentage is authorized by that instruction.
+    verification: >-
+      Final S2 full pytest -q: 1829 passed, 6 skipped, 1 deselected,
+      24 warnings, 100 subtests passed in 49.27s. Ruff check . passed;
+      registry and template schema validation passed. The same temporary,
+      clean-environment, dotenv-discovery-disabled, UTF-8 runner as S1 was used.
+      Initial integration failures exposed lost skip markers and a provider
+      fixture declaration; both were fixed. Read-only review additionally
+      caught explicit-context callback ownership and misleading CLI completion
+      markers; regression tests now cover their corrections. No network/live
+      provider execution occurred. AI-use-log and diff checks follow this entry
+      before S3 begins; S3 is not claimed complete by this record.
+    transcript: transcripts/FR-002-codex.md
+  - id: AI-2026-11-18-codex-fr002-s3
+    date: "2026-11-18"
+    task: "REQ-TA-FR-002 S3: public budget configuration, canonical budget reporting, durable cumulative checkpoint accounting, recovery and backtest isolation."
+    agent: "Codex with delegated configuration, ledger, report and regression-test implementation/review"
+    model: "GPT-6 (system identification; exact deployed revision not supplied)"
+    prompt_ref: "transcripts/FR-002-codex.md; approved original FR-002 plan; Prompt.md Steps 4-6"
+    files:
+      - AGENTS.md
+      - docs/ai-use-log.yaml
+      - docs/architecture/ADR-003-run-token-budget.md
+      - docs/architecture/FR-002-trace.md
+      - src/cli/main.py
+      - src/cli/run.py
+      - src/tradingagents/agents/analysts/turn.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/structured.py
+      - src/tradingagents/backtest.py
+      - src/tradingagents/default_config.py
+      - src/tradingagents/graph/checkpointer.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/llm_clients/invocation.py
+      - src/tradingagents/memory/settlement.py
+      - src/tradingagents/report_html.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/run_budget.py
+      - src/tradingagents/run_record.py
+      - test/offline/test_budget_backtest.py
+      - test/offline/test_budget_checkpoint.py
+      - test/offline/test_budget_checkpoint_errors.py
+      - test/offline/test_budget_concurrency.py
+      - test/offline/test_budget_configuration.py
+      - test/offline/test_budget_entrypoints.py
+      - test/offline/test_budget_entrypoints_s3.py
+      - test/offline/test_budget_graph_routing.py
+      - test/offline/test_budget_ledger_store.py
+      - test/offline/test_budget_memory_persistence.py
+      - test/offline/test_budget_reporting.py
+      - test/offline/test_profiles_graph.py
+      - transcripts/FR-002-codex.md
+    human_decision: >-
+      The human's instruction "继续实现s2和s3" authorizes both approved stages.
+      S3 started after S2's full checks and its 14-entry AI-use-log validation
+      passed. Work stays on feat/FR-002, preserving the S1/S2 edits and HEAD
+      889cc33cf60bc89573159438ff98191e17adba77. No commit, push, merge, live
+      experiment, warning threshold, final-report reserve or FR-006 expansion
+      was requested or performed. Final human review remains pending.
+    verification: >-
+      Final full pytest -q passed: 1945 passed, 6 skipped, 1 deselected,
+      24 warnings, 100 subtests passed in 60.72s. A separate full run with
+      temporary collection shuffling, fixed seed 20261118, passed the same
+      counts in 62.21s. Both use the isolated temporary working directory,
+      clean environment, disabled dotenv discovery, existing network guard
+      and Python UTF-8 mode; no fixture/config/dependency was added for ordering.
+      Five skips are Windows/POSIX limitations and one is unavailable optional
+      langchain_aws. Early full runs exposed fixture gaps, a historical-signature
+      reference including a newly added None key, and minimal graph-double
+      assumptions; these were corrected. Review found and tested resume retry
+      reclassification, direct stream/checkpoint contexts, setup teardown,
+      unavailable legacy history, reflection persistence errors and cleanup
+      report consistency. A completed valid synthesis survives cleanup failure
+      with a machine-readable budget warning (exhaustion retains precedence).
+      Registry/schema validation passed. Final Ruff and AI-use-log validation
+      passed (15 entries). A separate new-file whitespace check found EOF
+      whitespace in four generated test files; only their EOF whitespace was
+      normalized, leaving executable statements unchanged. Scope and final
+      tracked/new-file whitespace verification are recorded in the transcript.
+    transcript: transcripts/FR-002-codex.md
+  - id: AI-2026-11-18-codex-fr002-push
+    date: "2026-11-18"
+    task: "Record human authorization to commit the verified FR-002 implementation and push feat/FR-002."
+    agent: "Codex"
+    model: "GPT-6 (system identification; exact deployed revision not supplied)"
+    prompt_ref: "Current human instruction; transcripts/FR-002-codex.md"
+    files:
+      - docs/ai-use-log.yaml
+      - transcripts/FR-002-codex.md
+    human_decision: >-
+      After the final S2/S3 report the human said:
+      "推送到远端仓库的 feat/FR-002 分支上面吧".
+      This authorizes committing the verified FR-002 working changes and
+      pushing the local feature branch to origin/feat/FR-002.
+    verification: >-
+      Pre-publication status matched the 33 tracked changes and 23 new FR-002
+      files from final acceptance. The branch was feat/FR-002, the index was
+      empty, HEAD was 889cc33cf60bc89573159438ff98191e17adba77, and git diff
+      --check passed. Existing full/default and random-order acceptance both
+      passed 1945 tests; no executable code was changed in this publication
+      step. The authorization record is validated before commit. Remote tip
+      and push outcome are verified through Git, without claiming success
+      before the network operation completes.
+    transcript: transcripts/FR-002-codex.md

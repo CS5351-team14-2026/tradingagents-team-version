@@ -46,6 +46,26 @@ def _token_usage_line(meta: dict, get) -> str | None:
     return "- Tokens: unavailable"
 
 
+def _budget_details(budget: dict) -> list[tuple[str, str]]:
+    """Plain report values for the recorded FR-002 result, shared by renderers."""
+    enabled = budget.get("enforcement_enabled") is True
+    known = budget.get("known_tokens")
+    details = [
+        ("Token budget", str(budget.get("status", "unavailable"))),
+        ("Budget enforcement", f"enabled; limit {budget.get('limit')}" if enabled else "disabled"),
+        ("Budget reasons", ", ".join(str(reason) for reason in budget.get("reason_codes", [])) or "unavailable"),
+        ("Known tokens (observed)", str(known) if type(known) is int and known >= 0 else "unavailable"),
+        ("Usage completeness", str(budget.get("usage_state", "unavailable"))),
+        ("Optional calls blocked", str(budget.get("blocked_calls", "unavailable"))),
+    ]
+    if enabled:
+        details.append(("Budget behaviour", (
+            "Stops new optional LLM calls at the recorded limit. Already started and required calls "
+            "can exceed the limit; this is not a hard cap. Unknown usage is never estimated."
+        )))
+    return details
+
+
 def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     """The report's title and what produced it: analysis date, version, models, analysts, vendors."""
     lines = [f"# Trading Analysis Report: {ticker}", ""]
@@ -97,6 +117,9 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
             token_line = _token_usage_line(meta, s)
             if token_line:
                 lines.append(token_line)
+        budget = meta.get("budget")
+        if isinstance(budget, dict):
+            lines.extend(f"- {label}: {value}" for label, value in _budget_details(budget))
     if final_state.get("memory_note"):
         lines.append(f"- Memory log: {final_state['memory_note']}")
     return "\n".join(lines) + "\n\n"

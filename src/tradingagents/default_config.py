@@ -27,6 +27,7 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_TEMPERATURE":          "temperature",
     "TRADINGAGENTS_LLM_MAX_RETRIES":      "llm_max_retries",
     "TRADINGAGENTS_MAX_TOKENS":           "max_tokens",
+    "TRADINGAGENTS_TOKEN_BUDGET":         "token_budget",
     # Provider-specific reasoning/thinking knobs (None = each provider's own
     # default). Settable here for non-interactive runs; the CLI also offers an
     # interactive choice, which is skipped when the matching var is set.
@@ -70,7 +71,16 @@ def _apply_env_overrides(config: dict) -> dict:
         if raw is None or raw == "":
             continue
         try:
-            config[key] = _coerce(raw, config.get(key))
+            if key == "token_budget":
+                # The optional default is None, so ordinary type-based coercion
+                # would leave this as text. Parse an integer directly: float
+                # conversion would silently invent an allowed token count.
+                budget = int(raw)
+                if budget < 0:
+                    raise ValueError("expected a non-negative integer")
+                config[key] = budget
+            else:
+                config[key] = _coerce(raw, config.get(key))
         except ValueError as exc:
             raise ValueError(f"Invalid value for {env_var}: {exc}") from exc
     return config
@@ -125,6 +135,10 @@ def build_default_config() -> dict:
         # unbounded reasoning/output and hangs or trips a gateway idle timeout
         # (e.g. some deepseek-v4-flash deployments, #1204).
         "max_tokens": None,
+        # Recorded tokens for one analysis run (ADR-003; REQ-TA-FR-002).
+        # None disables budget admission; zero enables it immediately. Calls
+        # already started and required synthesis can exceed this value.
+        "token_budget": None,
         # Checkpoint/resume: when True, LangGraph saves state after each node
         # so a crashed run can resume from the last successful step.
         "checkpoint_enabled": False,

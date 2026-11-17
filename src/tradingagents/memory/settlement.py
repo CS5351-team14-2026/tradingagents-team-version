@@ -9,6 +9,8 @@ import pandas as pd
 
 from tradingagents.dataflows.symbols import normalize_symbol
 from tradingagents.dataflows.vendors.yahoo.market import get_closes
+from tradingagents.llm_clients.invocation import BudgetInvocationRefused
+from tradingagents.run_budget import BudgetLedgerError
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +133,7 @@ class Settlement:
 
     settled: list[tuple[str, str]] = field(default_factory=list)        # (ticker, date)
     failed: list[tuple[str, str, str]] = field(default_factory=list)    # (ticker, date, reason)
+    budget_skipped: list[tuple[str, str, tuple[str, ...]]] = field(default_factory=list)
 
 
 def settle_pending(ticker: str, memory_log, reflector, config: dict, wait: bool = True) -> Settlement:
@@ -141,6 +144,8 @@ def settle_pending(ticker: str, memory_log, reflector, config: dict, wait: bool 
     its reflection is done, so an interrupted pass keeps what it finished.
     Entries whose window has not traded yet are skipped; an entry whose prices
     or reflection could not be had stays pending and is reported as failed.
+    Budget refusal is reported separately and ends the pass, leaving the
+    refused and remaining entries pending without launching more reflections.
     With ``wait=False`` a pass already running elsewhere is left to do the work.
     """
     result = Settlement()
@@ -170,6 +175,13 @@ def settle_pending(ticker: str, memory_log, reflector, config: dict, wait: bool 
                     benchmark_name=benchmark,
                     holding_days=days,
                 )
+            except BudgetLedgerError:
+                raise
+            except BudgetInvocationRefused as exc:
+                logger.info("Reflection skipped by budget for %s on %s: %s",
+                            ticker, entry["date"], ", ".join(exc.reason_codes))
+                result.budget_skipped.append((ticker, entry["date"], exc.reason_codes))
+                break
             except Exception as exc:
                 # Reflection calls a provider: a transient failure leaves the entry
                 # pending for the next pass rather than stopping the analysis.
@@ -193,4 +205,7 @@ def settle_all_pending(memory_log, reflector, config: dict, wait: bool = True) -
         done = settle_pending(ticker, memory_log, reflector, config, wait=wait)
         result.settled.extend(done.settled)
         result.failed.extend(done.failed)
+        result.budget_skipped.extend(done.budget_skipped)
+        if done.budget_skipped:
+            break
     return result

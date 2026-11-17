@@ -354,11 +354,11 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
         stats_parts.append(f"LLM: {stats['llm_calls']}")
         stats_parts.append(f"Tools: {stats['tool_calls']}")
 
-        # Token display with graceful fallback
-        if stats["tokens_in"] > 0 or stats["tokens_out"] > 0:
-            tokens_str = f"Tokens: {format_tokens(stats['tokens_in'])}\u2191 {format_tokens(stats['tokens_out'])}\u2193"
+        # ADR-003; REQ-TA-FR-002/QR-004: unknown usage is never shown as zero.
+        if stats.get("usage_complete", True) and stats["tokens_in"] is not None and stats["tokens_out"] is not None:
+            tokens_str = f"Tokens (observed): {format_tokens(stats['tokens_in'])}\u2191 {format_tokens(stats['tokens_out'])}\u2193"
         else:
-            tokens_str = "Tokens: --"
+            tokens_str = "Tokens (observed): unavailable"
         stats_parts.append(tokens_str)
 
     stats_parts.append(f"Reports: {reports_completed}/{reports_total}")

@@ -315,7 +315,9 @@ def _pre_change_reference_signature(config, analysts, asset_type="stock"):
         "results_dir", "data_cache_dir", "memory_log_path", "checkpoint_enabled", "llm_max_retries",
         "claim_enforcement",
     })
-    settings = {k: v for k, v in config.items() if k not in not_in_signature}
+    # FR-002's disabled default did not exist at the historical baseline.
+    # Compare the old algorithm against the old config, not its new None key.
+    settings = {k: v for k, v in config.items() if k not in not_in_signature and k != "token_budget"}
     digest = hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()[:12]
     return "|".join([
         "analysts=" + ",".join(analysts),

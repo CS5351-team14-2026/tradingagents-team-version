@@ -183,6 +183,12 @@ def run_backtest(
             progress(index, len(todo), ticker, date)
         try:
             graph.propagate(ticker, date, asset_type, portfolio=portfolio)
+            if hasattr(graph, "run_settings"):
+                metadata = graph.run_settings().get("run_metadata", {})
+                if metadata.get("status") == "failed":
+                    reasons = metadata.get("budget", {}).get("reason_codes", [])
+                    result.failures.append((ticker, date, "Controlled failure: " + ", ".join(reasons)))
+                    continue
             result.cells_run += 1
         except Exception as exc:  # one unreachable vendor must not end the sweep
             logger.warning("Backtest cell %s %s failed: %s", ticker, date, exc)
@@ -196,6 +202,10 @@ def run_backtest(
             result.settlement_failures.extend(
                 (failed_ticker, f"{date}: {reason}")
                 for failed_ticker, date, reason in settlement.failed
+            )
+            result.settlement_failures.extend(
+                (failed_ticker, f"{date}: budget skipped: {', '.join(reasons)}")
+                for failed_ticker, date, reasons in getattr(settlement, "budget_skipped", [])
             )
         except Exception as exc:  # reflection calls an LLM; one failure is not the sweep's
             logger.warning("Settling %s failed: %s", ticker, exc)

@@ -2,7 +2,7 @@ import logging
 from collections import Counter
 from typing import Any, TypedDict
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
@@ -20,8 +20,9 @@ from tradingagents.agents import (
     create_sentiment_analyst,
     create_trader,
 )
-from tradingagents.agents.analysts.turn import WRAP_UP
+from tradingagents.agents.analysts.turn import BUDGET_WRAP_UP, WRAP_UP
 from tradingagents.agents.state import AgentState
+from tradingagents.llm_clients.invocation import BudgetInvocationRefused
 
 from .analyst_execution import build_analyst_execution_plan
 from .conditional_logic import ConditionalLogic
@@ -50,6 +51,30 @@ def _tools_or_done(state) -> str:
     return "tools" if state["messages"][-1].tool_calls else END
 
 
+def _budget_optional_node(node, state_key: str):
+    """Keep skipped work explicit without inventing a completed debate turn.
+
+    The node's actual model invocation owns atomic admission. This wrapper
+    handles refusals at the first phase entry as well as after a contribution
+    (REQ-TA-FR-002; ADR-003); it never pre-allocates a permit.
+    """
+    def run(state):
+        try:
+            return node(state)
+        except BudgetInvocationRefused as refusal:
+            previous = state[state_key]
+            note = (f"[Budget control: optional {refusal.phase} contribution was skipped "
+                    f"({', '.join(refusal.reason_codes)}). This phase did not complete normally.]")
+            return {state_key: {
+                **previous,
+                "history": "\n".join(part for part in (previous.get("history", ""), note) if part),
+                "budget_skipped": True,
+                "budget_reason_codes": list(refusal.reason_codes),
+            }}
+
+    return run
+
+
 def _analyst_graph(spec, agent, max_tool_rounds: int):
     """One analyst as a graph of its own: the model and its tools, on a private message history.
 
@@ -61,7 +86,25 @@ def _analyst_graph(spec, agent, max_tool_rounds: int):
     """
     output = TypedDict(f"{spec.key.capitalize()}Report", {spec.report_key: str})
     graph = StateGraph(AgentState, output_schema=output)
-    graph.add_node("agent", agent)
+
+    def invoke_agent(state):
+        try:
+            return agent(state)
+        except BudgetInvocationRefused as refusal:
+            # Only a started analyst with tool context has a required synthesis
+            # to finish. An empty/unstarted analyst must reach controlled failure
+            # instead (REQ-TA-FR-002). The tool cap stays independent (INV-003).
+            if not any(isinstance(message, ToolMessage) for message in state["messages"]):
+                raise
+            result = agent({**state, "messages": [*state["messages"], HumanMessage(BUDGET_WRAP_UP)]})
+            report = result.get(spec.report_key)
+            if isinstance(report, str) and report.strip():
+                result = {**result, spec.report_key: report + (
+                    "\n\nBudget control: optional analyst follow-up was skipped "
+                    f"({', '.join(refusal.reason_codes)}); this report uses the existing tool results.")}
+            return result
+
+    graph.add_node("agent", invoke_agent)
     graph.add_edge(START, "agent")
     if not spec.tools:
         graph.add_edge("agent", END)
@@ -145,13 +188,13 @@ class GraphSetup:
             workflow.add_node(spec.agent_node,
                               _analyst_graph(spec, analyst_factories[spec.key](), self.max_tool_rounds))
 
-        workflow.add_node("Bull Researcher", bull_researcher_node)
-        workflow.add_node("Bear Researcher", bear_researcher_node)
+        workflow.add_node("Bull Researcher", _budget_optional_node(bull_researcher_node, "investment_debate_state"))
+        workflow.add_node("Bear Researcher", _budget_optional_node(bear_researcher_node, "investment_debate_state"))
         workflow.add_node("Research Manager", research_manager_node)
         workflow.add_node("Trader", trader_node)
-        workflow.add_node("Aggressive Analyst", aggressive_analyst)
-        workflow.add_node("Neutral Analyst", neutral_analyst)
-        workflow.add_node("Conservative Analyst", conservative_analyst)
+        workflow.add_node("Aggressive Analyst", _budget_optional_node(aggressive_analyst, "risk_debate_state"))
+        workflow.add_node("Neutral Analyst", _budget_optional_node(neutral_analyst, "risk_debate_state"))
+        workflow.add_node("Conservative Analyst", _budget_optional_node(conservative_analyst, "risk_debate_state"))
         workflow.add_node("Portfolio Manager", portfolio_manager_node)
 
         # The analysts work at the same time; the research debate starts once

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, NotRequired
 
 from langgraph.graph import MessagesState
 from typing_extensions import TypedDict
@@ -15,6 +15,8 @@ class InvestDebateState(TypedDict):
     history: Annotated[str, "Conversation history"]
     current_response: Annotated[str, "Latest response"]
     count: Annotated[int, "Length of the current conversation"]
+    budget_skipped: NotRequired[bool]
+    budget_reason_codes: NotRequired[list[str]]
 
 
 # Risk management team state
@@ -40,6 +42,8 @@ class RiskDebateState(TypedDict):
         str, "Latest response by the neutral analyst"
     ]
     count: Annotated[int, "Length of the current conversation"]
+    budget_skipped: NotRequired[bool]
+    budget_reason_codes: NotRequired[list[str]]
 
 
 class AgentState(MessagesState):
@@ -95,3 +99,4 @@ class AgentState(MessagesState):
     past_context: Annotated[str, "Memory log context for the Portfolio Manager (same-ticker decisions + cross-ticker lessons), written by the Memory Log step"]
     memory_note: Annotated[str, "What the Memory Log step could not settle or read this run, for the report; empty when all went well"]
     portfolio_context: Annotated[str, "Caller-supplied holdings and cash, rendered at run start; empty when not provided"]
+    budget_termination: NotRequired[dict]

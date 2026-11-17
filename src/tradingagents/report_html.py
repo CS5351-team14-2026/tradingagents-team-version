@@ -15,7 +15,9 @@ from markdown_it import MarkdownIt
 from tradingagents.agents.rating import run_rating
 from tradingagents.reporting import (
     NOT_INVESTMENT_ADVICE,
+    _budget_details,
     _override_value,
+    _token_usage_line,
     acceptance_notice_text,
     analyst_names,
     audit_material_claims,
@@ -269,6 +271,17 @@ def _run_details(final_state: dict, settings: dict | None) -> list[tuple[str, st
                 _group(_CATEGORY.get(k, k), _chain(v)) for k, v in vendors.items()
             )))
         details.append(("Version", escape(f"TradingAgents {s('version', '?')}")))
+        meta = s("run_metadata") or {}
+        status = meta.get("status") or s("status")
+        if status:
+            details.append(("Run status", escape(str(status))))
+        if meta.get("usage_complete", s("usage_complete")) is not None:
+            token_line = _token_usage_line(meta, s)
+            if token_line:
+                details.append(("Tokens", escape(token_line.removeprefix("- Tokens: "))))
+        budget = meta.get("budget")
+        if isinstance(budget, dict):
+            details.extend((label, escape(value)) for label, value in _budget_details(budget))
     if final_state.get("memory_note"):
         details.append(("Memory log", escape(final_state["memory_note"])))
     if final_state.get("material_claims"):

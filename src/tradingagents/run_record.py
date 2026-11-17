@@ -31,10 +31,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from tradingagents.run_budget import BUDGET_OK, BudgetSnapshot
+
 # The run-record schema version. Bump when the field set or semantics change in
 # a way a loader (REQ-TA-FR-008) must tell apart. "1" is the first version: the
 # nested replayable_settings/run_metadata split introduced with REQ-TA-QR-004.
-RECORD_SCHEMA_VERSION = "1"
+# "2" adds the independent FR-002 budget block. Schema-1 flat keys remain
+# available: consumers can accept the additive block without changing status
+# handling or treating observations as replay inputs (migration strategy C).
+RECORD_SCHEMA_VERSION = "2"
 
 # The only completion statuses a run record carries (approved: no new enum).
 # A run that reaches the end of the pipeline is ``completed``; a run that ends
@@ -122,7 +127,9 @@ def build_usage_summary(stats: dict[str, Any] | None) -> UsageSummary:
 
     Accepts the ``StatsCallbackHandler.get_stats()`` shape (``tokens_in``,
     ``tokens_out``, ``llm_calls``, ``tool_calls``). ``usage_complete`` is true
-    only when both token counts are present and non-negative; a provider that
+    only when both token counts are present and non-negative and an explicit
+    completeness flag, when supplied, is true (ADR-003; REQ-TA-FR-002).
+    Legacy callers without that flag retain their existing contract. A provider that
     reported nothing yields an incomplete summary with null token fields rather
     than a fabricated zero.
     """
@@ -133,24 +140,64 @@ def build_usage_summary(stats: dict[str, Any] | None) -> UsageSummary:
     llm_calls = stats.get("llm_calls")
     tool_calls = stats.get("tool_calls")
     complete = (
-        isinstance(tokens_in, int)
-        and isinstance(tokens_out, int)
+        type(tokens_in) is int
+        and type(tokens_out) is int
         and tokens_in >= 0
         and tokens_out >= 0
+        and stats.get("usage_complete", True) is True
     )
     return UsageSummary(
-        tokens_in=tokens_in if isinstance(tokens_in, int) else None,
-        tokens_out=tokens_out if isinstance(tokens_out, int) else None,
-        llm_calls=llm_calls if isinstance(llm_calls, int) else None,
-        tool_calls=tool_calls if isinstance(tool_calls, int) else None,
+        tokens_in=tokens_in if type(tokens_in) is int and tokens_in >= 0 else None,
+        tokens_out=tokens_out if type(tokens_out) is int and tokens_out >= 0 else None,
+        llm_calls=llm_calls if type(llm_calls) is int and llm_calls >= 0 else None,
+        tool_calls=tool_calls if type(tool_calls) is int and tool_calls >= 0 else None,
         usage_complete=complete,
     )
+
+
+def build_budget_metadata(
+    snapshot: BudgetSnapshot | None,
+    *,
+    usage: UsageSummary | None = None,
+) -> dict[str, Any]:
+    """Serialize the approved FR-002 result fields without recomputing policy.
+
+    The tracker owns status and reason decisions. With no tracker snapshot,
+    enforcement is disabled and legacy observed counts remain incomplete when
+    their completeness is unknown. A missing observation never becomes zero.
+    Run identity, per-call history and provider metadata are not report fields.
+    """
+    if snapshot is not None:
+        return {
+            "limit": snapshot.limit,
+            "enforcement_enabled": snapshot.limit is not None,
+            "status": snapshot.status,
+            "reason_codes": list(snapshot.reason_codes),
+            "known_tokens": snapshot.known_tokens,
+            "usage_state": snapshot.usage_state,
+            "blocked_calls": snapshot.blocked_calls,
+        }
+    usage = usage or UsageSummary()
+    reported = [value for value in (usage.tokens_in, usage.tokens_out)
+                if type(value) is int and value >= 0]
+    known = sum(reported) if reported else None
+    return {
+        "limit": None,
+        "enforcement_enabled": False,
+        "status": BUDGET_OK,
+        "reason_codes": ["NOT_CONFIGURED"],
+        "known_tokens": known,
+        "usage_state": ("complete" if usage.total_tokens is not None else
+                        "partial" if known is not None else "unavailable"),
+        "blocked_calls": 0,
+    }
 
 
 def build_run_record(
     *,
     replayable_settings: dict[str, Any],
     usage: UsageSummary | None = None,
+    budget: BudgetSnapshot | None = None,
     status: str = STATUS_COMPLETED,
     started_at: str | None = None,
     completed_at: str | None = None,
@@ -168,7 +215,7 @@ def build_run_record(
         raise ValueError(
             f"run status must be one of {', '.join(RECORD_STATUSES)}, got {status!r}"
         )
-    usage = usage or UsageSummary()
+    usage = usage or (build_usage_summary(budget.to_stats()) if budget is not None else UsageSummary())
     run_metadata: dict[str, Any] = {
         "version": version,
         "status": status,
@@ -176,6 +223,7 @@ def build_run_record(
         "completed_at": completed_at,
     }
     run_metadata.update(usage.to_metadata())
+    run_metadata["budget"] = build_budget_metadata(budget, usage=usage)
     return RunRecord(
         replayable_settings=dict(replayable_settings),
         run_metadata=run_metadata,

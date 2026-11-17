@@ -12,6 +12,9 @@ class ConditionalLogic:
     def should_continue_debate(self, state: AgentState) -> str:
         """Determine if debate should continue."""
 
+        # A refusal is not another debate turn (REQ-TA-FR-002; ADR-003).
+        if state["investment_debate_state"].get("budget_skipped"):
+            return "Research Manager"
         if (
             state["investment_debate_state"]["count"] >= 2 * self.max_debate_rounds
         ):  # max_debate_rounds turns each for bull and bear
@@ -22,6 +25,8 @@ class ConditionalLogic:
 
     def should_continue_risk_analysis(self, state: AgentState) -> str:
         """Determine if risk analysis should continue."""
+        if state["risk_debate_state"].get("budget_skipped"):
+            return "Portfolio Manager"
         if (
             state["risk_debate_state"]["count"] >= 3 * self.max_risk_discuss_rounds
         ):  # max_risk_discuss_rounds turns each for the three risk analysts
