@@ -241,3 +241,28 @@ entries:
       and git diff --check. Stop before any commit, push or merge.
     verification: "related tests: test_checkpoint_lifecycle.py, test_checkpoint_resume.py, test_profiles_graph.py, test_profiles.py, test_cli_profile.py, test_portfolio_context.py -> 109 passed; full offline suite (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1, isolated venv /tmp/opencode/venv-fr001): 1593 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration), 100 subtests passed; ruff check . clean; AI-use log gate PASSED; git diff --check clean."
     transcript: transcripts/FR-001-opencode.md
+  - id: AI-2026-11-17-Alex-01
+    date: "2026-11-17"
+    task: "REQ-TA-QR-004: implement the canonical versioned structured run record (replayable_settings + run_metadata, completed/failed status, timestamps, token totals), failure-path metadata persistence, report-header status/token rendering, and offline tests."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "prompt.txt (planning pass) and the Stage-1 QR-004 implementation instructions"
+    files:
+      - src/tradingagents/run_record.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/reporting.py
+      - src/cli/run.py
+      - test/offline/test_run_record.py
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Alex claimed REQ-TA-QR-004 and approved the implementation decisions:
+      profile may be null (A1); status vocabulary limited to completed/failed (A2);
+      unavailable usage represented as usage_complete=false with null token totals,
+      with "unavailable" only as report text (A3); migration strategy C (nested
+      canonical sections plus legacy flat keys for one schema version); and that
+      QR-004 consumes the existing StatsCallbackHandler usage rather than adding a
+      second token counter. Alex approved the failure-path fix (failed status +
+      standalone run record persisted, observations attached before successful
+      persistence) and authorized a single live Quick-profile smoke test.
+    verification: "focused QR-004 tests: 20 passed; full offline suite: 1613 passed, 1 skipped, 1 deselected; ruff check . clean; detect-secrets 0 findings. A live DeepSeek smoke attempt returned HTTP 401 (invalid configured credential) so the successful provider-backed path was not exercised; the failure path was validated end to end (schema-version 1 record persisted, status failed, timestamps recorded, replayable settings separated from observational metadata, no secret-like value or absolute path). Successful-run metadata/status/report-header/token rendering are covered by deterministic offline tests."
