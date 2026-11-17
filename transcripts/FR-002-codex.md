@@ -306,3 +306,64 @@ Log validation, preservation of the prior 20 entries, three-file scope and
 `git diff --check` are checked before commit. Push success and local/remote SHA
 equality are verified after the network operation; they are not presumed here.
 The local results do not claim that remote Python 3.11-3.14 CI has passed.
+
+## Backtest isolation assertion repair (2026-11-18)
+
+The human supplied a later Python 3.13 CI log with **1 failed, 2009 passed,
+1 skipped and 1 deselected**. The remaining failure was
+`test_fr002_backtest_budget_is_per_cell_and_controlled_failures_are_not_successes[MissedSynthesis-0]`:
+two cells recorded 3 and 7 LLM calls, failing an equality assertion between
+their snapshots. The ANSI configuration tests passed in that log.
+
+Read-only review identified an invalid scheduling assumption. MissedSynthesis
+returns no parsed structured result, so the Sentiment Analyst's optional
+retry is refused at a zero budget. Concurrent tool analysts may have made
+different progress when the graph ends with controlled failure. Independent
+run accounting does not require their total call counts to match. Initial
+local repetition of the unchanged module passed 60 tests across 20 module
+collections, so the remote failure was not presented as locally reproduced
+or as proof of Python 3.13 incompatibility or production ledger contamination.
+
+The agent proposed a revised three-file scope: verify each cell's actual model
+call increment and reported tokens against its own snapshot, preserve the
+existing identity/budget/failure checks, update the two session records,
+verify, then push under the prior publication authorization. The agent stopped
+before changing files because this involved a different test file from the
+ANSI repair. The human explicitly approved the revision:
+
+> 确认
+
+Work began from a clean `feat/FR-002` at
+`4ad1530fa5559d0f6403b4d105e9c2cbcd881e17`; fetching the remote feature branch
+confirmed the same tip. The repair changes only
+`test/offline/test_budget_backtest.py` and appends these two records.
+The test compares every snapshot with the model's call increment for that
+cell and the fixture's reported 3 input, 2 output and 5 total tokens per call.
+A local DateVaryingUsageModel returns a direct report on the first date and
+uses the existing tool path on the second, making unequal successful-cell
+call counts deterministic. It retains the existing usage callback behavior.
+The MissedSynthesis case, independent run IDs, budget/blocked-call checks,
+successful/failed cell counts and tail settlement checks remain. Product
+routing, concurrency, accounting, interfaces, dependencies and CI are unchanged.
+Delegated read-only review found no blockers.
+
+Actual final verification on Windows/Python **3.12.10**:
+
+- Focused backtest module: **3 passed in 2.17s**.
+- Twenty repeated module collections: **60 passed in 13.16s**.
+- A temporary in-memory mutation deliberately made the second snapshot
+  cumulative. The repaired test rejected it with **17 ledger calls versus
+  10 actual calls**. This is an expected negative-control result, not a
+  failure of the normal suite; no mutation helper was written to the repository.
+- Full `pytest -q`: **2005 passed, 6 skipped, 1 deselected, 24 warnings,
+  100 subtests passed in 45.22s**. Existing Windows/POSIX and optional
+  langchain_aws skips, and the integration deselection, remain unchanged.
+- Whole-repository Ruff and registry/template schema validation: **passed**.
+- Runs used temporary profile/work/cache directories, disabled dotenv
+  discovery, UTF-8 mode and external-network refusal. No live provider ran.
+
+Final AI-use-log validation, preservation of all prior 21 entries, append-only
+records, exact three-file scope and whitespace checks precede commit.
+Publication and local/remote SHA equality are verified after the normal push.
+No teammate test-plan approval, test-approved label, PR approval or merge is
+claimed. Python 3.13 CI must be assessed from the new remote run.
