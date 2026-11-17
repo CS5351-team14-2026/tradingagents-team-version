@@ -1,8 +1,9 @@
-"""claim_audit is recorded with the run; claim_enforcement stays inert (ADR-001).
+"""claim_audit and the claim-acceptance verdict are recorded with the run (ADR-001).
 
-record_decision computes the pure audit before writing the state log, so every
-run's log carries its ACCEPTED / DOWNGRADED / NOT_ASSESSED status. The reserved
-claim_enforcement flag is configurable but no behaviour branches on it.
+record_decision computes the pure audit and derives the run's acceptance verdict
+from it before writing the state log, so every run's log carries its ACCEPTED /
+DOWNGRADED / NOT_ASSESSED audit and its ACCEPTED / REJECTED / NOT_ENFORCED
+verdict (REQ-TA-QR-002, REQ-TA-INV-005). The verdict never changes the rating.
 """
 
 import json
@@ -16,14 +17,14 @@ from tradingagents.memory import TradingMemoryLog
 TRADE_DATE = "2026-11-14"
 
 
-def _graph(tmp_path):
+def _graph(tmp_path, enforced=True):
     graph = object.__new__(TradingAgentsGraph)
     graph.config = {
         "results_dir": str(tmp_path), "llm_provider": "openai",
         "deep_think_llm": "d", "quick_think_llm": "q",
         "max_debate_rounds": 1, "max_risk_discuss_rounds": 1,
         "output_language": "English", "data_vendors": {}, "tool_vendors": {},
-        "claim_enforcement": False,
+        "claim_enforcement": enforced,
     }
     graph.selected_analysts = ("market",)
     graph.memory_log = TradingMemoryLog({"memory_log_path": str(tmp_path / "m.md")})
@@ -99,19 +100,20 @@ def test_record_decision_writes_a_not_assessed_claim_audit(tmp_path):
 
 
 @pytest.mark.unit
-def test_claim_enforcement_defaults_false_and_is_env_configurable(monkeypatch):
-    assert DEFAULT_CONFIG["claim_enforcement"] is False
+def test_claim_enforcement_defaults_true_and_is_env_configurable(monkeypatch):
+    assert DEFAULT_CONFIG["claim_enforcement"] is True
 
     monkeypatch.delenv("TRADINGAGENTS_CLAIM_ENFORCEMENT", raising=False)
-    assert build_default_config()["claim_enforcement"] is False
-
-    monkeypatch.setenv("TRADINGAGENTS_CLAIM_ENFORCEMENT", "true")
     assert build_default_config()["claim_enforcement"] is True
+
+    monkeypatch.setenv("TRADINGAGENTS_CLAIM_ENFORCEMENT", "false")
+    assert build_default_config()["claim_enforcement"] is False
 
 
 @pytest.mark.unit
-def test_a_downgraded_audit_does_not_change_the_rating_or_memory_log(tmp_path):
-    """claim_enforcement is False, so the audit is recorded without fail-closed."""
+def test_a_rejected_verdict_does_not_change_the_rating_or_memory_log(tmp_path):
+    """Acceptance is a report property (ADR-001; REQ-TA-INV-001): a REJECTED run
+    keeps its rating and its memory-log entry; only the verdict changes."""
     state = _state(material_claims=[
         {"kind": "supporting", "text": "Close was 181.2.",
          "source_id": "podcast_transcript", "observation_date": TRADE_DATE},
@@ -119,8 +121,8 @@ def test_a_downgraded_audit_does_not_change_the_rating_or_memory_log(tmp_path):
     graph = _graph(tmp_path)
     graph.record_decision("NVDA", TRADE_DATE, state)
 
-    assert graph.config["claim_enforcement"] is False
     assert state["final_rating"] == "Hold"
+    assert state["claim_acceptance"]["status"] == "REJECTED"
     assert _logged(tmp_path)["final_rating"] == "Hold"
     entries = graph.memory_log.load_entries()
     assert [(entry["ticker"], entry["rating"]) for entry in entries] == [("NVDA", "Hold")]

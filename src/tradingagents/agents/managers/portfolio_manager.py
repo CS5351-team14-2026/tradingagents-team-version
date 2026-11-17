@@ -18,6 +18,7 @@ from tradingagents.agents.context import (
     get_instrument_context_from_state,
     get_language_instruction,
     get_portfolio_context_from_state,
+    report_or_absent,
 )
 from tradingagents.agents.rating import parse_rating
 from tradingagents.agents.schemas import (
@@ -28,6 +29,32 @@ from tradingagents.agents.schemas import (
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
 
 logger = logging.getLogger(__name__)
+
+# The four analyst reports the recommendation must rest on, at least in part
+# (ADR-001; REQ-TA-QR-002): the analyst's name, the word an absent-report marker
+# uses, and the source_id a claim cites. The audit's NO_ANALYST_REFERENCE
+# downgrade is what enforces the requirement; this table only labels the prompt.
+PRIMARY_ANALYST_REPORTS = (
+    ("Market Analyst", "market", "market_report"),
+    ("Sentiment Analyst", "sentiment", "sentiment_report"),
+    ("News Analyst", "news", "news_report"),
+    ("Fundamentals Analyst", "fundamentals", "fundamentals_report"),
+)
+PRIMARY_ANALYST_SOURCES = tuple(source for _analyst, _short, source in PRIMARY_ANALYST_REPORTS)
+
+
+def primary_analyst_evidence(state) -> str:
+    """The analysts' own reports, each labelled with the source_id a claim may cite.
+
+    The risk debate quotes these reports; reading them here lets a claim rest on
+    the primary evidence rather than on a paraphrase of it (REQ-TA-QR-002). A
+    report the run never produced is marked absent, not blank, so the model does
+    not read an omission as a finding.
+    """
+    return "\n".join(
+        f"- **{analyst}** (`{source}`): " + report_or_absent(state.get(source), short)
+        for analyst, short, source in PRIMARY_ANALYST_REPORTS
+    )
 
 
 def _invoke_json_mode(llm, prompt) -> PortfolioDecision | None:
@@ -64,6 +91,8 @@ def create_portfolio_manager(llm):
         risk_debate_state = state["risk_debate_state"]
         research_plan = state["investment_plan"]
         trader_plan = state["trader_investment_plan"]
+        analyst_evidence = primary_analyst_evidence(state)
+        primary_sources = ", ".join(PRIMARY_ANALYST_SOURCES)
 
         past_context = state.get("past_context", "")
         lessons_line = (
@@ -91,6 +120,9 @@ def create_portfolio_manager(llm):
 - Research Manager's investment plan: **{research_plan}**
 - Trader's transaction proposal: **{trader_plan}**
 {lessons_line}
+**Primary analyst evidence:**
+{analyst_evidence}
+
 **Risk Analysts Debate History:**
 {history}
 
@@ -103,15 +135,28 @@ Ground every conclusion in specific evidence from the analysts. The risk debate 
 Write these sections, in this order, starting with the rating on its own line:
 
 - **Rating**: exactly one of Buy / Overweight / Hold / Underweight / Sell
+- **Confidence**: exactly one of low / medium / high
 - **Executive Summary**: the call and how to act on it
 - **Investment Thesis**: the evidence that decided it, and what would change it
 - **Supporting Factors**: exactly three material claims that support the rating
 - **Opposing Factors**: exactly three material claims that argue against it
 
+Set **Confidence** from the evidence and the analysts' disagreement:
+- **low**: the evidence is thin, or the analysts strongly disagree.
+- **medium**: the evidence is adequate but mixed, or disagreement is material.
+- **high**: the evidence is strong and consistent across analysts, with only
+  minor disagreement.
+
 For every factor, give one `source_id` naming the report it came from, chosen
 from: {CLAIM_SOURCE_IDS}. Give `observation_date` as YYYY-MM-DD whenever the
 claim asserts market data (a price or indicator); omit it for qualitative
 claims. Do not name the producing agent: it is derived from the source.
+
+At least one of the six material claims must cite a primary analyst report,
+chosen from: {primary_sources}. Take the figure or finding from that report
+itself, not from the debate's paraphrase of it. A recommendation whose claims
+cite only the research, trader or risk sections is downgraded by the
+traceability check.
 
 {NO_EXTERNAL_TOOLS}{get_language_instruction()}"""
 

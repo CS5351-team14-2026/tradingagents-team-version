@@ -17,7 +17,11 @@ from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients import create_tier_client, tier_provider
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
-from tradingagents.reporting import audit_material_claims, write_report_tree
+from tradingagents.reporting import (
+    audit_material_claims,
+    evaluate_claim_acceptance,
+    write_report_tree,
+)
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
@@ -358,9 +362,18 @@ class TradingAgentsGraph:
 
     def record_decision(self, company_name, trade_date, final_state):
         """Record a finished run: its state log, and its decision in the memory log
-        for reflection on the next same-ticker run. propagate() and the CLI both end here."""
+        for reflection on the next same-ticker run. propagate() and the CLI both end here.
+
+        The run's claim-traceability verdict is settled here too, before the
+        state log is written (ADR-001; REQ-TA-QR-002, REQ-TA-INV-005): a
+        recommendation whose material claims do not all resolve is not accepted.
+        Acceptance is a report property: the rating (REQ-TA-INV-001) and the
+        memory-log entry are left as they are.
+        """
         audit = audit_material_claims(final_state)
         final_state["claim_audit"] = audit
+        final_state["claim_acceptance"] = evaluate_claim_acceptance(
+            final_state, enforced=bool(self.config.get("claim_enforcement", False)))
         self._log_state(trade_date, final_state)
         decision = final_state.get("final_trade_decision")
         if not decision:
@@ -465,6 +478,7 @@ class TradingAgentsGraph:
             "final_trade_decision": final_state["final_trade_decision"],
             "final_rating": run_rating(final_state),
             "claim_audit": final_state.get("claim_audit"),
+            "claim_acceptance": final_state.get("claim_acceptance"),
             "material_claims": final_state.get("material_claims", []),
             "claim_fallback": final_state.get("claim_fallback"),
             "run_settings": self.run_settings(),

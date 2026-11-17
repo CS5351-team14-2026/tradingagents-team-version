@@ -2,7 +2,7 @@
 # Fields: id, date, task. Also record agent, model, prompt_ref, files,
 # human_decision, transcript. Never invent a session.
 entries:
-  - id: AI-2026-11-15-001
+  - id: AI-2026-11-15-a5ynchr0ny-01
     date: "2026-11-15"
     task: "FR-005 / QR-002 / INV-005 local vertical slice: ADR-001, material-claim schema, claim ledger in Markdown and HTML, disclaimer, offline traceability tests"
     agent: opencode
@@ -24,7 +24,8 @@ entries:
       - test/offline/test_report_html_claims.py
     human_decision: "Approved ADR-001 decisions: Option A material-claim definition, structural source ids, 3 supporting + 3 opposing claims, producing agent derived from source_id, fail-closed not activated in this slice."
     transcript: pending
-  - id: AI-2026-11-16-001
+
+  - id: AI-2026-11-16-wuyu200501-01
     date: "2026-11-16"
     task: "REQ-TA-QR-003 component-boundary enforcement: AST structural check over agents/graph/dataflows/memory/llm_clients for statically parseable cross-component private imports and alias reads (public and own-component private allowed; absolute/relative private import, private-module imports, and alias/package-alias/full-path reads rejected; scope- and statement-order-aware resolution; dynamic access out of static scope), plus a scripted-LLM + fixed-market-data offline graph run asserting both test doubles are exercised"
     agent: opencode
@@ -38,3 +39,73 @@ entries:
       - docs/ai-use-log.yaml
     human_decision: "Approved Stage 1 (component-boundary test) and Stage 2 (LLM-double assertion) after iterative review rounds; Windows ruff and full offline suite (1483 passed) confirmed green before acceptance."
     transcript: transcripts/qr-003-implementation.md
+
+  - id: AI-2026-11-16-a5ynchr0ny-01
+    date: "2026-11-16"
+    task: "FR-005 PM confidence field: schema/prompt/render, tests, and real AAPL validation"
+    agent: opencode
+    model: deepseek-flash
+    prompt_ref: "PM confidence task brief; ADR-001 §5"
+    files:
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - test/offline/test_structured_agents.py
+      - test/offline/test_memory_log.py
+      - test/offline/test_graph_end_to_end.py
+      - test/offline/test_structured_agent_prompts.py
+      - docs/architecture/adr/001-material-claims.md
+      - docs/req/requirements.yaml
+    human_decision: "Approved confidence (low/medium/high) and unconditional QR-002; real AAPL run produced medium confidence and 6/6 ACCEPTED."
+    transcript: pending
+
+  - id: AI-2026-11-17-a5ynchr0ny-01
+    date: "2026-11-17"
+    task: "ADR-001 §4 activation (fail-closed claim traceability) for REQ-TA-FR-005 / REQ-TA-QR-002 / REQ-TA-INV-005: read-only analysis and execution plan submitted for approval; no source or test code written in this step"
+    agent: opencode
+    model: deepseek/deepseek-flash
+    prompt_ref: "Prompt.md Steps 1-3; AGENTS.md §6-§8; ADR-001 §4 (deferred fail-closed) and §5 (unconditional QR-002); requirements.yaml FR-005/QR-002/INV-005/INV-001/FR-006"
+    files:
+      - docs/ai-use-log.yaml
+    files_planned:
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/report_html.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/default_config.py
+      - test/offline/test_claim_acceptance.py
+      - test/offline/test_claim_audit_recording.py
+    human_decision: "Plan approved 2026-11-17 with amendments (vocabulary ACCEPTED/REJECTED/NOT_ENFORCED; report_html.py whitelisted; S8 docs removed from scope); D1–D5 as recommended"
+    transcript: pending
+
+  - id: AI-2026-11-17-a5ynchr0ny-02
+    date: "2026-11-17"
+    task: "ADR-001 §4 fail-closed activation, stages S1-S7: the claim_acceptance verdict (ACCEPTED / REJECTED / NOT_ENFORCED), its recording in the state and the state log, the non-acceptance block in the Markdown and HTML reports, claim_enforcement defaulted to True, and the offline tests for REQ-TA-FR-005 / REQ-TA-QR-002 / REQ-TA-INV-005 with REQ-TA-INV-001 as the regression guard"
+    agent: opencode
+    model: deepseek/deepseek-flash
+    prompt_ref: "Approved plan AI-2026-11-17-a5ynchr0ny-01 with amendments; Prompt.md Steps 4-6; ADR-001 §3-§5"
+    files:
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/default_config.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/report_html.py
+      - src/tradingagents/reporting.py
+      - test/offline/test_claim_acceptance.py
+      - test/offline/test_claim_audit_recording.py
+    human_decision: "Approved the plan with amendments 2026-11-17: D1 flip claim_enforcement to True; D2 memory log unchanged; D3 propagate() unchanged; D4 REQ-TA-FR-006 mapping out of scope; D5 test_graph_end_to_end.py untouched. S8 (ADR §4 amendment, trace matrix, registry) retained by the human."
+    verification: "ruff check . clean; offline suite: 1481 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
+    transcript: pending
+
+  - id: AI-2026-11-17-a5ynchr0ny-03
+    date: "2026-11-17"
+    task: "FR-005 / QR-002 Portfolio Manager prompt: add a 'Primary analyst evidence' section carrying the market, sentiment, news and fundamentals reports (absent-marked via report_or_absent) before the risk debate history, and require at least one of the six material claims to cite a primary analyst report. No change to the audit or to fail-closed enforcement (NO_ANALYST_REFERENCE already covers the requirement)."
+    agent: opencode
+    model: deepseek/deepseek-flash
+    prompt_ref: "Human task brief on feat/FR-005-confidence-qr002; ADR-001 §2-§3; REQ-TA-QR-002 (NO_ANALYST_REFERENCE)"
+    files:
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - test/offline/test_structured_agent_prompts.py
+    human_decision: "Asked for the primary-evidence section and the citation requirement in the PM prompt, with the audit and fail-closed logic explicitly scoped out; commit review pending."
+    verification: "ruff check . clean; offline suite: 1484 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
+    transcript: pending
