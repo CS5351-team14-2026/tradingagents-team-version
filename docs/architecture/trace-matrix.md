@@ -26,6 +26,20 @@ This slice adds only offline tests and does not change runtime behaviour.
 Boundary exceptions are not needed (the baseline is clean over the five
 components).
 
+## QR-004 — structured run metadata and observability
+
+| Requirement | Component | Test | Monitor / CI |
+|---|---|---|---|
+| REQ-TA-QR-004 (every run records complete structured metadata: profile, models/providers, analysts, rounds, vendors, token totals, status) | `run_record.py` (`RECORD_SCHEMA_VERSION`, `RunRecord`, `UsageSummary`, `build_run_record`, `build_usage_summary`); `graph/trading_graph.py` (`run_settings()` canonical record, `set_run_observations()`, `write_run_record()`, `_run_graph` failure path); `reporting.py` (`_header`, `_token_usage_line`); `cli/run.py` (observations from `StatsCallbackHandler`, failure-path write) | `test/offline/test_run_record.py` (20 tests: schema version + sections, replayable/observational separation, profile null, usage aggregation, unavailable = null + usage_complete false, partial usage not a total, status values + rejection, deterministic serialization, no secret/path, legacy keys, report header complete/unavailable, write_run_record failed status + no secret/path, `_run_graph` failed+re-raise, `_run_graph` completed, persisted observations not defaults) | Report header `Run status:` + `Tokens:` lines; on-disk `run_record_<date>.json` (failure) and `full_states_log_<date>.json` `run_settings` (success); CI gate 5 full offline suite |
+
+Scope: QR-004 adds a canonical, versioned run record (migration strategy C: nested
+`replayable_settings` + `run_metadata` sections, legacy flat keys retained for one
+schema version). Status vocabulary is exactly `completed`/`failed` (approved A2);
+unavailable usage is `usage_complete=false` with null token totals (approved A3),
+rendered as "unavailable" in reports. Observational values (tokens, status,
+timestamps) are never part of `replayable_settings` (that is FR-008's future input,
+not implemented here).
+
 ## FR-007 / PERF-001 — evaluation slice
 
 | Requirement | Component | Test | Monitor / evidence |
