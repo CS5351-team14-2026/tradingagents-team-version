@@ -84,6 +84,14 @@ class AgentState(MessagesState):
         "What produced the final decision when it was not the structured output "
         "(ADR-001): 'free_text' when the Portfolio Manager fell back, else None",
     ]
+    claim_acceptance: Annotated[
+        dict,
+        "The claim-traceability acceptance verdict for this run (ADR-001; "
+        "REQ-TA-QR-002; REQ-TA-INV-005): status (ACCEPTED / REJECTED / "
+        "NOT_ENFORCED), the audit status it came from, whether enforcement was "
+        "on, the reasons and the non-acceptance notice. Not a rating and not a "
+        "run status",
+    ]
     past_context: Annotated[str, "Memory log context for the Portfolio Manager (same-ticker decisions + cross-ticker lessons), written by the Memory Log step"]
     memory_note: Annotated[str, "What the Memory Log step could not settle or read this run, for the report; empty when all went well"]
     portfolio_context: Annotated[str, "Caller-supplied holdings and cash, rendered at run start; empty when not provided"]
