@@ -121,6 +121,11 @@ def test_the_cli_says_when_a_run_produced_no_usable_rating(monkeypatch, tmp_path
 
     class _Graph:
         graph = propagator = None
+        selected_analysts = ("market",)
+
+        def run_settings(self):
+            return {"analysts": ["market"], "max_debate_rounds": 1, "max_risk_discuss_rounds": 1,
+                    "max_tool_rounds": 20, "profile_requested": None}
 
         def create_run_state(self, *a, **k):
             return {"messages": []}
@@ -162,7 +167,7 @@ def test_the_cli_says_when_a_run_produced_no_usable_rating(monkeypatch, tmp_path
         "ticker": "NVDA", "analysis_date": "2026-01-10",
         "analysts": [AnalystType.MARKET], "asset_type": "stock",
     })
-    monkeypatch.setattr(cli_run, "_build_run_config", lambda s, c: {
+    monkeypatch.setattr(cli_run, "_build_run_config", lambda s, c, profile=None: {
         "data_cache_dir": str(tmp_path / "c"), "results_dir": str(tmp_path / "r")})
 
     cli_run.run_analysis()

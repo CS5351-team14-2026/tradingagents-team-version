@@ -58,6 +58,12 @@ def analyze(
     analysts: str = typer.Option(
         None, "--analysts", help="Comma-separated analysts, e.g. market,news; skips the prompt"
     ),
+    profile: str = typer.Option(
+        None, "--profile",
+        help="Analysis profile: quick, standard or deep; sets the analysts and round "
+        "budgets (overrides TRADINGAGENTS_PROFILE). Explicit --analysts and "
+        "TRADINGAGENTS_MAX_* still override individual fields.",
+    ),
     save: bool | None = typer.Option(
         None, "--save/--no-save", help="Save the report under results_dir without asking"
     ),
@@ -90,7 +96,7 @@ def analyze(
 
     try:
         flags = {"ticker": ticker, "date": date, "analysts": analysts, "save": save, "show": show, "html": html}
-        run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags)
+        run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags, profile=profile)
     except _NO_CONSOLE_ERRORS:
         # A terminal with no console buffer cannot host the interactive prompts.
         # Emit one actionable line on stderr instead of a prompt_toolkit

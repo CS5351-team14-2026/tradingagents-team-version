@@ -95,6 +95,7 @@ def _structured_pm_llm(captured: dict, decision: PortfolioDecision | None = None
     if decision is None:
         decision = PortfolioDecision(
             rating=PortfolioRating.HOLD,
+            confidence="medium",
             executive_summary="Hold the position; await catalyst.",
             investment_thesis="Balanced view; neither side carried the debate.",
         )
@@ -812,6 +813,7 @@ class TestPortfolioManagerInjection:
         captured = {}
         decision = PortfolioDecision(
             rating=PortfolioRating.OVERWEIGHT,
+            confidence="high",
             executive_summary="Build position gradually over the next two weeks.",
             investment_thesis="AI capex cycle remains intact; institutional flows constructive.",
             price_target=215.0,
@@ -843,6 +845,7 @@ class TestPortfolioManagerInjection:
         """deepseek-flash misses tool-call structured output but supports json_mode."""
         decision = PortfolioDecision(
             rating=PortfolioRating.OVERWEIGHT,
+            confidence="medium",
             executive_summary="Add on weakness.",
             investment_thesis="Demand is intact.",
             supporting_factors=[MaterialClaim(

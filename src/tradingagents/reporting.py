@@ -17,6 +17,17 @@ def analyst_names(keys) -> list[str]:
     return ["sentiment" if key == "social" else key for key in keys or []]
 
 
+def _override_value(value):
+    """Render one explicit-override value for the report header.
+
+    An overridden analyst set reads as a comma list of the names users know; any
+    other value (a round count) prints as-is.
+    """
+    if isinstance(value, (list, tuple)):
+        return ", ".join(analyst_names(value))
+    return value
+
+
 def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     """The report's title and what produced it: analysis date, version, models, analysts, vendors."""
     lines = [f"# Trading Analysis Report: {ticker}", ""]
@@ -27,6 +38,9 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     traceability = _traceability_header(final_state)
     if traceability:
         lines.append(traceability)
+    acceptance = _acceptance_header(final_state)
+    if acceptance:
+        lines.append(acceptance)
     lines.append(f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     if settings:
         s = settings.get
@@ -40,7 +54,15 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         lines.append(f"- TradingAgents {s('version', '?')}: {models}")
         lines.append(f"- Analysts: {', '.join(analyst_names(s('analysts')))}; "
                      f"research debate rounds {s('max_debate_rounds', '?')}, "
-                     f"risk debate rounds {s('max_risk_discuss_rounds', '?')}")
+                     f"risk debate rounds {s('max_risk_discuss_rounds', '?')}, "
+                     f"tool rounds per analyst {s('max_tool_rounds', '?')}")
+        # What was asked for versus what took effect (Implements: REQ-TA-FR-001).
+        if s("profile_requested"):
+            lines.append(f"- Analysis profile: {s('profile_requested')} (requested)")
+        overrides = s("profile_overrides") or {}
+        if overrides:
+            lines.append("- Explicit overrides: " + ", ".join(
+                f"{key}={_override_value(value)}" for key, value in overrides.items()))
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             lines.append("- Data vendors: " + ", ".join(f"{k} {v}" for k, v in vendors.items()))
@@ -66,6 +88,24 @@ _NOT_A_SOURCE = frozenset({"final_trade_decision"})
 NOT_INVESTMENT_ADVICE = (
     "Not investment advice. This report is for research and information purposes "
     "only and is not investment, financial, or trading advice."
+)
+
+# ADR-001 fail-closed activation (REQ-TA-QR-002, REQ-TA-INV-005): the acceptance
+# verdict a run carries. A closed vocabulary of its own: it is neither a rating
+# (REQ-TA-INV-001) nor a run status (REQ-TA-FR-006).
+CLAIM_ACCEPTANCE_STATUSES = frozenset({"ACCEPTED", "REJECTED", "NOT_ENFORCED"})
+
+CLAIM_NOT_ACCEPTED_NOTICE = (
+    "This report is not accepted as an evidence-linked recommendation: at least one "
+    "material claim could not be traced to a source report. Treat the "
+    "recommendation as unsupported, not as a tradeable call."
+)
+
+# The verdict's own sentence when enforcement was off: the audit ran, but the
+# run was never gated on it, so acceptance is not claimed either way.
+CLAIM_NOT_CERTIFIED_NOTICE = (
+    "Claim traceability is not enforced for this run, so this report is not "
+    "certified as an evidence-linked recommendation."
 )
 
 
@@ -216,6 +256,53 @@ def audit_material_claims(final_state: dict) -> dict:
     }
 
 
+def evaluate_claim_acceptance(final_state: dict, *, enforced: bool) -> dict:
+    """Derive the run's acceptance verdict from its claim audit (ADR-001).
+
+    Pure: no I/O and no LLM. Implements REQ-TA-QR-002 and REQ-TA-INV-005: an
+    untraceable material claim — or no claim metadata at all — prevents
+    acceptance. With enforcement off the verdict says so instead of claiming
+    acceptance. It never reads or writes the rating (REQ-TA-INV-001).
+    """
+    audit = audit_material_claims(final_state)
+    reasons = list(audit["reasons"])
+    if not enforced:
+        status, notice = "NOT_ENFORCED", None
+        if "CLAIM_ENFORCEMENT_DISABLED" not in reasons:
+            reasons.append("CLAIM_ENFORCEMENT_DISABLED")
+    elif audit["status"] == "ACCEPTED":
+        status, notice = "ACCEPTED", None
+    else:
+        status, notice = "REJECTED", CLAIM_NOT_ACCEPTED_NOTICE
+    return {
+        "status": status,
+        "audit_status": audit["status"],
+        "enforced": enforced,
+        "reasons": reasons,
+        "notice": notice,
+    }
+
+
+def claim_acceptance_of(final_state: dict) -> dict:
+    """The verdict recorded for this run, or the one this state would get.
+
+    A state that never went through ``record_decision`` (a hand-built state, a
+    partial run) is judged with enforcement on, so a report cannot render as
+    accepted by omission.
+    """
+    recorded = final_state.get("claim_acceptance")
+    if isinstance(recorded, dict) and recorded.get("status") in CLAIM_ACCEPTANCE_STATUSES:
+        return recorded
+    return evaluate_claim_acceptance(final_state, enforced=True)
+
+
+def acceptance_notice_text(verdict: dict) -> str | None:
+    """The sentence a rendering shows for a verdict that is not ``ACCEPTED``."""
+    if verdict.get("status") == "ACCEPTED":
+        return None
+    return verdict.get("notice") or CLAIM_NOT_CERTIFIED_NOTICE
+
+
 def render_claim_ledger(final_state: dict) -> str:
     """The markdown claim ledger: each factor with its source, date or UNSUPPORTED label."""
     items = _claim_items(final_state)
@@ -257,6 +344,37 @@ def _traceability_header(final_state: dict) -> str | None:
     if audit["reasons"]:
         line += f"; {', '.join(audit['reasons'])}"
     return line
+
+
+def _acceptance_header(final_state: dict) -> str | None:
+    """The header line for a recommendation that is not accepted, and only then."""
+    if not final_state.get("final_trade_decision"):
+        return None
+    verdict = claim_acceptance_of(final_state)
+    if verdict["status"] == "ACCEPTED":
+        return None
+    line = f"- Acceptance: {verdict['status']}"
+    if verdict["reasons"]:
+        line += f" — {', '.join(verdict['reasons'])}"
+    return line
+
+
+def _acceptance_section(final_state: dict) -> str:
+    """The ``## Acceptance`` block for a recommendation that is not accepted.
+
+    It follows the header and precedes the sections, so a reader meets the
+    verdict before the recommendation itself (REQ-TA-QR-002, REQ-TA-INV-005).
+    A run with no claim metadata has no ledger, so this block is the only place
+    the non-acceptance would otherwise be invisible.
+    """
+    if not final_state.get("final_trade_decision"):
+        return ""
+    verdict = claim_acceptance_of(final_state)
+    if verdict["status"] == "ACCEPTED":
+        return ""
+    notice = acceptance_notice_text(verdict)
+    reasons = (f" Reasons: {', '.join(verdict['reasons'])}." if verdict["reasons"] else "")
+    return f"## Acceptance\n\n**{verdict['status']}** — {notice}{reasons}\n\n"
 
 
 # The report's sections in order: (heading, folder, [(agent, file, state path)]).
@@ -304,8 +422,9 @@ def _report_parts(final_state: dict) -> list[tuple[str, str, list[tuple[str, str
 
 def _report_document(ticker: str, final_state: dict, settings: dict | None,
                      sections: list[str]) -> str:
-    """The complete markdown report: header, sections, claim ledger, disclaimer."""
-    body = _header(ticker, final_state, settings) + "\n\n".join(sections)
+    """The complete markdown report: header, acceptance verdict, sections, claim ledger, disclaimer."""
+    body = _header(ticker, final_state, settings) + _acceptance_section(final_state)
+    body += "\n\n".join(sections)
     ledger = render_claim_ledger(final_state)
     if ledger:
         body += "\n\n" + ledger

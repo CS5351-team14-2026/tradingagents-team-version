@@ -15,8 +15,11 @@ from markdown_it import MarkdownIt
 from tradingagents.agents.rating import run_rating
 from tradingagents.reporting import (
     NOT_INVESTMENT_ADVICE,
+    _override_value,
+    acceptance_notice_text,
     analyst_names,
     audit_material_claims,
+    claim_acceptance_of,
 )
 
 # Ratings by direction, so the page can show which way the call leans.
@@ -140,6 +143,10 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .claim-id { display: inline-block; min-width: 1.8rem; color: var(--muted);
   font: 0.8rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .unsupported { color: var(--down); font-weight: 600; }
+/* A recommendation the claim audit did not accept, stated before the sections. */
+.rejected { margin: 0 0 1.5rem; padding: 0.7rem 0 0.7rem 0.9rem;
+  border-left: 3px solid var(--down); color: var(--ink); font: 0.95rem/1.55 var(--sans); }
+.rejected strong { color: var(--down); }
 .disclaimer { margin: 3rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--rule);
   color: var(--muted); font: 0.85rem/1.5 var(--sans); }
 
@@ -247,7 +254,15 @@ def _run_details(final_state: dict, settings: dict | None) -> list[tuple[str, st
         details.append(("Debate rounds", " ".join((
             _group("research", _fields([s("max_debate_rounds", "?")])),
             _group("risk", _fields([s("max_risk_discuss_rounds", "?")])),
+            _group("tools", _fields([s("max_tool_rounds", "?")])),
         ))))
+        # What was asked for versus what took effect (Implements: REQ-TA-FR-001).
+        if s("profile_requested"):
+            details.append(("Analysis profile", escape(f"{s('profile_requested')} (requested)")))
+        overrides = s("profile_overrides") or {}
+        if overrides:
+            details.append(("Explicit overrides", _fields(
+                [f"{key}={_override_value(value)}" for key, value in overrides.items()])))
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             details.append(("Data vendors", " ".join(
@@ -262,7 +277,30 @@ def _run_details(final_state: dict, settings: dict | None) -> list[tuple[str, st
             audit["status"],
             f"{audit['claims_attributed']}/{audit['claims_total']} claims attributed",
         ])))
+    if final_state.get("final_trade_decision"):
+        verdict = claim_acceptance_of(final_state)
+        if verdict["status"] != "ACCEPTED":
+            values = [verdict["status"]]
+            if verdict["reasons"]:
+                values.append(", ".join(verdict["reasons"]))
+            details.append(("Acceptance", _fields(values)))
     return details
+
+
+def _acceptance_notice(final_state: dict) -> str:
+    """The non-acceptance notice, stated before the recommendation's sections.
+
+    Mirrors the Markdown report's ``## Acceptance`` block so both renderings say
+    the same thing (REQ-TA-QR-002, REQ-TA-INV-005).
+    """
+    if not final_state.get("final_trade_decision"):
+        return ""
+    verdict = claim_acceptance_of(final_state)
+    notice = acceptance_notice_text(verdict)
+    if notice is None:
+        return ""
+    reasons = (f' ({escape(", ".join(verdict["reasons"]))})' if verdict["reasons"] else "")
+    return f'<p class="rejected"><strong>{escape(verdict["status"])}</strong> — {escape(notice)}{reasons}</p>'
 
 
 def _claim_ledger(final_state: dict, parts, number: int) -> str:
@@ -327,6 +365,9 @@ def render_report(ticker: str, final_state: dict, settings: dict | None, parts) 
     )
 
     contents, body = [], []
+    notice = _acceptance_notice(final_state)
+    if notice:
+        body.append(notice)
     for n, (heading, _folder, written) in enumerate(parts, 1):
         agents = "".join(
             f'<li><a href="#s{n}-{m}"><span class="bar"></span> <span class="label">{escape(agent)}</span></a></li>'
