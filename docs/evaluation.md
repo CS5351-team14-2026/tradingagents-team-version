@@ -18,8 +18,16 @@ Prepare three files. `cases.json` is a list of at least three objects:
 `max_risk_discuss_rounds`, `max_tool_rounds`, retaining the same temperature.
 Both configurations resolve against the current application defaults; this is
 configuration comparison, not execution of an older checkout. Save the resolved
-allowlisted settings in the output as evidence. Until FR-001 lands, this command
-does not label any manual override as the team's approved Quick profile.
+allowlisted settings in the output as evidence.
+
+For the FR-001 Quick integration, use `{"temperature": 0, "profile": "quick"}`
+as enhanced.json, and `{"temperature": 0}` as baseline.json. The public
+`resolve_profile` API applies the teammate-approved mapping; only fields explicitly
+present in your JSON override that mapping. The graph receives `profile` and the
+original explicit overrides, not an analyst list that would silently override Quick.
+Unset TRADINGAGENTS_PROFILE when measuring a no-profile baseline (otherwise the
+command rejects the ambiguous experiment). This local integration trial does not
+replace the formal comparison after the FR-001 follow-up fix merges.
 
 ```bash
 tradingagents compare --cases cases.json --baseline baseline.json --enhanced enhanced.json --output comparison-run-01 --repetitions 3 --live
