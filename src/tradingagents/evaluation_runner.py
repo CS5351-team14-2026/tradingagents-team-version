@@ -20,7 +20,7 @@ CONTROL_KEYS = (
     'openai_reasoning_effort', 'anthropic_effort', 'max_tokens', 'llm_max_retries',
 )
 SETTING_KEYS = (*CONTROL_KEYS, 'max_debate_rounds', 'max_risk_discuss_rounds',
-                'max_tool_rounds', 'analysts')
+                'max_tool_rounds', 'analysts', 'profile')
 OVERRIDE_KEYS = set(SETTING_KEYS)
 
 
@@ -73,6 +73,14 @@ def prepare_configs(defaults, baseline_overrides, enhanced_overrides):
             raise ValueError('configuration contains unsupported fields')
         cfg = copy.deepcopy(defaults)
         cfg.update(copy.deepcopy(overrides))
+        from tradingagents.default_config import resolve_profile
+        profile = overrides.get('profile')
+        explicit = {k: overrides[k] for k in ('analysts', 'max_debate_rounds',
+                    'max_risk_discuss_rounds', 'max_tool_rounds') if k in overrides}
+        resolved = resolve_profile(profile, explicit=explicit, defaults=cfg)
+        cfg.update(resolved.resolved_settings())
+        cfg['profile'] = profile
+        cfg['evaluation_profile_overrides'] = resolved.overrides
         analysts = cfg.setdefault('analysts', ['market', 'social', 'news', 'fundamentals'])
         if not isinstance(analysts, list) or not analysts or any(
             a not in {'market', 'social', 'news', 'fundamentals'} for a in analysts
@@ -103,7 +111,13 @@ def run_comparison(cases, baseline, enhanced, work_dir, repetitions=3,
         raise ValueError('cases must be nonempty and unique')
     if isinstance(repetitions, bool) or not isinstance(repetitions, int) or repetitions < 1:
         raise ValueError('repetitions must be a positive integer')
-    baseline, enhanced = prepare_configs(baseline, {}, {k: v for k, v in enhanced.items() if k in OVERRIDE_KEYS})
+    import os
+    if os.environ.get('TRADINGAGENTS_PROFILE') and any(
+        cfg.get('profile') is None for cfg in (baseline, enhanced)
+    ):
+        raise ValueError('unset TRADINGAGENTS_PROFILE to measure a no-profile baseline')
+    if any(baseline.get(k) != enhanced.get(k) for k in CONTROL_KEYS):
+        raise ValueError('baseline and enhanced controls must match')
     if pricing is not None:
         if not isinstance(pricing, TokenPricing):
             raise ValueError('pricing must be TokenPricing')
@@ -134,8 +148,13 @@ def run_comparison(cases, baseline, enhanced, work_dir, repetitions=3,
                 start = clock()
                 state, rating, status, reason = {}, None, 'completed', None
                 try:
-                    graph = graph_factory(selected_analysts=cfg['analysts'],
-                                          config=cfg, callbacks=[observer])
+                    graph_kwargs = {'config': cfg, 'callbacks': [observer]}
+                    if original.get('profile') is not None:
+                        graph_kwargs.update(profile=original['profile'],
+                                            explicit_overrides=original.get('evaluation_profile_overrides', {}))
+                    else:
+                        graph_kwargs['selected_analysts'] = cfg['analysts']
+                    graph = graph_factory(**graph_kwargs)
                     state, rating = graph.propagate(case.ticker, case.analysis_date)
                     if not isinstance(state, dict) or not isinstance(rating, str):
                         raise ValueError('invalid graph result')
@@ -147,7 +166,7 @@ def run_comparison(cases, baseline, enhanced, work_dir, repetitions=3,
                 rounds = turns // 2 if isinstance(turns, int) and turns >= 0 and turns % 2 == 0 else None
                 runs.append(RunMetrics(case, variant, repeat, elapsed, status=status,
                                        debate_rounds=rounds, recommendation=rating,
-                                       confidence=state.get('confidence'), pricing=pricing,
+                                       confidence=state.get('pm_confidence', state.get('confidence')), pricing=pricing,
                                        failure_reason=reason,
                                        settings={k: copy.deepcopy(original.get(k)) for k in SETTING_KEYS},
                                        **observer.snapshot()))
