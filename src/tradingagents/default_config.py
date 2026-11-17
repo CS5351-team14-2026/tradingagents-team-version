@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass, field
 
 _TRADINGAGENTS_HOME = os.path.join(os.path.expanduser("~"), ".tradingagents")
 
@@ -213,3 +214,168 @@ def build_default_config() -> dict:
 
 
 DEFAULT_CONFIG = build_default_config()
+
+
+# Analysis profiles (Implements: ADR-002; REQ-TA-FR-001).
+# A profile bundles the four settings that trade cost against depth: the
+# analyst set, the Bull/Bear debate budget, the risk-discussion budget and the
+# per-analyst tool-round cap. The values are fixed by the approved ADR; the
+# profile only chooses among them, it never invents a number.
+PROFILE_MAPPING: dict[str, dict] = {
+    "quick": {
+        "analysts": ("market", "news"),
+        "max_debate_rounds": 1,
+        "max_risk_discuss_rounds": 1,
+        "max_tool_rounds": 3,
+    },
+    "standard": {
+        "analysts": ("market", "social", "news", "fundamentals"),
+        "max_debate_rounds": 1,
+        "max_risk_discuss_rounds": 1,
+        "max_tool_rounds": 20,
+    },
+    "deep": {
+        "analysts": ("market", "social", "news", "fundamentals"),
+        "max_debate_rounds": 3,
+        "max_risk_discuss_rounds": 3,
+        "max_tool_rounds": 20,
+    },
+}
+
+# The legal profile names, in the order an error message should list them.
+PROFILE_NAMES = tuple(PROFILE_MAPPING)
+
+# The four settings a profile sets, and the config keys an explicit override
+# may target. ``analysts`` lives outside the config dict; the other three are
+# ordinary config keys.
+_PROFILE_KEYS = (
+    "analysts",
+    "max_debate_rounds",
+    "max_risk_discuss_rounds",
+    "max_tool_rounds",
+)
+
+
+@dataclass(frozen=True)
+class ResolvedProfile:
+    """The settings one analysis run will actually use (Implements: ADR-002).
+
+    ``requested_profile`` is what the user asked for (``None`` when no profile
+    was given); ``overrides`` records only the fields an explicit input set, so
+    a report can show requested-versus-resolved; the four settings are the
+    values the graph must run with.
+    """
+
+    requested_profile: str | None
+    analysts: tuple[str, ...]
+    max_debate_rounds: int
+    max_risk_discuss_rounds: int
+    max_tool_rounds: int
+    overrides: dict = field(default_factory=dict)
+
+    def resolved_settings(self) -> dict:
+        """The four settings as a plain dict, for run_settings() and reports."""
+        return {
+            "analysts": list(self.analysts),
+            "max_debate_rounds": self.max_debate_rounds,
+            "max_risk_discuss_rounds": self.max_risk_discuss_rounds,
+            "max_tool_rounds": self.max_tool_rounds,
+        }
+
+
+def resolve_profile(
+    profile: str | None,
+    *,
+    explicit: dict | None = None,
+    defaults: dict | None = None,
+    base_analysts=None,
+) -> ResolvedProfile:
+    """Resolve one run's four settings from a profile plus explicit overrides.
+
+    Implements: ADR-002; REQ-TA-FR-001.
+
+    Precedence, per field: an explicit value beats the profile's value beats the
+    built-in default. Only fields present in ``explicit`` are overridden, so a
+    profile and a few explicit settings combine rather than replace each other
+    (deep with an explicit debate of 1 keeps its risk budget of 3).
+
+    An unknown profile raises ``ValueError`` naming the legal values, before any
+    model is built. ``profile=None`` applies no mapping: the four settings come
+    from ``explicit`` where given and from ``defaults`` otherwise, so the
+    baseline v0.7.1 behaviour is reproduced exactly (no profile key written, no
+    setting changed).
+
+    ``explicit`` is keyed by the four setting names in ``_PROFILE_KEYS``; an
+    explicit ``analysts`` is a sequence of analyst keys. ``defaults`` supplies
+    the fallback for the non-analyst settings when no profile is selected; the
+    analyst default is the baseline four-analyst set.
+
+    ``base_analysts`` is the analyst set the run starts from when no explicit
+    ``analysts`` override is given (for example the menu's choice, or the profile
+    mapping filtered for a crypto asset). It shapes the resolved analysts but is
+    *not* recorded in ``overrides`` — only inputs the user named are.
+    """
+    explicit = dict(explicit or {})
+    defaults = dict(defaults or {})
+
+    unknown = set(explicit) - set(_PROFILE_KEYS)
+    if unknown:
+        raise ValueError(
+            f"unknown profile override field(s): {', '.join(sorted(unknown))}; "
+            f"choose from {', '.join(_PROFILE_KEYS)}"
+        )
+
+    if profile is None:
+        base = _resolved_from_defaults(defaults)
+        requested = None
+    else:
+        if profile not in PROFILE_MAPPING:
+            raise ValueError(
+                f"unknown profile {profile!r}; choose from {', '.join(PROFILE_NAMES)}"
+            )
+        mapping = PROFILE_MAPPING[profile]
+        base = {
+            "analysts": tuple(mapping["analysts"]),
+            "max_debate_rounds": mapping["max_debate_rounds"],
+            "max_risk_discuss_rounds": mapping["max_risk_discuss_rounds"],
+            "max_tool_rounds": mapping["max_tool_rounds"],
+        }
+        requested = profile
+
+    # The starting analyst set (asset-filtered menu / profile choice). It changes
+    # the resolved analysts but is not a user override, so it is not recorded.
+    if base_analysts is not None:
+        base["analysts"] = tuple(base_analysts)
+
+    applied = {}
+    for key in _PROFILE_KEYS:
+        if key in explicit:
+            value = explicit[key]
+            if key == "analysts":
+                value = tuple(value)
+            base[key] = value
+            applied[key] = list(value) if key == "analysts" else value
+
+    return ResolvedProfile(
+        requested_profile=requested,
+        analysts=tuple(base["analysts"]),
+        max_debate_rounds=base["max_debate_rounds"],
+        max_risk_discuss_rounds=base["max_risk_discuss_rounds"],
+        max_tool_rounds=base["max_tool_rounds"],
+        overrides=applied,
+    )
+
+
+def _resolved_from_defaults(defaults: dict) -> dict:
+    """The baseline four settings for the no-profile case (Implements: REQ-TA-FR-001).
+
+    The analyst set is the graph's v0.7.1 default; the round budgets and the
+    tool cap come from ``defaults`` (the env-folded DEFAULT_CONFIG) so an
+    environmental override still applies when no profile is requested.
+    """
+    return {
+        "analysts": ("market", "social", "news", "fundamentals"),
+        "max_debate_rounds": defaults.get("max_debate_rounds", 1),
+        "max_risk_discuss_rounds": defaults.get("max_risk_discuss_rounds", 1),
+        "max_tool_rounds": defaults.get("max_tool_rounds", 20),
+    }

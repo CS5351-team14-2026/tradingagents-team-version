@@ -2,6 +2,44 @@
 # Fields: id, date, task. Also record agent, model, prompt_ref, files,
 # human_decision, transcript. Never invent a session.
 entries:
+  - id: AI-2026-11-13-wuyu200501-01
+    date: "2026-11-13"
+    task: "REQ-TA-FR-001 S1–S5: implement and verify the quick, standard, and deep analysis profiles."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    session: ses_e2c5c6316ffeMQol8wdW1QhJXV
+    prompt_ref: "transcripts/FR-001-opencode.md#第-4-轮"
+    files:
+      - docs/ai-use-log.yaml
+      - docs/architecture/ADR-002-analysis-profiles.md
+      - docs/architecture/FR-001-trace.md
+      - src/cli/main.py
+      - src/cli/run.py
+      - src/cli/selections.py
+      - src/tradingagents/default_config.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/report_html.py
+      - src/tradingagents/reporting.py
+      - test/offline/test_cli_commands.py
+      - test/offline/test_cli_memory_log.py
+      - test/offline/test_cli_profile.py
+      - test/offline/test_cli_profile_e2e.py
+      - test/offline/test_profiles.py
+      - test/offline/test_profiles_graph.py
+      - test/offline/test_profiles_report.py
+      - test/offline/test_rating_integrity.py
+    human_decision: >-
+      WuYu selected the final profile mapping and approved the implementation
+      plan in rounds 2–5. A teammate added test-approved to Issue #14 before
+      S1 began in round 6. WuYu approved S1 before S2 and requested corrections
+      to environment overrides and legacy checkpoint compatibility in S2.
+      For S3, WuYu requested complete resolved settings across reports and the
+      state log. For S4, WuYu required the CLI and graph to use the same
+      effective analysts and limits, including existing crypto filtering.
+      For S5, WuYu required the metadata to distinguish explicit overrides
+      from automatically selected analysts and approved the code after review.
+      The final round aligned the ADR and traceability record with the implementation.
+    transcript: transcripts/FR-001-opencode.md
   - id: AI-2026-11-15-a5ynchr0ny-01
     date: "2026-11-15"
     task: "FR-005 / QR-002 / INV-005 local vertical slice: ADR-001, material-claim schema, claim ledger in Markdown and HTML, disclaimer, offline traceability tests"
@@ -24,7 +62,6 @@ entries:
       - test/offline/test_report_html_claims.py
     human_decision: "Approved ADR-001 decisions: Option A material-claim definition, structural source ids, 3 supporting + 3 opposing claims, producing agent derived from source_id, fail-closed not activated in this slice."
     transcript: pending
-
   - id: AI-2026-11-16-wuyu200501-01
     date: "2026-11-16"
     task: "REQ-TA-QR-003 component-boundary enforcement: AST structural check over agents/graph/dataflows/memory/llm_clients for statically parseable cross-component private imports and alias reads (public and own-component private allowed; absolute/relative private import, private-module imports, and alias/package-alias/full-path reads rejected; scope- and statement-order-aware resolution; dynamic access out of static scope), plus a scripted-LLM + fixed-market-data offline graph run asserting both test doubles are exercised"
@@ -39,7 +76,33 @@ entries:
       - docs/ai-use-log.yaml
     human_decision: "Approved Stage 1 (component-boundary test) and Stage 2 (LLM-double assertion) after iterative review rounds; Windows ruff and full offline suite (1483 passed) confirmed green before acceptance."
     transcript: transcripts/qr-003-implementation.md
-
+  - id: AI-2026-11-16-wuyu200501-02
+    date: "2026-11-16"
+    task: "FR-001 delivery: merge origin/integration (f64d0ea) into feat/fr-001-analysis-profiles; resolve report_html.py and ai-use-log.yaml conflicts; keep legacy checkpoint signatures with the reserved claim_enforcement config; renumber the FR-001 ADR to ADR-002 alongside the merged ADR-001."
+    agent: opencode
+    model: CS5351/DeepSeek-V4-Flash
+    session: ses_e2c5c6316ffeMQol8wdW1QhJXV
+    prompt_ref: "transcripts/FR-001-opencode.md#第-16-轮--合并-originintegrationf64d0ea"
+    files:
+      - docs/ai-use-log.yaml
+      - docs/architecture/ADR-002-analysis-profiles.md
+      - docs/architecture/FR-001-trace.md
+      - src/tradingagents/default_config.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/report_html.py
+      - test/offline/test_profiles_graph.py
+      - transcripts/FR-001-opencode.md
+    human_decision: >-
+      WuYu approved the two-conflict resolution (report_html keeps both imports;
+      ai-use-log keeps both entries in one list), directed that legacy checkpoint
+      compatibility be preserved (a config without claim_enforcement and a config
+      with its False default must share one signature at baseline, reproduced
+      first then minimally fixed, pinning the existing fixed signature), and kept
+      PR #27's ADR-001 while renaming the FR-001 ADR to ADR-002 with a note that
+      claim_enforcement is a placeholder excluded from the signature for
+      compatibility. Approved targeted HTML/checkpoint/ai-use-log checks before
+      review. Not committed.
+    transcript: transcripts/FR-001-opencode.md
   - id: AI-2026-11-16-a5ynchr0ny-01
     date: "2026-11-16"
     task: "FR-005 PM confidence field: schema/prompt/render, tests, and real AAPL validation"
@@ -57,7 +120,6 @@ entries:
       - docs/req/requirements.yaml
     human_decision: "Approved confidence (low/medium/high) and unconditional QR-002; real AAPL run produced medium confidence and 6/6 ACCEPTED."
     transcript: pending
-
   - id: AI-2026-11-17-a5ynchr0ny-01
     date: "2026-11-17"
     task: "ADR-001 §4 activation (fail-closed claim traceability) for REQ-TA-FR-005 / REQ-TA-QR-002 / REQ-TA-INV-005: read-only analysis and execution plan submitted for approval; no source or test code written in this step"
@@ -76,7 +138,6 @@ entries:
       - test/offline/test_claim_audit_recording.py
     human_decision: "Plan approved 2026-11-17 with amendments (vocabulary ACCEPTED/REJECTED/NOT_ENFORCED; report_html.py whitelisted; S8 docs removed from scope); D1–D5 as recommended"
     transcript: pending
-
   - id: AI-2026-11-17-a5ynchr0ny-02
     date: "2026-11-17"
     task: "ADR-001 §4 fail-closed activation, stages S1-S7: the claim_acceptance verdict (ACCEPTED / REJECTED / NOT_ENFORCED), its recording in the state and the state log, the non-acceptance block in the Markdown and HTML reports, claim_enforcement defaulted to True, and the offline tests for REQ-TA-FR-005 / REQ-TA-QR-002 / REQ-TA-INV-005 with REQ-TA-INV-001 as the regression guard"
@@ -95,7 +156,6 @@ entries:
     human_decision: "Approved the plan with amendments 2026-11-17: D1 flip claim_enforcement to True; D2 memory log unchanged; D3 propagate() unchanged; D4 REQ-TA-FR-006 mapping out of scope; D5 test_graph_end_to_end.py untouched. S8 (ADR §4 amendment, trace matrix, registry) retained by the human."
     verification: "ruff check . clean; offline suite: 1481 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
     transcript: pending
-
   - id: AI-2026-11-17-a5ynchr0ny-03
     date: "2026-11-17"
     task: "FR-005 / QR-002 Portfolio Manager prompt: add a 'Primary analyst evidence' section carrying the market, sentiment, news and fundamentals reports (absent-marked via report_or_absent) before the risk debate history, and require at least one of the six material claims to cite a primary analyst report. No change to the audit or to fail-closed enforcement (NO_ANALYST_REFERENCE already covers the requirement)."
@@ -108,4 +168,19 @@ entries:
       - test/offline/test_structured_agent_prompts.py
     human_decision: "Asked for the primary-evidence section and the citation requirement in the PM prompt, with the audit and fail-closed logic explicitly scoped out; commit review pending."
     verification: "ruff check . clean; offline suite: 1484 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
+    transcript: pending
+
+  - id: AI-2026-11-17-a5ynchr0ny-04
+    date: "2026-11-17"
+    task: "Merge integration into FR-001: resolve report_html.py imports and the AI-use log entry list; align ADR-002 and the checkpoint-signature comment with the now-active claim_enforcement default."
+    agent: zcode
+    model: deepseek/deepseek-flash
+    prompt_ref: "Human merge instruction 2026-11-17; PR #31 conflict report"
+    files:
+      - docs/ai-use-log.yaml
+      - src/tradingagents/report_html.py
+      - docs/architecture/ADR-002-analysis-profiles.md
+      - src/tradingagents/graph/trading_graph.py
+      - test/offline/test_profiles_graph.py
+    human_decision: "Approved resolving PR #31 conflicts and merging after the checks passed."
     transcript: pending

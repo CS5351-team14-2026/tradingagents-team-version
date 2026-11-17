@@ -13,7 +13,7 @@ from tradingagents.agents.rating import run_rating
 from tradingagents.dataflows.config import run_config, run_config_context, set_config
 from tradingagents.dataflows.date_window import get_current_date, is_historical
 from tradingagents.dataflows.symbols import safe_ticker_component
-from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.default_config import DEFAULT_CONFIG, _coerce, resolve_profile
 from tradingagents.llm_clients import create_tier_client, tier_provider
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
@@ -49,7 +49,17 @@ def _validate_trade_date(trade_date) -> str:
 # whether it checkpoints, and how often it retries a provider.
 _NOT_IN_SIGNATURE = frozenset({
     "results_dir", "data_cache_dir", "memory_log_path", "checkpoint_enabled", "llm_max_retries",
+    # Settled after the graph run (ADR-001 claim acceptance), so it cannot change
+    # the graph shape. Excluding it keeps a legacy config (no such key) and a
+    # config carrying the default on the same signature, so an existing
+    # checkpoint still resumes (Implements: ADR-002; REQ-TA-FR-001).
+    "claim_enforcement",
 })
+
+# The baseline per-analyst tool-round cap. The checkpoint signature omits its own
+# tools segment at this value so a run that did not change the cap keeps the
+# pre-change signature (Implements: REQ-TA-FR-001).
+_BASELINE_MAX_TOOL_ROUNDS = 20
 
 
 class TradingAgentsGraph:
@@ -57,22 +67,50 @@ class TradingAgentsGraph:
 
     def __init__(
         self,
-        selected_analysts=("market", "social", "news", "fundamentals"),
+        selected_analysts=None,
         debug=False,
         config: dict[str, Any] = None,
         callbacks: list | None = None,
+        profile: str | None = None,
+        explicit_overrides: dict | None = None,
+        base_analysts=None,
     ):
         """Initialize the trading agents graph and components.
 
         Args:
-            selected_analysts: List of analyst types to include
+            selected_analysts: Analyst types the caller explicitly chose. A list
+                here is a user override of the analyst set and is recorded in
+                ``profile_overrides`` (REQ-TA-FR-001). ``None`` lets the profile —
+                or the baseline four-analyst set when no profile is given —
+                choose. ``explicit_overrides["analysts"]`` wins if both are given.
             debug: Whether to run in debug mode
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
+            profile: Analysis profile (``quick`` / ``standard`` / ``deep``); an
+                unknown value is rejected before any model client is built
+                (Implements: ADR-002; REQ-TA-FR-001).
+            explicit_overrides: Per-field settings that override the profile for
+                that field only, keyed like the profile's settings
+                (``analysts``, ``max_debate_rounds``, ``max_risk_discuss_rounds``,
+                ``max_tool_rounds``). A ``TRADINGAGENTS_PROFILE`` env value is
+                used only when ``profile`` is not passed, so an explicit Python
+                profile wins over the environment.
+            base_analysts: The starting analyst set the CLI auto-selected (the
+                menu's choice, or the profile mapping filtered for the asset
+                type). It shapes the resolved analysts but is **not** recorded as
+                an override — only inputs the user named are. Internal to the CLI
+                entry point; programmatic callers use ``selected_analysts``.
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
+
+        # Resolve the profile before any model client is built: an unknown
+        # profile must fail here, naming the legal values, rather than after a
+        # provider client and its key checks have happened (#FR-001).
+        resolved = self._resolve_run_profile(
+            profile, selected_analysts, explicit_overrides or {}, base_analysts)
+        self.profile_resolution = resolved
 
         set_config(self.config)
 
@@ -86,13 +124,13 @@ class TradingAgentsGraph:
         self.memory_log = TradingMemoryLog(self.config)
 
         self.conditional_logic = ConditionalLogic(
-            max_debate_rounds=self.config["max_debate_rounds"],
-            max_risk_discuss_rounds=self.config["max_risk_discuss_rounds"],
+            max_debate_rounds=resolved.max_debate_rounds,
+            max_risk_discuss_rounds=resolved.max_risk_discuss_rounds,
         )
         # An analyst takes two graph steps per tool round, plus its first turn
         # and its wrap-up; a limit past the recursion limit would end the run
         # there instead.
-        max_tool_rounds, max_recur_limit = self.config["max_tool_rounds"], self.config["max_recur_limit"]
+        max_tool_rounds, max_recur_limit = resolved.max_tool_rounds, self.config["max_recur_limit"]
         if 2 * max_tool_rounds + 2 >= max_recur_limit:
             raise ValueError(
                 f"max_tool_rounds={max_tool_rounds} needs max_recur_limit above {2 * max_tool_rounds + 2}"
@@ -110,13 +148,63 @@ class TradingAgentsGraph:
         self.reflector = Reflector(self.quick_thinking_llm)
 
         # Graph-shape-affecting run choices, kept for the checkpoint signature.
-        self.selected_analysts = tuple(selected_analysts)
+        self.selected_analysts = tuple(resolved.analysts)
 
         # Set up the graph: keep the workflow for recompilation with a checkpointer.
-        self.workflow = self.graph_setup.setup_graph(selected_analysts, memory_node=self._memory_step)
+        self.workflow = self.graph_setup.setup_graph(self.selected_analysts, memory_node=self._memory_step)
         self.graph = self.workflow.compile()
         self._checkpointer_ctx = None
         self._resuming = False
+
+    def _resolve_run_profile(self, profile, selected_analysts, explicit_overrides, base_analysts=None):
+        """Resolve the run's four settings from the profile, explicit inputs and env.
+
+        Implements: ADR-002; REQ-TA-FR-001.
+
+        Source precedence, per field: an explicit input beats the profile beats
+        the baseline default. Explicit analyst inputs are a caller-passed
+        ``selected_analysts`` and ``explicit_overrides["analysts"]`` (the latter
+        wins if both are given); either is recorded in ``overrides``.
+        ``base_analysts`` is the set the CLI auto-selected (menu choice, or the
+        profile mapping filtered for the asset type): it shapes the resolved
+        analysts but is **not** recorded as an override. When a profile is
+        selected, the three round-count / tool-cap environment variables are also
+        explicit per-field sources. The ``profile`` argument wins over
+        ``TRADINGAGENTS_PROFILE``: the env profile is honoured only when none is
+        passed.
+
+        With no profile at all the old call is preserved exactly: the four
+        settings come from the caller's config (the round caps from the config the
+        caller passed, the analyst set from the base/default), the environment is
+        not re-read per field, and the checkpoint signature is unchanged.
+        """
+        explicit = dict(explicit_overrides)
+        # A caller-passed analyst set is an explicit override; an explicit
+        # explicit_overrides["analysts"] already present wins over it.
+        if selected_analysts is not None:
+            explicit.setdefault("analysts", selected_analysts)
+
+        chosen = profile if profile is not None else (os.environ.get("TRADINGAGENTS_PROFILE") or None)
+
+        # Env-as-field-override is part of selecting a profile: with no profile the
+        # old config values stay authoritative, so a legacy caller that passes a
+        # config is never surprised by the environment re-applying on top of it.
+        if chosen is not None:
+            env_fields = (
+                ("TRADINGAGENTS_MAX_DEBATE_ROUNDS", "max_debate_rounds"),
+                ("TRADINGAGENTS_MAX_RISK_ROUNDS", "max_risk_discuss_rounds"),
+                ("TRADINGAGENTS_MAX_TOOL_ROUNDS", "max_tool_rounds"),
+            )
+            for env_var, key in env_fields:
+                raw = os.environ.get(env_var)
+                if raw:
+                    explicit.setdefault(key, _coerce(raw, self.config.get(key, DEFAULT_CONFIG[key])))
+
+        # The base set applies only when no explicit analyst override was named.
+        base = base_analysts if "analysts" not in explicit else None
+        return resolve_profile(chosen, explicit=explicit, defaults=self.config,
+                               base_analysts=base)
+
 
     def resolve_instrument_context(self, ticker: str, asset_type: str = "stock",
                                    trade_date: str | None = None) -> str:
@@ -150,13 +238,38 @@ class TradingAgentsGraph:
         counts too (provider, models, endpoint, language, vendors, limits): a
         resume must not carry reports that other settings produced. Only where
         the run keeps its files and how it retries are left out.
+
+        The analysts and round caps come from the resolved settings (which equal
+        the config values when no profile is given). The per-analyst tool cap is
+        folded in only when the resolution moved it away from the caller's config
+        value, so a legacy/omitted-profile call — whatever its tool cap — keeps the
+        pre-change signature byte-for-byte, while a run whose effective cap differs
+        (profile or explicit override) still gets its own signature
+        (Implements: ADR-002; REQ-TA-FR-001).
         """
         settings = {k: v for k, v in self.config.items() if k not in _NOT_IN_SIGNATURE}
         digest = hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()[:12]
-        return "|".join([
+        # A fully built graph carries its profile resolution; a bare instance
+        # (constructed in tests to exercise this helper alone) has none, so fall
+        # back to the config values, which is the no-profile baseline.
+        resolved = getattr(self, "profile_resolution", None)
+        debate = resolved.max_debate_rounds if resolved else self.config["max_debate_rounds"]
+        risk = resolved.max_risk_discuss_rounds if resolved else self.config["max_risk_discuss_rounds"]
+        config_tools = self.config.get("max_tool_rounds", _BASELINE_MAX_TOOL_ROUNDS)
+        tools = resolved.max_tool_rounds if resolved else config_tools
+        parts = [
             "analysts=" + ",".join(self.selected_analysts),
-            f"debate={self.config['max_debate_rounds']}",
-            f"risk={self.config['max_risk_discuss_rounds']}",
+            f"debate={debate}",
+            f"risk={risk}",
+        ]
+        # Fold the effective tool cap in only when it differs from the caller's
+        # config value. The pre-change signature had no tools segment, so a legacy
+        # call (resolved == config) stays byte-for-byte identical for any cap;
+        # when a profile or an explicit override changes the cap it gets a
+        # distinct signature so a stale checkpoint is not reused.
+        if tools != config_tools:
+            parts.append(f"tools={tools}")
+        parts += [
             f"asset={asset_type}",
             # None, an empty book and a changed book are three different runs.
             f"portfolio={portfolio.fingerprint() if portfolio is not None else 'none'}",
@@ -166,7 +279,8 @@ class TradingAgentsGraph:
             "analysts=parallel",
             "memory=parallel",
             f"settings={digest}",
-        ])
+        ]
+        return "|".join(parts)
 
     def propagate(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
         """Run the trading agents graph for a company on a specific date.
@@ -261,8 +375,38 @@ class TradingAgentsGraph:
 
         An allowlist: endpoints (a backend_url can carry credentials), keys and
         local paths are never recorded.
+
+        The four run-shaping settings (analysts and the three round caps) are the
+        resolved values the graph actually run with, so a profile or an explicit
+        override is reflected here. A run that requested a profile also records
+        what was asked for (``profile_requested``), which fields an explicit input
+        overrode (``profile_overrides``) and the resolved settings as one block
+        (``profile_resolved``), so the report can show requested-versus-resolved
+        (Implements: ADR-002; REQ-TA-FR-001).
         """
         cfg = self.config
+        resolved = getattr(self, "profile_resolution", None)
+        if resolved is not None:
+            analysts = list(resolved.analysts)
+            max_debate_rounds = resolved.max_debate_rounds
+            max_risk_discuss_rounds = resolved.max_risk_discuss_rounds
+            max_tool_rounds = resolved.max_tool_rounds
+            profile_requested = resolved.requested_profile
+            profile_overrides = dict(resolved.overrides)
+            profile_resolved = resolved.resolved_settings()
+        else:  # a bare instance built in a test: fall back to the config values
+            analysts = list(self.selected_analysts)
+            max_debate_rounds = cfg.get("max_debate_rounds")
+            max_risk_discuss_rounds = cfg.get("max_risk_discuss_rounds")
+            max_tool_rounds = cfg.get("max_tool_rounds")
+            profile_requested = None
+            profile_overrides = {}
+            profile_resolved = {
+                "analysts": analysts,
+                "max_debate_rounds": max_debate_rounds,
+                "max_risk_discuss_rounds": max_risk_discuss_rounds,
+                "max_tool_rounds": max_tool_rounds,
+            }
         return {
             "version": tradingagents.__version__,
             "llm_provider": cfg.get("llm_provider"),
@@ -270,9 +414,13 @@ class TradingAgentsGraph:
             "deep_think_llm": cfg.get("deep_think_llm"),
             "quick_think_provider": tier_provider(cfg, "quick") if cfg.get("llm_provider") else None,
             "quick_think_llm": cfg.get("quick_think_llm"),
-            "analysts": list(self.selected_analysts),
-            "max_debate_rounds": cfg.get("max_debate_rounds"),
-            "max_risk_discuss_rounds": cfg.get("max_risk_discuss_rounds"),
+            "analysts": analysts,
+            "max_debate_rounds": max_debate_rounds,
+            "max_risk_discuss_rounds": max_risk_discuss_rounds,
+            "max_tool_rounds": max_tool_rounds,
+            "profile_requested": profile_requested,
+            "profile_overrides": profile_overrides,
+            "profile_resolved": profile_resolved,
             "output_language": cfg.get("output_language"),
             "data_vendors": dict(cfg.get("data_vendors") or {}),
             "tool_vendors": dict(cfg.get("tool_vendors") or {}),

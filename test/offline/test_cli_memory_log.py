@@ -51,6 +51,11 @@ class _FakeGraph:
         self.propagator = self
         self.resuming = resuming      # None: checkpointing off
         self._resuming = False
+        self.selected_analysts = ("market",)
+
+    def run_settings(self):
+        return {"analysts": ["market"], "max_debate_rounds": 1, "max_risk_discuss_rounds": 1,
+                "max_tool_rounds": 20, "profile_requested": None}
 
     def create_run_state(self, ticker, trade_date, asset_type="stock", portfolio=None):
         self.calls.append(("create_run_state", ticker, trade_date))
@@ -131,7 +136,7 @@ def _run_cli(monkeypatch, tmp_path, fake):
         "ticker": "NVDA", "analysis_date": "2026-01-10",
         "analysts": [AnalystType.MARKET], "asset_type": "stock",
     })
-    monkeypatch.setattr(cli_run, "_build_run_config", lambda selections, checkpoint: {
+    monkeypatch.setattr(cli_run, "_build_run_config", lambda selections, checkpoint, profile=None: {
         "data_cache_dir": str(tmp_path / "cache"), "results_dir": str(tmp_path / "results"),
     })
     monkeypatch.setattr(m.typer, "prompt", lambda *a, **k: "N")
