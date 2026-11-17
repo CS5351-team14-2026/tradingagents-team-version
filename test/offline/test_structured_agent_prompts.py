@@ -16,7 +16,10 @@ from unittest.mock import MagicMock
 import pytest
 
 import tradingagents.agents.analysts.sentiment_analyst as sentiment
-from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
+from tradingagents.agents.managers.portfolio_manager import (
+    PRIMARY_ANALYST_SOURCES,
+    create_portfolio_manager,
+)
 from tradingagents.agents.managers.research_manager import create_research_manager
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS
 from tradingagents.agents.trader.trader import create_trader
@@ -87,6 +90,7 @@ def test_portfolio_manager_prompt_states_constraint():
         captured,
         PortfolioDecision(
             rating=PortfolioRating.HOLD,
+            confidence="medium",
             executive_summary="x",
             investment_thesis="y",
         ),
@@ -104,6 +108,75 @@ def test_portfolio_manager_prompt_states_constraint():
         "trader_investment_plan": "trader plan",
     })
     assert NO_EXTERNAL_TOOLS in _prompt_text(captured["prompt"])
+
+
+def _pm_state(**overrides):
+    """A Portfolio Manager state carrying all four analyst reports."""
+    state = {
+        "company_of_interest": "NVDA",
+        "risk_debate_state": {
+            "history": "RISK-DEBATE-MARK", "aggressive_history": "a",
+            "conservative_history": "c", "neutral_history": "n",
+            "current_aggressive_response": "", "current_conservative_response": "",
+            "current_neutral_response": "", "latest_speaker": "Neutral", "count": 1,
+        },
+        "investment_plan": "plan",
+        "trader_investment_plan": "trader plan",
+        "market_report": "MARKET-MARK: close 189.5, ATR 4.2",
+        "sentiment_report": "SENTIMENT-MARK: bullish retail flow",
+        "news_report": "NEWS-MARK: guidance raised",
+        "fundamentals_report": "FUNDAMENTALS-MARK: margin 74%",
+    }
+    state.update(overrides)
+    return state
+
+
+def _pm_prompt(state) -> str:
+    from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating
+
+    captured = {}
+    llm = _capturing_llm(captured, PortfolioDecision(
+        rating=PortfolioRating.HOLD, confidence="medium",
+        executive_summary="x", investment_thesis="y",
+    ))
+    create_portfolio_manager(llm)(state)
+    return _prompt_text(captured["prompt"])
+
+
+@pytest.mark.unit
+def test_portfolio_manager_prompt_carries_primary_analyst_evidence():
+    """The PM reads the analysts' own reports, not only the debate's paraphrase."""
+    text = _pm_prompt(_pm_state())
+
+    assert "Primary analyst evidence" in text
+    for marker in ("MARKET-MARK", "SENTIMENT-MARK", "NEWS-MARK", "FUNDAMENTALS-MARK"):
+        assert marker in text, marker
+    for source in PRIMARY_ANALYST_SOURCES:
+        assert f"`{source}`" in text, source
+    assert (text.index("Primary analyst evidence")
+            < text.index("Risk Analysts Debate History"))
+
+
+@pytest.mark.unit
+def test_portfolio_manager_prompt_requires_a_primary_analyst_citation():
+    """REQ-TA-QR-002: one of the six claims must cite an analyst report."""
+    text = _pm_prompt(_pm_state())
+    requirement = text[text.index("At least one of the six material claims"):]
+
+    assert "six material claims" in requirement
+    for source in PRIMARY_ANALYST_SOURCES:
+        assert source in requirement, source
+    assert "downgraded" in requirement
+
+
+@pytest.mark.unit
+def test_portfolio_manager_prompt_marks_an_absent_report_as_absent():
+    """A report the run never produced is marked absent, not shown as blank."""
+    text = _pm_prompt(_pm_state(news_report=""))
+
+    assert "(No news report in this run" in text
+    assert "`news_report`" in text
+    assert "MARKET-MARK" in text
 
 
 @pytest.mark.unit

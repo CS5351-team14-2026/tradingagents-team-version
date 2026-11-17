@@ -128,10 +128,11 @@ def build_default_config() -> dict:
         # Checkpoint/resume: when True, LangGraph saves state after each node
         # so a crashed run can resume from the last successful step.
         "checkpoint_enabled": False,
-        # Reserved: no behaviour is wired to it yet. The intent is to let a later
-        # change gate run acceptance on the material-claim audit (ADR-001); the
-        # audit is recorded now, but fail-closed is not activated.
-        "claim_enforcement": False,
+        # ADR-001 fail-closed: on, a recommendation whose material claims do not
+        # all resolve to a source report is not accepted (REQ-TA-QR-002,
+        # REQ-TA-INV-005). Off, the audit is still recorded and the run reports
+        # NOT_ENFORCED, never ACCEPTED. It never changes the rating.
+        "claim_enforcement": True,
         # Output language for analyst reports and final decision
         # Internal agent debate stays in English for reasoning quality
         "output_language": "English",

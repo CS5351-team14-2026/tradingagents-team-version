@@ -278,6 +278,14 @@ class PortfolioDecision(BaseModel):
             "support a call."
         ),
     )
+    confidence: Literal["low", "medium", "high"] = Field(
+        description=(
+            "Confidence in the rating, from evidence quality and analyst "
+            "disagreement: low = thin evidence or strong disagreement; medium = "
+            "adequate but mixed evidence or material disagreement; high = strong, "
+            "consistent evidence with only minor disagreement."
+        ),
+    )
     executive_summary: str = Field(
         description=(
             "A concise action plan covering entry strategy, position sizing, "
@@ -325,14 +333,15 @@ def render_pm_decision(decision: PortfolioDecision) -> str:
 
     Memory log, CLI display, and saved report files all read this markdown,
     so the rendered output preserves the exact section headers (``**Rating**``,
-    ``**Executive Summary**``, ``**Investment Thesis**``) that downstream
-    parsers and the report writers already handle.
-
+    ``**Confidence**``, ``**Executive Summary**``, ``**Investment Thesis**``)
+    that downstream parsers and the report writers already handle.
     Material claims render as two extra labelled lists (ADR-001); they are
     omitted when the model returned none, so an older state renders unchanged.
     """
     parts = [
         f"**Rating**: {decision.rating.value}",
+        "",
+        f"**Confidence**: {decision.confidence}",
         "",
         f"**Executive Summary**: {decision.executive_summary}",
         "",

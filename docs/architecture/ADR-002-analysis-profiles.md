@@ -117,11 +117,11 @@ tool cap (20 or a custom one), while a profile or explicit override that changes
 the analysts or rounds yields a distinct signature and never resumes a stale
 checkpoint.
 
-`claim_enforcement` (introduced by ADR-001 for material-claim fail-closed, still
-inert) is a placeholder config: it is excluded from the checkpoint signature so a
-run that predates the key and a run carrying its `False` default share one
-signature, keeping old checkpoints resumable. Without that exclusion the added
-default key would silently change every signature and strand existing runs.
+`claim_enforcement` (ADR-001; now defaults to True and settles claim acceptance
+after the graph run) is excluded from the checkpoint signature: it does not
+change the graph shape or the state written before acceptance, so a run that
+predates the key and a run carrying the default share one signature and existing
+checkpoints still resume.
 
 ## Consequences
 

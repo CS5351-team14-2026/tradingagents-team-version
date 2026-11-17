@@ -382,10 +382,10 @@ def test_the_pre_change_signature_for_a_fixed_config_is_unchanged(tmp_path, monk
 
 
 @pytest.mark.unit
-def test_a_missing_or_false_claim_enforcement_yields_the_same_signature(tmp_path, monkeypatch, offline):
-    """REQ-TA-FR-001: claim_enforcement is reserved/inert, so a legacy config that
-    lacks the key and a config carrying the False default must produce the same
-    signature — an existing checkpoint still resumes — and keep the 03e7d48 value."""
+def test_claim_enforcement_does_not_change_the_checkpoint_signature(tmp_path, monkeypatch, offline):
+    """REQ-TA-FR-001: claim_enforcement is settled after the graph run, so a
+    legacy config without the key and configs carrying False or True must share
+    one signature — an existing checkpoint still resumes — and keep the 03e7d48 value."""
     base = {
         "results_dir": "X", "data_cache_dir": "Y", "memory_log_path": "Z",
         "checkpoint_enabled": False, "llm_max_retries": None,
@@ -400,8 +400,10 @@ def test_a_missing_or_false_claim_enforcement_yields_the_same_signature(tmp_path
         return graph._run_signature("stock")
 
     legacy = _signature(dict(base))
-    with_default = _signature({**base, "claim_enforcement": False})
+    with_false = _signature({**base, "claim_enforcement": False})
+    with_true = _signature({**base, "claim_enforcement": True})
 
-    assert with_default == legacy
+    assert with_false == legacy
+    assert with_true == legacy
     assert legacy == ("analysts=market,news|debate=1|risk=1|asset=stock|portfolio=none|"
                       "analysts=parallel|memory=parallel|settings=28bd6315ccc7")
