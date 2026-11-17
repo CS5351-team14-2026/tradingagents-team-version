@@ -37,7 +37,8 @@ STRUCTURED = {
     schemas.TraderProposal: schemas.TraderProposal(action=schemas.TraderAction.BUY, reasoning="r"),
     # The thesis quotes another party's rating; the decision is still the PM's own.
     schemas.PortfolioDecision: schemas.PortfolioDecision(
-        rating=schemas.PortfolioRating.OVERWEIGHT, executive_summary="s",
+        rating=schemas.PortfolioRating.OVERWEIGHT, confidence="medium",
+        executive_summary="s",
         investment_thesis="Street consensus rating: Buy (28 of 35 analysts)."),
     schemas.SentimentReport: schemas.SentimentReport(
         overall_band=schemas.SentimentBand.NEUTRAL, overall_score=5.0, confidence="low", narrative="n"),
@@ -131,10 +132,18 @@ def _graph(tmp_path, monkeypatch, model, debug=False, **config):
 @pytest.mark.unit
 @pytest.mark.parametrize("structured", [False, True], ids=["free-text", "structured"])
 def test_a_full_run_reaches_a_logged_decision(tmp_path, monkeypatch, offline, structured):
-    graph = _graph(tmp_path, monkeypatch, ScriptedModel(structured=structured))
+    """REQ-TA-QR-003: the run uses the scripted LLM and the fixed market-data doubles.
+
+    Keeps the ``ScriptedModel`` instance so the test can prove the graph actually
+    called the LLM test double (not just the data one), alongside the existing
+    fixed-market-data and report assertions, for both free-text and structured.
+    """
+    model = ScriptedModel(structured=structured)
+    graph = _graph(tmp_path, monkeypatch, model)
 
     state, signal = graph.propagate("NVDA", TRADE_DATE)
 
+    assert model.calls                                   # LLM test double was exercised
     assert signal == state["final_rating"] == "Overweight"
     for key in ("market_report", "sentiment_report", "news_report", "fundamentals_report",
                 "investment_plan", "trader_investment_plan", "final_trade_decision"):

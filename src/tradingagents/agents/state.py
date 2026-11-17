@@ -68,6 +68,30 @@ class AgentState(MessagesState):
     ]
     final_trade_decision: Annotated[str, "Final decision from the Portfolio Manager"]
     final_rating: Annotated[str, "The Portfolio Manager's 5-tier rating, or REVIEW when it has none"]
+    material_claims: Annotated[
+        list[dict],
+        "The final recommendation's material claims (ADR-001): supporting and opposing "
+        "factors, each with text, source_id from the report artifacts, and an optional "
+        "observation_date",
+    ]
+    claim_audit: Annotated[
+        dict,
+        "Result of the pure claim-traceability audit (ADR-001; REQ-TA-QR-002; "
+        "REQ-TA-INV-005): status, reasons, counts and per-claim resolution",
+    ]
+    claim_fallback: Annotated[
+        str | None,
+        "What produced the final decision when it was not the structured output "
+        "(ADR-001): 'free_text' when the Portfolio Manager fell back, else None",
+    ]
+    claim_acceptance: Annotated[
+        dict,
+        "The claim-traceability acceptance verdict for this run (ADR-001; "
+        "REQ-TA-QR-002; REQ-TA-INV-005): status (ACCEPTED / REJECTED / "
+        "NOT_ENFORCED), the audit status it came from, whether enforcement was "
+        "on, the reasons and the non-acceptance notice. Not a rating and not a "
+        "run status",
+    ]
     past_context: Annotated[str, "Memory log context for the Portfolio Manager (same-ticker decisions + cross-ticker lessons), written by the Memory Log step"]
     memory_note: Annotated[str, "What the Memory Log step could not settle or read this run, for the report; empty when all went well"]
     portfolio_context: Annotated[str, "Caller-supplied holdings and cash, rendered at run start; empty when not provided"]

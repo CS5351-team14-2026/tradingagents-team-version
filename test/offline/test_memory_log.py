@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
-from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating
+from tradingagents.agents.schemas import MaterialClaim, PortfolioDecision, PortfolioRating
 from tradingagents.graph.propagation import Propagator
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.memory import TradingMemoryLog, settlement
@@ -95,6 +95,7 @@ def _structured_pm_llm(captured: dict, decision: PortfolioDecision | None = None
     if decision is None:
         decision = PortfolioDecision(
             rating=PortfolioRating.HOLD,
+            confidence="medium",
             executive_summary="Hold the position; await catalyst.",
             investment_thesis="Balanced view; neither side carried the debate.",
         )
@@ -812,6 +813,7 @@ class TestPortfolioManagerInjection:
         captured = {}
         decision = PortfolioDecision(
             rating=PortfolioRating.OVERWEIGHT,
+            confidence="high",
             executive_summary="Build position gradually over the next two weeks.",
             investment_thesis="AI capex cycle remains intact; institutional flows constructive.",
             price_target=215.0,
@@ -838,6 +840,61 @@ class TestPortfolioManagerInjection:
         pm_node = create_portfolio_manager(llm)
         result = pm_node(_make_pm_state())
         assert result["final_trade_decision"] == plain_response
+
+    def test_pm_retries_as_json_mode_when_function_calling_fails(self):
+        """deepseek-flash misses tool-call structured output but supports json_mode."""
+        decision = PortfolioDecision(
+            rating=PortfolioRating.OVERWEIGHT,
+            confidence="medium",
+            executive_summary="Add on weakness.",
+            investment_thesis="Demand is intact.",
+            supporting_factors=[MaterialClaim(
+                text="Close was 181.2.", source_id="market_report",
+                observation_date="2026-11-14")],
+        )
+        function_bound = MagicMock()
+        function_bound.invoke.side_effect = ValueError("function calling failed")
+        json_bound = MagicMock()
+        json_bound.invoke.return_value = decision.model_dump_json()
+
+        def bind(_schema, method=None, **_kwargs):
+            return json_bound if method == "json_mode" else function_bound
+
+        llm = MagicMock()
+        llm.with_structured_output.side_effect = bind
+        llm.invoke.return_value = MagicMock(content="FREETEXT")
+
+        result = create_portfolio_manager(llm)(_make_pm_state())
+
+        assert result["final_rating"] == "Overweight"
+        assert result["material_claims"] == [{
+            "kind": "supporting", "text": "Close was 181.2.",
+            "source_id": "market_report", "observation_date": "2026-11-14",
+        }]
+        assert result["claim_fallback"] is None
+        llm.invoke.assert_not_called()
+
+    def test_pm_invalid_json_mode_falls_back_to_free_text(self, caplog):
+        function_bound = MagicMock()
+        function_bound.invoke.side_effect = ValueError("function calling failed")
+        json_bound = MagicMock()
+        json_bound.invoke.return_value = "{not valid json"
+
+        def bind(_schema, method=None, **_kwargs):
+            return json_bound if method == "json_mode" else function_bound
+
+        plain_response = "**Rating**: Sell\n\nExit ahead of guidance."
+        llm = MagicMock()
+        llm.with_structured_output.side_effect = bind
+        llm.invoke.return_value = MagicMock(content=plain_response)
+
+        with caplog.at_level("WARNING"):
+            result = create_portfolio_manager(llm)(_make_pm_state())
+
+        assert result["final_trade_decision"] == plain_response
+        assert result["claim_fallback"] == "free_text"
+        assert "PM: json_mode retry failed" in caplog.text
+        llm.invoke.assert_called_once()
 
     # get_past_context ordering and limits
 

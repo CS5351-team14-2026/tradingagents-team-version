@@ -217,6 +217,47 @@ def render_trader_proposal(proposal: TraderProposal) -> str:
 # Portfolio Manager
 # ---------------------------------------------------------------------------
 
+# The report artifacts a claim may cite (ADR-001). The checker resolves each
+# source_id to its producing agent from reporting._SECTIONS; the model never
+# names the agent itself.
+CLAIM_SOURCE_IDS = (
+    "market_report, sentiment_report, news_report, fundamentals_report, "
+    "investment_debate_state.bull_history, investment_debate_state.bear_history, "
+    "investment_plan, trader_investment_plan, "
+    "risk_debate_state.aggressive_history, risk_debate_state.conservative_history, "
+    "risk_debate_state.neutral_history"
+)
+
+
+class MaterialClaim(BaseModel):
+    """One reason in the final recommendation, linked to the artifact it rests on.
+
+    A material claim is exactly an item in ``PortfolioDecision.supporting_factors``
+    or ``opposing_factors`` (ADR-001). The producing agent is not a field: it is
+    derived from ``source_id`` by the traceability checker.
+    """
+
+    text: str = Field(
+        description=(
+            "One atomic statement: the factor itself, not a paragraph. State the "
+            "figure or observation the factor rests on."
+        ),
+    )
+    source_id: str = Field(
+        description=(
+            "The one report artifact that supports this claim. Exactly one of: "
+            + CLAIM_SOURCE_IDS + "."
+        ),
+    )
+    observation_date: str | None = Field(
+        default=None,
+        description=(
+            "The date of the observation as YYYY-MM-DD when the claim asserts market "
+            "data (for example a price or indicator from market_report). Omit it for "
+            "qualitative claims."
+        ),
+    )
+
 
 class PortfolioDecision(BaseModel):
     """Structured output produced by the Portfolio Manager.
@@ -237,6 +278,14 @@ class PortfolioDecision(BaseModel):
             "support a call."
         ),
     )
+    confidence: Literal["low", "medium", "high"] = Field(
+        description=(
+            "Confidence in the rating, from evidence quality and analyst "
+            "disagreement: low = thin evidence or strong disagreement; medium = "
+            "adequate but mixed evidence or material disagreement; high = strong, "
+            "consistent evidence with only minor disagreement."
+        ),
+    )
     executive_summary: str = Field(
         description=(
             "A concise action plan covering entry strategy, position sizing, "
@@ -248,6 +297,20 @@ class PortfolioDecision(BaseModel):
             "Detailed reasoning anchored in specific evidence from the analysts' "
             "debate. If prior lessons are referenced in the prompt context, "
             "incorporate them; otherwise rely solely on the current analysis."
+        ),
+    )
+    supporting_factors: list[MaterialClaim] = Field(
+        default_factory=list,
+        description=(
+            "Exactly three material claims that support the rating, each linked to "
+            "the report artifact it came from (ADR-001)."
+        ),
+    )
+    opposing_factors: list[MaterialClaim] = Field(
+        default_factory=list,
+        description=(
+            "Exactly three material claims that argue against the rating, each "
+            "linked to the report artifact it came from (ADR-001)."
         ),
     )
     price_target: float | None = Field(
@@ -270,16 +333,30 @@ def render_pm_decision(decision: PortfolioDecision) -> str:
 
     Memory log, CLI display, and saved report files all read this markdown,
     so the rendered output preserves the exact section headers (``**Rating**``,
-    ``**Executive Summary**``, ``**Investment Thesis**``) that downstream
-    parsers and the report writers already handle.
+    ``**Confidence**``, ``**Executive Summary**``, ``**Investment Thesis**``)
+    that downstream parsers and the report writers already handle.
+    Material claims render as two extra labelled lists (ADR-001); they are
+    omitted when the model returned none, so an older state renders unchanged.
     """
     parts = [
         f"**Rating**: {decision.rating.value}",
+        "",
+        f"**Confidence**: {decision.confidence}",
         "",
         f"**Executive Summary**: {decision.executive_summary}",
         "",
         f"**Investment Thesis**: {decision.investment_thesis}",
     ]
+    for label, claims in (("Supporting Factors", decision.supporting_factors),
+                          ("Opposing Factors", decision.opposing_factors)):
+        if not claims:
+            continue
+        parts.extend(["", f"**{label}**:"])
+        for claim in claims:
+            source = f"source: {claim.source_id}"
+            if claim.observation_date:
+                source += f", observation: {claim.observation_date}"
+            parts.append(f"- {claim.text} ({source})")
     # Named even when absent: a missing line reads as a field nobody asked for,
     # so a reader cannot tell "no target" from "target not reported".
     target = decision.price_target if decision.price_target is not None else "not provided"

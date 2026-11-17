@@ -22,7 +22,7 @@ from cli.display import (
     update_display,
     update_research_team_status,
 )
-from cli.selections import depth_from_env, get_user_selections, unattended_gaps
+from cli.selections import depth_from_env, get_user_selections, requested_profile, unattended_gaps
 from cli.stats_handler import StatsCallbackHandler
 from tradingagents.agents.rating import is_review, run_rating
 from tradingagents.dataflows.symbols import safe_ticker_component
@@ -56,29 +56,36 @@ def _announce_checkpoint_state(graph, ticker: str, trade_date: str) -> None:
         message_buffer.add_message("System", f"Starting fresh for {ticker} on {trade_date}")
 
 
-def _build_run_config(selections: dict, checkpoint: bool | None) -> dict:
+def _build_run_config(selections: dict, checkpoint: bool | None, profile: str | None = None) -> dict:
     """Assemble the run config from interactive selections, honoring env precedence.
 
     Round counts and checkpoint follow "explicit env/flag wins": an env-applied
     value on DEFAULT_CONFIG is preserved unless the user overrode it on the CLI.
+
+    With a profile selected, the profile (resolved later by the graph) owns the
+    round budgets; the interactive research-depth answer is not written into the
+    config, so a stale depth can never fight the profile. The analyst and round
+    environment variables still reach the graph as per-field overrides
+    (Implements: REQ-TA-FR-001).
     """
     config = DEFAULT_CONFIG.copy()
-    # Research depth sets both round counts, but an explicit env override
-    # (TRADINGAGENTS_MAX_DEBATE_ROUNDS / _MAX_RISK_ROUNDS) wins over the
-    # interactive selection — leave the env-applied value in place (#977).
-    rounds = (("TRADINGAGENTS_MAX_DEBATE_ROUNDS", "max_debate_rounds"),
-              ("TRADINGAGENTS_MAX_RISK_ROUNDS", "max_risk_discuss_rounds"))
-    depth_was_asked = not depth_from_env()
-    for env_var, key in rounds:
-        if not os.environ.get(env_var):
-            config[key] = selections["research_depth"]
-        elif depth_was_asked:
-            # The depth question appeared (it is skipped only when both are
-            # set), so say which half of the answer the environment overrode.
-            console.print(
-                f"[green]✓ {key} from environment:[/green] {config[key]} "
-                f"(set by {env_var}, so the research depth you chose does not apply to it)"
-            )
+    if profile is None:
+        # Research depth sets both round counts, but an explicit env override
+        # (TRADINGAGENTS_MAX_DEBATE_ROUNDS / _MAX_RISK_ROUNDS) wins over the
+        # interactive selection — leave the env-applied value in place (#977).
+        rounds = (("TRADINGAGENTS_MAX_DEBATE_ROUNDS", "max_debate_rounds"),
+                  ("TRADINGAGENTS_MAX_RISK_ROUNDS", "max_risk_discuss_rounds"))
+        depth_was_asked = not depth_from_env()
+        for env_var, key in rounds:
+            if not os.environ.get(env_var):
+                config[key] = selections["research_depth"]
+            elif depth_was_asked:
+                # The depth question appeared (it is skipped only when both are
+                # set), so say which half of the answer the environment overrode.
+                console.print(
+                    f"[green]✓ {key} from environment:[/green] {config[key]} "
+                    f"(set by {env_var}, so the research depth you chose does not apply to it)"
+                )
     config["quick_think_llm"] = selections["quick_think_llm"]
     config["deep_think_llm"] = selections["deep_think_llm"]
     config["backend_url"] = selections["backend_url"]
@@ -96,8 +103,18 @@ def _build_run_config(selections: dict, checkpoint: bool | None) -> dict:
     return config
 
 
-def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None):
-    flags = flags or {}
+def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, profile: str | None = None):
+    flags = dict(flags or {})
+    # A profile is recognised and validated first — before the unattended-gap
+    # check, the interactive questions and any model client — so an unknown
+    # profile fails fast naming the legal values (Implements: REQ-TA-FR-001).
+    flags["profile"] = profile
+    try:
+        profile_name = requested_profile(flags)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from None
+
     # With no terminal nothing can answer a prompt: name every question still
     # open before any model is called, rather than stopping at the first one.
     if not (sys.stdin and sys.stdin.isatty()):
@@ -110,24 +127,36 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None):
 
     selections = get_user_selections(flags)
 
-    config = _build_run_config(selections, checkpoint)
+    config = _build_run_config(selections, checkpoint, profile=profile_name)
 
     stats_handler = StatsCallbackHandler()
 
     # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
     selected_set = {analyst.value for analyst in selections["analysts"]}
     selected_analyst_keys = [a for a in ANALYST_ORDER if a in selected_set]
-    analyst_execution_plan = build_analyst_execution_plan(selected_analyst_keys)
-    analyst_wall_time_tracker = AnalystWallTimeTracker(analyst_execution_plan)
 
+    # One resolved config feeds the graph, the execution plan and the display.
+    # The menu/profile selection is already filtered for the asset type (crypto
+    # drops fundamentals); it is the base analyst set, so it shapes the resolved
+    # analysts but is not recorded as an override. Only an explicit --analysts is
+    # a user override (Implements: REQ-TA-FR-001).
+    explicit_overrides = {}
+    if flags.get("analysts") is not None:
+        explicit_overrides["analysts"] = selected_analyst_keys
     graph = TradingAgentsGraph(
-        selected_analyst_keys,
         config=config,
         debug=True,
         callbacks=[stats_handler],
+        profile=profile_name,
+        explicit_overrides=explicit_overrides or None,
+        base_analysts=None if flags.get("analysts") is not None else selected_analyst_keys,
     )
+    # The analysts the graph actually runs with, from the same resolved config.
+    effective_analysts = [a for a in ANALYST_ORDER if a in set(graph.selected_analysts)]
+    analyst_execution_plan = build_analyst_execution_plan(effective_analysts)
+    analyst_wall_time_tracker = AnalystWallTimeTracker(analyst_execution_plan)
 
-    message_buffer.init_for_analysis(selected_analyst_keys)
+    message_buffer.init_for_analysis(effective_analysts)
 
     # Track start time for elapsed display
     start_time = time.time()
@@ -199,6 +228,20 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None):
         message_buffer.add_message(
             "System",
             f"Selected analysts: {', '.join(analyst.value for analyst in selections['analysts'])}",
+        )
+        # The effective configuration the run will use, from the same resolved
+        # settings the graph and the report use (Implements: REQ-TA-FR-001).
+        settings = graph.run_settings()
+        profile_note = ""
+        if settings.get("profile_requested"):
+            profile_note = f" (profile {settings['profile_requested']})"
+        message_buffer.add_message(
+            "System",
+            f"Effective configuration{profile_note}: "
+            f"analysts {', '.join(settings['analysts'])}; "
+            f"debate {settings['max_debate_rounds']}, "
+            f"risk {settings['max_risk_discuss_rounds']}, "
+            f"tool rounds per analyst {settings['max_tool_rounds']}",
         )
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 

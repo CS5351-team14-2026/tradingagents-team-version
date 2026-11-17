@@ -94,6 +94,7 @@ class TestNullishFloatCoercion:
     def test_pm_nullish_price_target_coerces_to_none(self):
         d = PortfolioDecision(
             rating=PortfolioRating.OVERWEIGHT,
+            confidence="medium",
             executive_summary="s",
             investment_thesis="t",
             price_target="N/A",
@@ -209,6 +210,33 @@ def test_invoke_structured_falls_back_when_result_is_none():
     )
     assert out == "FREETEXT"
     plain.invoke.assert_called_once()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("first", ["none", "raise"], ids=["returns-none", "raises"])
+def test_invoke_structured_retries_once_before_free_text(first):
+    # The deepseek-flash flake: one structured attempt returns no parsed result
+    # (or raises); a second structured attempt can still succeed, and dropping
+    # straight to free text loses structured fields such as material_claims.
+    from tradingagents.agents.structured import invoke_structured_or_freetext
+
+    decision = PortfolioDecision(
+        rating=PortfolioRating.HOLD, confidence="medium",
+        executive_summary="s", investment_thesis="t")
+    structured = MagicMock()
+    structured.invoke.side_effect = (
+        [None, decision] if first == "none" else [RuntimeError("transient"), decision]
+    )
+    plain = MagicMock()
+    plain.invoke.return_value = MagicMock(content="FREETEXT")
+
+    out = invoke_structured_or_freetext(
+        structured, plain, "prompt", render=lambda r: r.rating.value, agent_name="t"
+    )
+
+    assert out == "Hold"
+    assert structured.invoke.call_count == 2
+    plain.invoke.assert_not_called()
 
 
 @pytest.mark.unit
@@ -513,8 +541,9 @@ def test_a_price_written_as_a_range_drops_only_that_field(written):
     losing every other field the model got right."""
     from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating
 
-    decision = PortfolioDecision(rating=PortfolioRating.BUY, executive_summary="s",
-                                 investment_thesis="t", price_target=written)
+    decision = PortfolioDecision(rating=PortfolioRating.BUY, confidence="medium",
+                                 executive_summary="s", investment_thesis="t",
+                                 price_target=written)
     assert decision.price_target is None
 
 
@@ -522,8 +551,9 @@ def test_a_price_written_as_a_range_drops_only_that_field(written):
 def test_a_price_that_is_a_number_survives():
     from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating
 
-    decision = PortfolioDecision(rating=PortfolioRating.BUY, executive_summary="s",
-                                 investment_thesis="t", price_target="$1,150.25")
+    decision = PortfolioDecision(rating=PortfolioRating.BUY, confidence="medium",
+                                 executive_summary="s", investment_thesis="t",
+                                 price_target="$1,150.25")
     assert decision.price_target == 1150.25
 
 
@@ -533,8 +563,32 @@ def test_a_field_the_model_did_not_give_says_so():
     from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating, render_pm_decision
 
     rendered = render_pm_decision(PortfolioDecision(
-        rating=PortfolioRating.HOLD, executive_summary="s", investment_thesis="t"))
+        rating=PortfolioRating.HOLD, confidence="medium",
+        executive_summary="s", investment_thesis="t"))
     assert "Price Target" in rendered and "not provided" in rendered.lower()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("confidence", ["low", "medium", "high"])
+def test_pm_confidence_accepts_each_level(confidence):
+    from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating, render_pm_decision
+
+    decision = PortfolioDecision(
+        rating=PortfolioRating.HOLD, confidence=confidence,
+        executive_summary="s", investment_thesis="t")
+
+    assert decision.confidence == confidence
+    assert f"**Confidence**: {confidence}" in render_pm_decision(decision)
+
+
+@pytest.mark.unit
+def test_pm_confidence_rejects_an_unknown_level():
+    from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating
+
+    with pytest.raises(ValidationError):
+        PortfolioDecision(
+            rating=PortfolioRating.HOLD, confidence="certain",
+            executive_summary="s", investment_thesis="t")
 
 
 @pytest.mark.unit
