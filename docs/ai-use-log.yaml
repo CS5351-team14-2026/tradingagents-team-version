@@ -81,7 +81,7 @@ entries:
     task: "FR-001 delivery: merge origin/integration (f64d0ea) into feat/fr-001-analysis-profiles; resolve report_html.py and ai-use-log.yaml conflicts; keep legacy checkpoint signatures with the reserved claim_enforcement config; renumber the FR-001 ADR to ADR-002 alongside the merged ADR-001."
     agent: opencode
     model: CS5351/DeepSeek-V4-Flash
-    session: ses_e2c5c6316ffeMQol8wdW1QhJXV
+    session: ses_e1b6b37dcffeiyykKwCwMLmeot
     prompt_ref: "transcripts/FR-001-opencode.md#第-16-轮--合并-originintegrationf64d0ea"
     files:
       - docs/ai-use-log.yaml
@@ -184,3 +184,60 @@ entries:
       - test/offline/test_profiles_graph.py
     human_decision: "Approved resolving PR #31 conflicts and merging after the checks passed."
     transcript: pending
+  - id: AI-2026-11-17-wuyu200501-01
+    date: "2026-11-17"
+    task: "FR-001 PR #31 follow-up (rounds 17-18, one session recorded once): reject a per-analyst tool-round cap below 1 (zero and negative) before any model client is built; preserve resume for both pre-PR#27 and post-PR#27 legacy checkpoints, resuming only on a real run-settings match and clearing the resumed thread on completion; and — even with the current claim_enforcement=True default — still find a checkpoint that PR #27 saved with claim_enforcement=False by folding the historical False into the fallback signature (the default signature drops the key, matching 03e7d48), while the claim-acceptance evidence check keeps running on the live config. Added fixed historical-signature regression tests computed independently from commits 03e7d48 and fba0315, plus no-resume-on-mismatch and clear-on-success coverage."
+    agent: opencode
+    model: CS5351/DeepSeek-V4-Flash
+    session: ses_e1785cf59ffeHHJS3UbI6eMjBH
+    prompt_ref: "transcripts/FR-001-opencode.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
+    files:
+      - src/tradingagents/graph/trading_graph.py
+      - test/offline/test_profiles_graph.py
+      - test/offline/test_checkpoint_lifecycle.py
+      - docs/ai-use-log.yaml
+      - transcripts/FR-001-opencode.md
+    human_decision: >-
+      WuYu approved the three review fixes with tests: a tool-round cap below 1
+      rejected before model-client creation (0 and negative); resume preserved
+      for both legacy checkpoint bases (before and after PR #27), only on a real
+      run-settings match, with resume and post-completion cleanup tests; and the
+      PR #27 conflict-resolution session id corrected. For the follow-up the human
+      asked to keep the current signature computation and only fix naming,
+      comments and regression tests, stressed that with the current
+      claim_enforcement=True the PR #27 checkpoint saved with False must still be
+      found by computing the fallback signature with the historical False while
+      the evidence check runs on the current config, required fixed expected
+      values from 03e7d48 and fba0315, kept no-resume-on-mismatch and
+      clear-on-success, and merged rounds 17-18 into one log entry. Run related
+      and full offline tests, Ruff, the AI-use log validation and git diff
+      --check; stop before any commit, push or merge.
+    transcript: transcripts/FR-001-opencode.md
+  - id: AI-2026-11-17-wuyu200501-02
+    date: "2026-11-17"
+    task: "FR-001 delivery wrap-up in the follow-up workspace (new session, recorded separately from the rounds 17-18 session): port the tool-round-cap and legacy-checkpoint fixes from the prior workspace onto the current integration base (9565a96) while keeping teammates' Evidence Linkage and the merged QR-003 work; adapt the completed-run checkpoint-clear test to the dual (default + post-PR#27) signature clear; correct the session id of the old FR-001 delivery entry AI-2026-11-16-wuyu200501-02 to the PR #27 merge-conflict session; and reword the tool-round-cap comment so it states that a cap of 0 or any negative value lets the first tool call exceed the limit and only then reaches the wrap-up check."
+    agent: opencode
+    model: CS5351/DeepSeek-V4-Flash
+    session: ses_e16ace1bdffeUswJq4i4O8jwCJ
+    prompt_ref: "transcripts/FR-001-opencode.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
+    files:
+      - src/tradingagents/graph/trading_graph.py
+      - test/offline/test_profiles_graph.py
+      - test/offline/test_checkpoint_lifecycle.py
+      - test/offline/test_portfolio_context.py
+      - docs/ai-use-log.yaml
+      - transcripts/FR-001-opencode.md
+    human_decision: >-
+      WuYu asked to wrap up the FR-001 delivery record while keeping the existing
+      tool-round validation and checkpoint implementation: correct only the
+      session of the old AI-2026-11-16-wuyu200501-02 entry to
+      ses_e1b6b37dcffeiyykKwCwMLmeot (leaving the FR-001 initial session and the
+      QR-003 record untouched); verify this port's actual session id and, as it is
+      a new session, append a separate log entry while keeping rounds 17-18 as one
+      entry with their original prompt and output; reword the tool-round-cap
+      comment so both 0 and negative values exceed the cap on the first tool call
+      before the wrap-up check; then run the full offline suite in the WSL isolated
+      environment, record the final count, and run Ruff, the AI-use log validation
+      and git diff --check. Stop before any commit, push or merge.
+    verification: "related tests: test_checkpoint_lifecycle.py, test_checkpoint_resume.py, test_profiles_graph.py, test_profiles.py, test_cli_profile.py, test_portfolio_context.py -> 109 passed; full offline suite (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1, isolated venv /tmp/opencode/venv-fr001): 1593 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration), 100 subtests passed; ruff check . clean; AI-use log gate PASSED; git diff --check clean."
+    transcript: transcripts/FR-001-opencode.md

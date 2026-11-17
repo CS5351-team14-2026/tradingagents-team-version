@@ -2309,3 +2309,129 @@ checkpoint 签名复现（未指定 profile，同一基础配置）：
 - 保留 PR #27 合入的 ADR-001（material-claims，`docs/architecture/adr/001-material-claims.md`）。FR-001 的架构决策记录由 ADR-001 改为 ADR-002，文件重命名为 `docs/architecture/ADR-002-analysis-profiles.md`，并更新标题、FR-001 trace、`default_config.py`、`trading_graph.py`、`test_cli_profile.py`、`test_profiles.py`、`test_profiles_graph.py` 及 ai-use-log 文件清单中的引用。material-claim 的 ADR-001 引用保持不变。
 - ADR-002 补充说明：`claim_enforcement` 目前是占位配置，从 checkpoint 签名排除是为了保留旧运行的兼容性。
 - 本轮未提交、未推送。
+
+---
+
+### 第 17、18 轮 — PR #31 审核修复与断点兼容收尾（同一会话，合为一条记录）
+
+会话 ID `ses_e1785cf59ffeHHJS3UbI6eMjBH`，`opencode`（`CS5351/DeepSeek-V4-Flash`）。
+初始在第 17/18 轮于旧工作区 `/mnt/f/CityU_WuYu/CS5351_SE/tradingagents-team-version`
+完成；本轮在新的后续工作区
+`/mnt/f/CityU_WuYu/CS5351_SE/tradingagents-fr001-followup-wsl` 以当前 `integration`
+（`9565a96`，已含队友 Evidence Linkage、QR-003 与 `claim_enforcement=True` 默认值）为基础
+重新落地，并按新基线的历史值语义补测。
+
+#### 用户提示词 · 第 17 轮（PR #31 审核修复）
+
+修复 FR-001 PR #31 的三项审核发现：第一，在初始化模型客户端前拒绝小于 1 的工具轮数上限，并测试 0 和负数；第二，保留早期版本和 PR #27 之后两种旧断点的续跑能力，只有实际运行设置匹配时才续跑，并测试续跑和完成后的清理；第三，更正 AI-use log 中 PR #27 合并冲突处理的 OpenCode 会话 ID，并保存本轮提示词和输出。保留队友的 Evidence Linkage 和已合入的 QR-003 改动。完成后运行相关离线测试、Ruff 和 AI-use log 校验，列出修改文件和结果。先停在本地，不要 commit、push 或合并。
+
+#### 用户提示词 · 第 18 轮（断点修复收尾）
+
+请收尾 FR-001 PR #31 的断点修复，保留已验证的行为。
+
+1. 更正签名命名和注释。默认签名排除 claim_enforcement，匹配 PR #27 之前的版本。回退签名保留 claim_enforcement=False，匹配 PR #27 合入后的 integration。也请修正工具上限检查的注释，原问题是上限为 0 时仍可能调用一次工具。
+2. 用历史版本 03e7d48 和 fba0315 独立算出的固定签名补回归测试。测试不要调用当前签名函数来生成预期值。保留续跑成功、成功后清理以及设置不同时不续跑的验证。
+3. 清理 test_checkpoint_lifecycle.py 末尾多余空行，重跑断点和 profile 测试、Ruff、AI-use log 校验及 git diff --check。
+4. 把本轮提示词和输出追加到原有 FR-001-opencode.md，保留上一轮记录。先停在本地，等人工审核后再提交。
+
+补充澄清（用户答复）：保留当前代码的签名计算方式，只修正命名、注释和回归测试。默认签名排除 claim_enforcement，它匹配 03e7d48，因为那个版本的配置里根本没有这个键。回退签名把历史值 claim_enforcement=False 算进摘要，它匹配 PR #27 合入后的 integration（fba0315），因为那个版本的配置有这个键，而且没有将它排除在摘要之外。用两个历史提交的实际代码独立算出测试预期值，确认同设置能续跑、工具轮数变更后不会误续跑。保留默认先查、回退后查的顺序。
+
+#### 本轮后续修复的用户提示词（新工作区）
+
+在当前新工作区完成 FR-001 的后续修复，旧工作区为 `tradingagents-team-version`。读取旧工作区的 `git diff`，把工具轮数校验和旧断点兼容修复移到当前分支；以当前 `integration` 为基础，保留队友已合入的改动。重点补测：当前 `claim_enforcement=True` 时，仍能找到 PR #27 后用 `False` 保存的旧断点；查找旧断点时用历史值计算签名，报告仍按当前配置执行证据检查。保留两种历史签名的固定预期值，以及设置不同不续跑、成功后清理的测试。以当前分支的 AI-use log 为底稿，保留队友和 QR-003 的记录；保留旧工作区第 17、18 轮的提示词和输出，同一会话合为一条日志。在隔离环境运行相关测试和全量离线测试，再跑 Ruff、AI-use log 校验和 `git diff --check`。列出结果，停在本地审核。
+
+#### OpenCode 回复 · 汇总（第 17/18 轮 + 新工作区续修）
+
+**1. 工具轮数上限 ≥ 1（`src/tradingagents/graph/trading_graph.py`）**
+在 `__init__` 中解析 profile 之后、`create_tier_client` 之前检查
+`resolved.max_tool_rounds < 1`，抛出带出该值的 `ValueError`。注释说明：分析器图总会先跑
+一次模型，wrap-up 路由在 `rounds >= cap` 时才触发，所以 cap=0 仍可能调用一次工具、
+负值则永远不进入 wrap-up，故在建任何模型客户端前拒绝。
+新增 `test_profiles_graph.py::test_a_tool_round_cap_below_one_is_rejected_before_any_client_is_built[0/-1/-20]`
+与 `::test_a_tool_round_env_cap_below_one_is_rejected_with_a_profile[0/-3]`（环境变量入口），
+均断言未创建任何模型客户端。
+
+**2. 历史签名与旧断点续跑（`trading_graph.py`）**
+抽出 `_signature_from`，让默认签名与回退签名共用解析后的设置：
+
+- 默认签名：`_NOT_IN_SIGNATURE` 从摘要中排除 `claim_enforcement`，等于 03e7d48（该版本
+  配置无此键）。
+- 回退签名：`_integration_run_signature` 使用
+  `_POST_PR27_NOT_IN_SIGNATURE = _NOT_IN_SIGNATURE - {"claim_enforcement"}`，但**按历史值
+  折叠** `claim_enforcement`（常量 `_HISTORICAL_CLAIM_ENFORCEMENT = False`），而不是读当前
+  配置值。这样当前默认 `True` 时仍能匹配 PR #27 后用 `False` 保存的断点（fba0315）。
+- `begin_checkpoint` 先查默认签名、再查回退签名，仅在有效运行设置一致时才命中；
+  `clear_checkpoint_on_success` 同时清理两个 thread，成功后不留残断点。
+- 证据检查仍走当前配置：`record_decision` 中的
+  `evaluate_claim_acceptance(..., enforced=bool(self.config.get("claim_enforcement", False)))`
+  未改动，`claim_enforcement=True` 时照常按当前配置执行。
+
+**3. 回归测试（`test/offline/test_checkpoint_lifecycle.py`）**
+硬编码两个历史提交独立算出的固定签名，不调用当前 helper 生成预期值：
+
+- 03e7d48（无 `claim_enforcement`）→ `…|settings=d97f1c2e38c4`，常量 `_SIGNATURE_03e7d48`。
+- fba0315（含 `claim_enforcement=False` 且未排除）→ `…|settings=47a2585a7c9b`，常量 `_SIGNATURE_fba0315`。
+
+断言：
+
+- `test_a_03e7d48_checkpoint_resumes_and_is_cleared_on_success`：默认线程续跑成功、成功后清理。
+- `test_a_fba0315_checkpoint_resumes_even_when_claim_enforcement_is_now_true`：写者用
+  `claim_enforcement=False` 保存、读者用当前 `True` 仍能回退命中并清理——即“当前 True 找到
+  PR #27 False 旧断点”的重点补测。
+- `test_a_historical_checkpoint_is_not_resumed_when_the_run_settings_differ`：两个历史线程
+  上写断点，换模型（q1→q2）后不续跑。
+
+**4. AI-use log 与记录**
+以当前分支 `docs/ai-use-log.yaml` 为底稿，保留队友（`a5ynchr0ny-*`）与 QR-003
+（`wuyu200501-01`）记录；把第 17、18 轮合为一条新条目（同一会话），不重复创建两条。
+
+**5. 校验（隔离 venv `/tmp/opencode/venv-fr001`，`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`）**
+相关测试、全量离线套件、Ruff、AI-use log 校验、`git diff --check` 结果见下。未提交、未推送。
+
+---
+
+### 第 19 轮 — FR-001 交付记录收尾（新工作区独立会话）
+
+会话 ID `ses_e16ace1bdffeUswJq4i4O8jwCJ`（`opencode`，`CS5351/DeepSeek-V4-Flash`，
+2026-11-17，`/mnt/f/CityU_WuYu/CS5351_SE/tradingagents-fr001-followup-wsl`）。与第 17、18 轮
+的旧工作区会话 `ses_e1785cf59ffeHHJS3UbI6eMjBH` 不同，故单独记录；第 17、18 轮仍只记一条。
+
+#### 用户提示词 · 2026-11-17
+
+收尾 FR-001 交付记录，保留现有工具轮数校验和断点实现。
+
+1. 把 `docs/ai-use-log.yaml` 中 `AI-2026-11-16-wuyu200501-02` 的 session 更正为 `ses_e1b6b37dcffeiyykKwCwMLmeot`。只改这条旧记录的 session，不动 FR-001 初始会话或 QR-003 记录。
+2. 核对新工作区这次移植的实际会话 ID。如果是新会话，单独追加一条日志。第 17、18 轮同一会话仍只记一条。保留原提示词和输出，补上本轮实际测试结果。
+3. 修正工具轮数注释。0 和负数都会让第一次工具调用超过上限，之后才走到收尾判断。
+4. 在 WSL 隔离环境完成全量离线测试，记录最终计数，再跑 Ruff、AI-use log 校验和 `git diff --check`。完成后停在本地。
+
+#### OpenCode 回复 · 2026-11-17
+
+**1. 旧记录 session 更正（`docs/ai-use-log.yaml`）**
+仅将 `AI-2026-11-16-wuyu200501-02` 的 `session` 由 `ses_e2c5c6316ffeMQol8wdW1QhJXV` 改为
+`ses_e1b6b37dcffeiyykKwCwMLmeot`。FR-001 初始会话（`AI-2026-11-13-wuyu200501-01`）与
+QR-003 记录（`AI-2026-11-16-wuyu200501-01`）未改动。
+
+**2. 会话核对与新增日志**
+从 opencode 本地库核对：当前工作区仅一个会话 `ses_e16ace1bdffeUswJq4i4O8jwCJ`
+（标题“迁移 FR-001 断点修复与 AI-use 日志”），与旧工作区第 17/18 轮会话不同。新增条目
+`AI-2026-11-17-wuyu200501-02` 记录本次移植，并补入实际测试结果；第 17、18 轮条目
+`AI-2026-11-17-wuyu200501-01` 原样保留为一条，提示词与输出仍在。
+
+**3. 工具轮数注释（`src/tradingagents/graph/trading_graph.py`）**
+改写为：分析器图总会先跑一次模型，wrap-up 路由只有在一次工具轮之后
+（`rounds >= cap`）才触发；因此 cap 为 0 或任意负值时，第一次工具调用就已经超过上限，
+之后才走到收尾判断。故在建任何模型客户端前拒绝，并带出该值。逻辑不变。
+
+**4. 校验（WSL 隔离 venv `/tmp/opencode/venv-fr001`，`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`）**
+
+- 相关测试：`test_checkpoint_lifecycle.py`、`test_checkpoint_resume.py`、
+  `test_profiles_graph.py`、`test_profiles.py`、`test_cli_profile.py`、
+  `test_portfolio_context.py` → 109 passed。
+- 全量离线套件 `pytest -q` → 1593 passed, 1 skipped（未安装 `langchain_aws`）,
+  1 deselected（integration）, 100 subtests passed。
+- `ruff check .` → All checks passed。
+- `python tools/ci/validate_ai_use_log.py docs/ai-use-log.yaml` → PASSED。
+- `git diff --check` → 无空白错误。
+
+未提交、未推送、未合并，停在本地等待审核。

@@ -209,6 +209,8 @@ def test_completed_run_clears_the_checkpoint_it_wrote(tmp_path, monkeypatch):
 
     Keyed on a different one it deletes nothing, and the next identical call
     resumes the finished thread and returns the old decision without running.
+    Both the default and the post-PR#27 fallback signatures are cleared
+    (ADR-002; REQ-TA-FR-001), each keyed on this portfolio.
     """
     import tradingagents.graph.trading_graph as tg
 
@@ -223,12 +225,20 @@ def test_completed_run_clears_the_checkpoint_it_wrote(tmp_path, monkeypatch):
     book = PortfolioContext.model_validate(HOLDING)
 
     written = graph._run_signature("stock", book)  # what begin_checkpoint keys on
+    fallback = graph._integration_run_signature("stock", book)
     cleared = []
     monkeypatch.setattr(tg, "clear_checkpoint", lambda d, t, dt, signature: cleared.append(signature))
 
     graph._run_graph("AAPL", "2026-08-14", "stock", checkpoint_thread_id=None, portfolio=book)
 
-    assert cleared == [written]
+    # Every signature cleared is keyed on this portfolio (never the no-book one),
+    # and both the default and the fallback threads are cleared so neither is
+    # left behind to be re-resumed.
+    default_no_book = graph._run_signature("stock")
+    assert written in cleared
+    assert fallback in cleared
+    assert set(cleared) == {written, fallback}
+    assert default_no_book not in cleared
 
 
 @pytest.mark.unit

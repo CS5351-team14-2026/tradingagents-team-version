@@ -46,13 +46,18 @@ def _validate_trade_date(trade_date) -> str:
 
 
 # Config keys that do not change what a run writes: where it keeps its files,
-# whether it checkpoints, and how often it retries a provider.
+# whether it checkpoints, and how often it retries a provider. This is the
+# signature of a default (no-profile) run. It also excludes ``claim_enforcement``
+# — see below — which is exactly what the pre-PR#27 baseline (03e7d48) stored,
+# that version's config having no such key at all (Implements: ADR-002;
+# REQ-TA-FR-001).
 _NOT_IN_SIGNATURE = frozenset({
     "results_dir", "data_cache_dir", "memory_log_path", "checkpoint_enabled", "llm_max_retries",
     # Settled after the graph run (ADR-001 claim acceptance), so it cannot change
     # the graph shape. Excluding it keeps a legacy config (no such key) and a
-    # config carrying the default on the same signature, so an existing
-    # checkpoint still resumes (Implements: ADR-002; REQ-TA-FR-001).
+    # config carrying the reserved key on the same signature, matching the
+    # pre-PR#27 baseline byte-for-byte, so an existing checkpoint still resumes
+    # (Implements: ADR-002; REQ-TA-FR-001).
     "claim_enforcement",
 })
 
@@ -60,6 +65,18 @@ _NOT_IN_SIGNATURE = frozenset({
 # tools segment at this value so a run that did not change the cap keeps the
 # pre-change signature (Implements: REQ-TA-FR-001).
 _BASELINE_MAX_TOOL_ROUNDS = 20
+
+# PR #27's material-claim slice added ``claim_enforcement: False`` to the default
+# config but did *not* exclude it from the settings digest, so a checkpoint saved
+# by integration right after that merge (fba0315) was keyed by a digest that
+# includes the key with its then-default value ``False``. This build's default is
+# now ``True``, so recomputing the digest from the live config would *not* match
+# that stored run. To resume such a run we rebuild the fba0315 digest with the
+# historical value (``_HISTORICAL_CLAIM_ENFORCEMENT = False``) folded in, but only
+# when the effective run inputs otherwise match (Implements: ADR-002;
+# REQ-TA-FR-001).
+_POST_PR27_NOT_IN_SIGNATURE = frozenset(set(_NOT_IN_SIGNATURE) - {"claim_enforcement"})
+_HISTORICAL_CLAIM_ENFORCEMENT = False
 
 
 class TradingAgentsGraph:
@@ -111,6 +128,19 @@ class TradingAgentsGraph:
         resolved = self._resolve_run_profile(
             profile, selected_analysts, explicit_overrides or {}, base_analysts)
         self.profile_resolution = resolved
+        # A cap below 1 breaks the "at most this many tool rounds before the
+        # report" contract. The analyst graph always runs the model once, and the
+        # wrap-up router only fires once a tool round has run (``rounds >= cap``):
+        # with a cap of 0 or any negative value the first tool call therefore
+        # exceeds the limit, and only after that call does the run reach the
+        # wrap-up check — so the analyst is never stopped before it makes a tool
+        # call the cap was meant to forbid. Reject it here, before any model
+        # client is built, naming the offending value
+        # (Implements: ADR-002; REQ-TA-FR-001; REQ-TA-INV-003).
+        if resolved.max_tool_rounds < 1:
+            raise ValueError(
+                f"max_tool_rounds must be at least 1, got {resolved.max_tool_rounds}"
+            )
 
         set_config(self.config)
 
@@ -155,6 +185,8 @@ class TradingAgentsGraph:
         self.graph = self.workflow.compile()
         self._checkpointer_ctx = None
         self._resuming = False
+        self._thread_id = None
+        self._resume_signature = None
 
     def _resolve_run_profile(self, profile, selected_analysts, explicit_overrides, base_analysts=None):
         """Resolve the run's four settings from the profile, explicit inputs and env.
@@ -247,7 +279,43 @@ class TradingAgentsGraph:
         (profile or explicit override) still gets its own signature
         (Implements: ADR-002; REQ-TA-FR-001).
         """
-        settings = {k: v for k, v in self.config.items() if k not in _NOT_IN_SIGNATURE}
+        return self._signature_from(
+            asset_type, portfolio, in_signature_exclusions=_NOT_IN_SIGNATURE)
+
+    def _integration_run_signature(self, asset_type: str, portfolio=None) -> str:
+        """The signature integration stores right after PR #27 (fba0315; ADR-002).
+
+        PR #27 added ``claim_enforcement: False`` to the default config but kept
+        it *in* the settings digest, so a run on integration was keyed by the
+        digest with ``claim_enforcement`` (then ``False``) included. This build's
+        default is now ``True``, so the digest recomputed from the live config
+        would not match; instead the historical value is folded in explicitly.
+        Resume tries this build's own (pre-PR#27) signature first — which drops
+        the key — and then this one, so an interrupted run from either side of
+        the merge still resumes. Only the settings digest differs: the analysts,
+        round caps, asset mode, portfolio and layout markers are identical, so
+        the two signatures agree exactly when the effective run inputs do — which
+        is what "resume only on a real settings match" requires.
+        """
+        return self._signature_from(
+            asset_type, portfolio, in_signature_exclusions=_POST_PR27_NOT_IN_SIGNATURE,
+            claim_enforcement=_HISTORICAL_CLAIM_ENFORCEMENT)
+
+    def _signature_from(self, asset_type: str, portfolio, *, in_signature_exclusions,
+                        claim_enforcement=_HISTORICAL_CLAIM_ENFORCEMENT) -> str:
+        """Build the checkpoint signature with the given config exclusions.
+
+        ``claim_enforcement`` is only folded in when it is *not* excluded (the
+        post-PR#27 integration signature); its historical value is written in
+        explicitly so a current ``True`` default still matches a run stored when
+        the key defaulted to ``False`` (Implements: ADR-002; REQ-TA-FR-001).
+        """
+        settings = {
+            k: v for k, v in self.config.items()
+            if k not in in_signature_exclusions and k != "claim_enforcement"
+        }
+        if "claim_enforcement" not in in_signature_exclusions:
+            settings["claim_enforcement"] = claim_enforcement
         digest = hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()[:12]
         # A fully built graph carries its profile resolution; a bare instance
         # (constructed in tests to exercise this helper alone) has none, so fall
@@ -322,19 +390,33 @@ class TradingAgentsGraph:
         if not self.config.get("checkpoint_enabled"):
             return None
         signature = self._run_signature(asset_type, portfolio)
+        self._integration_signature = self._integration_run_signature(asset_type, portfolio)
         self._checkpointer_ctx = get_checkpointer(self.config["data_cache_dir"], company_name)
         saver = self._checkpointer_ctx.__enter__()
         self.graph = self.workflow.compile(checkpointer=saver)
 
-        step = checkpoint_step(
-            self.config["data_cache_dir"], company_name, str(trade_date), signature
-        )
-        self._resuming = step is not None
-        if step is not None:
+        # Prefer this build's own (pre-PR#27, ``claim_enforcement`` dropped)
+        # signature. If it has no checkpoint, fall back to the one a post-PR#27
+        # integration run stored (its settings digest includes
+        # ``claim_enforcement`` at the historical ``False``), so an interrupted
+        # run from either side of the merge resumes. Both match only when the
+        # effective run inputs do.
+        data_dir, date = self.config["data_cache_dir"], str(trade_date)
+        chosen = None
+        for candidate in (signature, self._integration_signature):
+            step = checkpoint_step(data_dir, company_name, date, candidate)
+            if step is not None:
+                chosen = (candidate, step)
+                break
+        self._resuming = chosen is not None
+        if chosen is not None:
+            self._resume_signature, step = chosen
             logger.info("Resuming from step %d for %s on %s", step, company_name, trade_date)
         else:
+            self._resume_signature = signature
             logger.info("Starting fresh for %s on %s", company_name, trade_date)
-        return thread_id(company_name, str(trade_date), signature)
+        self._thread_id = thread_id(company_name, date, self._resume_signature)
+        return self._thread_id
 
     def checkpoint_input(self, init_state):
         """The value to stream/invoke: ``None`` to resume an existing checkpoint,
@@ -353,6 +435,8 @@ class TradingAgentsGraph:
             self._checkpointer_ctx = None
             self.graph = self.workflow.compile()
         self._resuming = False
+        self._thread_id = None
+        self._resume_signature = None
 
     @contextmanager
     def checkpoint_scope(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
@@ -363,12 +447,19 @@ class TradingAgentsGraph:
             self.end_checkpoint()
 
     def clear_checkpoint_on_success(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
-        """Drop a completed run's checkpoint so a later run starts fresh (#1249)."""
-        if self.config.get("checkpoint_enabled"):
-            clear_checkpoint(
-                self.config["data_cache_dir"], company_name, str(trade_date),
-                self._run_signature(asset_type, portfolio),
-            )
+        """Drop a completed run's checkpoint so a later run starts fresh (#1249).
+
+        Clear both thread IDs this run could have used: this build's own
+        (pre-PR#27) signature and the post-PR#27 integration one. A run that
+        resumed either checkpoint must not leave it behind to be re-resumed
+        (ADR-002; REQ-TA-FR-001).
+        """
+        if not self.config.get("checkpoint_enabled"):
+            return
+        data_dir, date = self.config["data_cache_dir"], str(trade_date)
+        for signature in {self._run_signature(asset_type, portfolio),
+                          self._integration_run_signature(asset_type, portfolio)}:
+            clear_checkpoint(data_dir, company_name, date, signature)
 
     def run_settings(self) -> dict:
         """What produces this graph's runs, for the saved report and state log.
