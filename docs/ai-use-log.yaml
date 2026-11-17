@@ -80,3 +80,17 @@ entries:
     human_decision: "Approved the plan with amendments 2026-11-17: D1 flip claim_enforcement to True; D2 memory log unchanged; D3 propagate() unchanged; D4 REQ-TA-FR-006 mapping out of scope; D5 test_graph_end_to_end.py untouched. S8 (ADR §4 amendment, trace matrix, registry) retained by the human."
     verification: "ruff check . clean; offline suite: 1481 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
     transcript: pending
+
+  - id: AI-2026-11-17-005
+    date: "2026-11-17"
+    task: "FR-005 / QR-002 Portfolio Manager prompt: add a 'Primary analyst evidence' section carrying the market, sentiment, news and fundamentals reports (absent-marked via report_or_absent) before the risk debate history, and require at least one of the six material claims to cite a primary analyst report. No change to the audit or to fail-closed enforcement (NO_ANALYST_REFERENCE already covers the requirement)."
+    agent: opencode
+    model: deepseek/deepseek-flash
+    prompt_ref: "Human task brief on feat/FR-005-confidence-qr002; ADR-001 §2-§3; REQ-TA-QR-002 (NO_ANALYST_REFERENCE)"
+    files:
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - test/offline/test_structured_agent_prompts.py
+    human_decision: "Asked for the primary-evidence section and the citation requirement in the PM prompt, with the audit and fail-closed logic explicitly scoped out; commit review pending."
+    verification: "ruff check . clean; offline suite: 1484 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
+    transcript: pending
