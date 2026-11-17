@@ -116,6 +116,42 @@ def test_an_unknown_profile_is_rejected_before_any_client_is_built(tmp_path, mon
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("tool_cap", [0, -1, -20])
+def test_a_tool_round_cap_below_one_is_rejected_before_any_client_is_built(
+        tmp_path, monkeypatch, offline, tool_cap):
+    """REQ-TA-FR-001 / REQ-TA-INV-003: a per-analyst tool-round cap below 1 is
+    refused up front — zero and negative included — and no model client is
+    created, so the run cannot start with a cap that never asks for a report."""
+    created = []
+    monkeypatch.setattr(trading_graph, "create_tier_client",
+                        lambda config, tier, **k: created.append(tier) or _Client(_StubModel()))
+
+    with pytest.raises(ValueError, match="max_tool_rounds") as caught:
+        trading_graph.TradingAgentsGraph(
+            config=_config(tmp_path), explicit_overrides={"max_tool_rounds": tool_cap})
+
+    assert str(tool_cap) in str(caught.value)
+    assert created == []  # no deep/quick client was built
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("tool_cap", ["0", "-3"])
+def test_a_tool_round_env_cap_below_one_is_rejected_with_a_profile(
+        tmp_path, monkeypatch, offline, tool_cap):
+    """REQ-TA-FR-001 / REQ-TA-INV-003: the same guard catches a below-one cap that
+    comes in through TRADINGAGENTS_MAX_TOOL_ROUNDS when a profile is selected."""
+    created = []
+    monkeypatch.setattr(trading_graph, "create_tier_client",
+                        lambda config, tier, **k: created.append(tier) or _Client(_StubModel()))
+    monkeypatch.setenv("TRADINGAGENTS_MAX_TOOL_ROUNDS", tool_cap)
+
+    with pytest.raises(ValueError, match="max_tool_rounds"):
+        trading_graph.TradingAgentsGraph(config=_config(tmp_path), profile="standard")
+
+    assert created == []
+
+
+@pytest.mark.unit
 def test_an_explicit_python_profile_wins_over_the_environment(tmp_path, monkeypatch, offline):
     """REQ-TA-FR-001: an explicitly passed profile beats TRADINGAGENTS_PROFILE."""
     monkeypatch.setenv("TRADINGAGENTS_PROFILE", "deep")

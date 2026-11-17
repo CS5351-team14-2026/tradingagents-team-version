@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import tradingagents
+from tradingagents import run_record as record
 from tradingagents.agents.context import build_instrument_context, resolve_instrument_identity
 from tradingagents.agents.rating import run_rating
 from tradingagents.dataflows.config import run_config, run_config_context, set_config
@@ -46,13 +47,18 @@ def _validate_trade_date(trade_date) -> str:
 
 
 # Config keys that do not change what a run writes: where it keeps its files,
-# whether it checkpoints, and how often it retries a provider.
+# whether it checkpoints, and how often it retries a provider. This is the
+# signature of a default (no-profile) run. It also excludes ``claim_enforcement``
+# — see below — which is exactly what the pre-PR#27 baseline (03e7d48) stored,
+# that version's config having no such key at all (Implements: ADR-002;
+# REQ-TA-FR-001).
 _NOT_IN_SIGNATURE = frozenset({
     "results_dir", "data_cache_dir", "memory_log_path", "checkpoint_enabled", "llm_max_retries",
     # Settled after the graph run (ADR-001 claim acceptance), so it cannot change
     # the graph shape. Excluding it keeps a legacy config (no such key) and a
-    # config carrying the default on the same signature, so an existing
-    # checkpoint still resumes (Implements: ADR-002; REQ-TA-FR-001).
+    # config carrying the reserved key on the same signature, matching the
+    # pre-PR#27 baseline byte-for-byte, so an existing checkpoint still resumes
+    # (Implements: ADR-002; REQ-TA-FR-001).
     "claim_enforcement",
 })
 
@@ -60,6 +66,18 @@ _NOT_IN_SIGNATURE = frozenset({
 # tools segment at this value so a run that did not change the cap keeps the
 # pre-change signature (Implements: REQ-TA-FR-001).
 _BASELINE_MAX_TOOL_ROUNDS = 20
+
+# PR #27's material-claim slice added ``claim_enforcement: False`` to the default
+# config but did *not* exclude it from the settings digest, so a checkpoint saved
+# by integration right after that merge (fba0315) was keyed by a digest that
+# includes the key with its then-default value ``False``. This build's default is
+# now ``True``, so recomputing the digest from the live config would *not* match
+# that stored run. To resume such a run we rebuild the fba0315 digest with the
+# historical value (``_HISTORICAL_CLAIM_ENFORCEMENT = False``) folded in, but only
+# when the effective run inputs otherwise match (Implements: ADR-002;
+# REQ-TA-FR-001).
+_POST_PR27_NOT_IN_SIGNATURE = frozenset(set(_NOT_IN_SIGNATURE) - {"claim_enforcement"})
+_HISTORICAL_CLAIM_ENFORCEMENT = False
 
 
 class TradingAgentsGraph:
@@ -111,6 +129,19 @@ class TradingAgentsGraph:
         resolved = self._resolve_run_profile(
             profile, selected_analysts, explicit_overrides or {}, base_analysts)
         self.profile_resolution = resolved
+        # A cap below 1 breaks the "at most this many tool rounds before the
+        # report" contract. The analyst graph always runs the model once, and the
+        # wrap-up router only fires once a tool round has run (``rounds >= cap``):
+        # with a cap of 0 or any negative value the first tool call therefore
+        # exceeds the limit, and only after that call does the run reach the
+        # wrap-up check — so the analyst is never stopped before it makes a tool
+        # call the cap was meant to forbid. Reject it here, before any model
+        # client is built, naming the offending value
+        # (Implements: ADR-002; REQ-TA-FR-001; REQ-TA-INV-003).
+        if resolved.max_tool_rounds < 1:
+            raise ValueError(
+                f"max_tool_rounds must be at least 1, got {resolved.max_tool_rounds}"
+            )
 
         set_config(self.config)
 
@@ -155,6 +186,8 @@ class TradingAgentsGraph:
         self.graph = self.workflow.compile()
         self._checkpointer_ctx = None
         self._resuming = False
+        self._thread_id = None
+        self._resume_signature = None
 
     def _resolve_run_profile(self, profile, selected_analysts, explicit_overrides, base_analysts=None):
         """Resolve the run's four settings from the profile, explicit inputs and env.
@@ -247,7 +280,43 @@ class TradingAgentsGraph:
         (profile or explicit override) still gets its own signature
         (Implements: ADR-002; REQ-TA-FR-001).
         """
-        settings = {k: v for k, v in self.config.items() if k not in _NOT_IN_SIGNATURE}
+        return self._signature_from(
+            asset_type, portfolio, in_signature_exclusions=_NOT_IN_SIGNATURE)
+
+    def _integration_run_signature(self, asset_type: str, portfolio=None) -> str:
+        """The signature integration stores right after PR #27 (fba0315; ADR-002).
+
+        PR #27 added ``claim_enforcement: False`` to the default config but kept
+        it *in* the settings digest, so a run on integration was keyed by the
+        digest with ``claim_enforcement`` (then ``False``) included. This build's
+        default is now ``True``, so the digest recomputed from the live config
+        would not match; instead the historical value is folded in explicitly.
+        Resume tries this build's own (pre-PR#27) signature first — which drops
+        the key — and then this one, so an interrupted run from either side of
+        the merge still resumes. Only the settings digest differs: the analysts,
+        round caps, asset mode, portfolio and layout markers are identical, so
+        the two signatures agree exactly when the effective run inputs do — which
+        is what "resume only on a real settings match" requires.
+        """
+        return self._signature_from(
+            asset_type, portfolio, in_signature_exclusions=_POST_PR27_NOT_IN_SIGNATURE,
+            claim_enforcement=_HISTORICAL_CLAIM_ENFORCEMENT)
+
+    def _signature_from(self, asset_type: str, portfolio, *, in_signature_exclusions,
+                        claim_enforcement=_HISTORICAL_CLAIM_ENFORCEMENT) -> str:
+        """Build the checkpoint signature with the given config exclusions.
+
+        ``claim_enforcement`` is only folded in when it is *not* excluded (the
+        post-PR#27 integration signature); its historical value is written in
+        explicitly so a current ``True`` default still matches a run stored when
+        the key defaulted to ``False`` (Implements: ADR-002; REQ-TA-FR-001).
+        """
+        settings = {
+            k: v for k, v in self.config.items()
+            if k not in in_signature_exclusions and k != "claim_enforcement"
+        }
+        if "claim_enforcement" not in in_signature_exclusions:
+            settings["claim_enforcement"] = claim_enforcement
         digest = hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()[:12]
         # A fully built graph carries its profile resolution; a bare instance
         # (constructed in tests to exercise this helper alone) has none, so fall
@@ -322,19 +391,33 @@ class TradingAgentsGraph:
         if not self.config.get("checkpoint_enabled"):
             return None
         signature = self._run_signature(asset_type, portfolio)
+        self._integration_signature = self._integration_run_signature(asset_type, portfolio)
         self._checkpointer_ctx = get_checkpointer(self.config["data_cache_dir"], company_name)
         saver = self._checkpointer_ctx.__enter__()
         self.graph = self.workflow.compile(checkpointer=saver)
 
-        step = checkpoint_step(
-            self.config["data_cache_dir"], company_name, str(trade_date), signature
-        )
-        self._resuming = step is not None
-        if step is not None:
+        # Prefer this build's own (pre-PR#27, ``claim_enforcement`` dropped)
+        # signature. If it has no checkpoint, fall back to the one a post-PR#27
+        # integration run stored (its settings digest includes
+        # ``claim_enforcement`` at the historical ``False``), so an interrupted
+        # run from either side of the merge resumes. Both match only when the
+        # effective run inputs do.
+        data_dir, date = self.config["data_cache_dir"], str(trade_date)
+        chosen = None
+        for candidate in (signature, self._integration_signature):
+            step = checkpoint_step(data_dir, company_name, date, candidate)
+            if step is not None:
+                chosen = (candidate, step)
+                break
+        self._resuming = chosen is not None
+        if chosen is not None:
+            self._resume_signature, step = chosen
             logger.info("Resuming from step %d for %s on %s", step, company_name, trade_date)
         else:
+            self._resume_signature = signature
             logger.info("Starting fresh for %s on %s", company_name, trade_date)
-        return thread_id(company_name, str(trade_date), signature)
+        self._thread_id = thread_id(company_name, date, self._resume_signature)
+        return self._thread_id
 
     def checkpoint_input(self, init_state):
         """The value to stream/invoke: ``None`` to resume an existing checkpoint,
@@ -353,6 +436,8 @@ class TradingAgentsGraph:
             self._checkpointer_ctx = None
             self.graph = self.workflow.compile()
         self._resuming = False
+        self._thread_id = None
+        self._resume_signature = None
 
     @contextmanager
     def checkpoint_scope(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
@@ -363,26 +448,80 @@ class TradingAgentsGraph:
             self.end_checkpoint()
 
     def clear_checkpoint_on_success(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
-        """Drop a completed run's checkpoint so a later run starts fresh (#1249)."""
-        if self.config.get("checkpoint_enabled"):
-            clear_checkpoint(
-                self.config["data_cache_dir"], company_name, str(trade_date),
-                self._run_signature(asset_type, portfolio),
-            )
+        """Drop a completed run's checkpoint so a later run starts fresh (#1249).
+
+        Clear both thread IDs this run could have used: this build's own
+        (pre-PR#27) signature and the post-PR#27 integration one. A run that
+        resumed either checkpoint must not leave it behind to be re-resumed
+        (ADR-002; REQ-TA-FR-001).
+        """
+        if not self.config.get("checkpoint_enabled"):
+            return
+        data_dir, date = self.config["data_cache_dir"], str(trade_date)
+        for signature in {self._run_signature(asset_type, portfolio),
+                          self._integration_run_signature(asset_type, portfolio)}:
+            clear_checkpoint(data_dir, company_name, date, signature)
+
+    def set_run_observations(self, *, usage=None, status: str | None = None,
+                             started_at: str | None = None,
+                             completed_at: str | None = None) -> None:
+        """Attach observational data for the current run (REQ-TA-QR-004).
+
+        ``usage`` is a :class:`tradingagents.run_record.UsageSummary` (or any
+        object exposing the same fields). These values are observational: they
+        appear in ``run_settings()["run_metadata"]`` and are reprised in the
+        flattened legacy keys, but they are never part of ``replayable_settings``
+        (REQ-TA-FR-008 loads only those). A caller that does not attach usage (a
+        bare instance, or a caller with no token accounting) leaves the record's
+        usage fields null with ``usage_complete`` false.
+        """
+        self._run_usage = usage
+        self._run_status = status
+        self._run_started_at = started_at
+        self._run_completed_at = completed_at
+
+    def write_run_record(self, ticker: str, trade_date: str) -> Path:
+        """Write this run's structured record to a metadata file on disk.
+
+        REQ-TA-QR-004: every terminal run path must record structured metadata,
+        including a failed run whose ``final_state`` is incomplete. The full
+        state log (``_log_state``) indexes required state keys and so cannot be
+        written for a partial run; this writer records only the canonical run
+        record (``run_settings()``), which needs no state. It writes under the
+        same per-ticker results directory as the state log, so a run that ended
+        in a controlled failure or an exception still leaves a record whose
+        ``run_metadata.status`` is ``failed``.
+
+        It never records endpoints, keys, or local paths (the record's allowlist
+        guarantees this). Returns the path written.
+        """
+        safe_ticker = safe_ticker_component(ticker)
+        directory = Path(self.config["results_dir"]) / safe_ticker / "TradingAgentsStrategy_logs"
+        directory.mkdir(parents=True, exist_ok=True)
+        log_path = directory / f"run_record_{trade_date}.json"
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump(self.run_settings(), f, indent=4, ensure_ascii=False)
+        return log_path
 
     def run_settings(self) -> dict:
-        """What produces this graph's runs, for the saved report and state log.
+        """The run's canonical structured record, for the report and state log.
 
-        An allowlist: endpoints (a backend_url can carry credentials), keys and
-        local paths are never recorded.
+        Implements REQ-TA-QR-004: the record is the single canonical
+        representation, with ``schema_version``, a ``replayable_settings`` section
+        (safe settings, no endpoints/keys/local paths) and a ``run_metadata``
+        section (version, timestamps, completion status, token totals, call
+        counts). Legacy flat keys are retained for one schema version so existing
+        report and state-log consumers keep working (migration strategy C).
 
         The four run-shaping settings (analysts and the three round caps) are the
-        resolved values the graph actually run with, so a profile or an explicit
+        resolved values the graph actually ran with, so a profile or an explicit
         override is reflected here. A run that requested a profile also records
         what was asked for (``profile_requested``), which fields an explicit input
         overrode (``profile_overrides``) and the resolved settings as one block
-        (``profile_resolved``), so the report can show requested-versus-resolved
-        (Implements: ADR-002; REQ-TA-FR-001).
+        (``profile_resolved``) (Implements: ADR-002; REQ-TA-FR-001).
+
+        An allowlist: endpoints (a backend_url can carry credentials), keys and
+        local paths are never recorded.
         """
         cfg = self.config
         resolved = getattr(self, "profile_resolution", None)
@@ -407,13 +546,41 @@ class TradingAgentsGraph:
                 "max_risk_discuss_rounds": max_risk_discuss_rounds,
                 "max_tool_rounds": max_tool_rounds,
             }
-        return {
-            "version": tradingagents.__version__,
-            "llm_provider": cfg.get("llm_provider"),
-            "deep_think_provider": tier_provider(cfg, "deep") if cfg.get("llm_provider") else None,
+
+        llm_provider = cfg.get("llm_provider")
+        replayable_settings = {
+            "profile": profile_requested,
+            "analysts": analysts,
+            "llm_provider": llm_provider,
+            "deep_think_provider": tier_provider(cfg, "deep") if llm_provider else None,
             "deep_think_llm": cfg.get("deep_think_llm"),
-            "quick_think_provider": tier_provider(cfg, "quick") if cfg.get("llm_provider") else None,
+            "quick_think_provider": tier_provider(cfg, "quick") if llm_provider else None,
             "quick_think_llm": cfg.get("quick_think_llm"),
+            "max_debate_rounds": max_debate_rounds,
+            "max_risk_discuss_rounds": max_risk_discuss_rounds,
+            "max_tool_rounds": max_tool_rounds,
+            "temperature": cfg.get("temperature"),
+            "openai_reasoning_effort": cfg.get("openai_reasoning_effort"),
+            "google_thinking_level": cfg.get("google_thinking_level"),
+            "anthropic_effort": cfg.get("anthropic_effort"),
+            "output_language": cfg.get("output_language"),
+            "data_vendors": dict(cfg.get("data_vendors") or {}),
+            "tool_vendors": dict(cfg.get("tool_vendors") or {}),
+        }
+
+        usage = getattr(self, "_run_usage", None)
+        status = getattr(self, "_run_status", None) or record.STATUS_COMPLETED
+
+        # Legacy flat keys (migration strategy C): the shape existing report and
+        # state-log consumers read. Derived observational keys reflect the
+        # resolved settings so requested-versus-resolved stays available.
+        legacy = {
+            "version": tradingagents.__version__,
+            "llm_provider": llm_provider,
+            "deep_think_provider": replayable_settings["deep_think_provider"],
+            "deep_think_llm": replayable_settings["deep_think_llm"],
+            "quick_think_provider": replayable_settings["quick_think_provider"],
+            "quick_think_llm": replayable_settings["quick_think_llm"],
             "analysts": analysts,
             "max_debate_rounds": max_debate_rounds,
             "max_risk_discuss_rounds": max_risk_discuss_rounds,
@@ -421,10 +588,21 @@ class TradingAgentsGraph:
             "profile_requested": profile_requested,
             "profile_overrides": profile_overrides,
             "profile_resolved": profile_resolved,
-            "output_language": cfg.get("output_language"),
-            "data_vendors": dict(cfg.get("data_vendors") or {}),
-            "tool_vendors": dict(cfg.get("tool_vendors") or {}),
+            "output_language": replayable_settings["output_language"],
+            "data_vendors": replayable_settings["data_vendors"],
+            "tool_vendors": replayable_settings["tool_vendors"],
         }
+
+        record_obj = record.build_run_record(
+            replayable_settings=replayable_settings,
+            usage=usage if usage is not None else record.UsageSummary(),
+            status=status,
+            started_at=getattr(self, "_run_started_at", None),
+            completed_at=getattr(self, "_run_completed_at", None),
+            version=tradingagents.__version__,
+            legacy=legacy,
+        )
+        return record_obj.to_dict()
 
     def save_reports(self, final_state, ticker, save_path=None, html=True) -> Path:
         """Write the report tree for a completed run, like the CLI does.
@@ -546,20 +724,48 @@ class TradingAgentsGraph:
 
         # None resumes an existing checkpoint; init_agent_state starts fresh (#1249).
         graph_input = self.checkpoint_input(init_agent_state)
-        if self.debug:
-            # A state repeats the messages before it, so each prints once (#1027).
-            final_state, printed = {}, set()
-            for messages, state in self.stream_run(graph_input, **args):
-                for msg in messages:
-                    key = getattr(msg, "id", None) or (type(msg).__name__, getattr(msg, "content", None))
-                    if key not in printed:
-                        printed.add(key)
-                        msg.pretty_print()
-                if state is not None:
-                    final_state.update(state)
-        else:
-            final_state = self.graph.invoke(graph_input, **args)
+        started_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        try:
+            if self.debug:
+                # A state repeats the messages before it, so each prints once (#1027).
+                final_state, printed = {}, set()
+                for messages, state in self.stream_run(graph_input, **args):
+                    for msg in messages:
+                        key = getattr(msg, "id", None) or (type(msg).__name__, getattr(msg, "content", None))
+                        if key not in printed:
+                            printed.add(key)
+                            msg.pretty_print()
+                    if state is not None:
+                        final_state.update(state)
+            else:
+                final_state = self.graph.invoke(graph_input, **args)
+        except BaseException:
+            # REQ-TA-QR-004: a run that ends in an exception still records
+            # structured metadata, with status=failed. The state log cannot be
+            # written (its required keys are missing on a partial run), so a
+            # standalone run record is written. The exception is re-raised so
+            # existing failure behaviour is unchanged.
+            self.set_run_observations(
+                usage=getattr(self, "_run_usage", None),
+                status=record.STATUS_FAILED,
+                started_at=getattr(self, "_run_started_at", None) or started_at,
+                completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+            try:
+                self.write_run_record(company_name, trade_date)
+            except OSError:  # never mask the original failure with a write error
+                logger.warning("Could not write the run record for a failed run", exc_info=True)
+            raise
 
+        # REQ-TA-QR-004: stamp completed status and timestamps before the state
+        # log is written, so the persisted record carries the final observations
+        # rather than the pre-observation defaults.
+        self.set_run_observations(
+            usage=getattr(self, "_run_usage", None),
+            status=record.STATUS_COMPLETED,
+            started_at=getattr(self, "_run_started_at", None) or started_at,
+            completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+        )
         self.record_decision(company_name, trade_date, final_state)
 
         # Clear checkpoint on successful completion to avoid stale state.

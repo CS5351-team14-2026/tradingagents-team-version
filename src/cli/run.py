@@ -4,6 +4,8 @@ import os
 import sys
 import time
 import webbrowser
+from contextlib import suppress
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
@@ -24,6 +26,7 @@ from cli.display import (
 )
 from cli.selections import depth_from_env, get_user_selections, requested_profile, unattended_gaps
 from cli.stats_handler import StatsCallbackHandler
+from tradingagents import run_record as record
 from tradingagents.agents.rating import is_review, run_rating
 from tradingagents.dataflows.symbols import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
@@ -31,6 +34,12 @@ from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.run_record import build_usage_summary
+
+
+def _iso_timestamp(epoch_seconds: float) -> str:
+    """A local-timezone ISO-8601 timestamp for a run's start/finish (REQ-TA-QR-004)."""
+    return datetime.fromtimestamp(epoch_seconds).astimezone().isoformat(timespec="seconds")
 
 
 def _run_directory(config: dict, ticker: str, trade_date: str) -> Path:
@@ -390,13 +399,42 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             for chunk in trace:
                 final_state.update(chunk)
 
-            # Clean run: log the decision, then drop this run's checkpoint so a
-            # later run starts fresh. A mid-stream failure skips both, keeping
-            # the checkpoint for resume.
+            # Record this run's observational metadata BEFORE the decision is
+            # logged, so the persisted record carries the final observations
+            # (Implements: REQ-TA-QR-004). Token totals and call counts come from
+            # the same stats handler the display uses (the single usage source).
+            # A graph-like object without the setter (a test double) records
+            # nothing rather than failing the run.
+            if hasattr(graph, "set_run_observations"):
+                graph.set_run_observations(
+                    usage=build_usage_summary(stats_handler.get_stats()),
+                    status=record.STATUS_COMPLETED,
+                    started_at=_iso_timestamp(start_time),
+                    completed_at=_iso_timestamp(time.time()),
+                )
+
+            # Clean run: log the decision (which persists the record written
+            # above), then drop this run's checkpoint so a later run starts fresh.
             graph.record_decision(selections["ticker"], selections["analysis_date"], final_state)
             graph.clear_checkpoint_on_success(
                 selections["ticker"], selections["analysis_date"], selections["asset_type"], portfolio
             )
+        except BaseException:
+            # REQ-TA-QR-004: a run that throws after startup still records
+            # structured metadata with status=failed. The state log cannot be
+            # written (its keys are missing on a partial run), so a standalone
+            # run record is written. The exception is re-raised so checkpoint
+            # teardown and existing failure behaviour are unchanged.
+            if hasattr(graph, "set_run_observations"):
+                graph.set_run_observations(
+                    usage=build_usage_summary(stats_handler.get_stats()),
+                    status=record.STATUS_FAILED,
+                    started_at=_iso_timestamp(start_time),
+                    completed_at=_iso_timestamp(time.time()),
+                )
+                with suppress(OSError):  # never mask the original failure with a write error
+                    graph.write_run_record(selections["ticker"], selections["analysis_date"])
+            raise
         finally:
             # Always restore the plain uncheckpointed graph, even on failure.
             graph.end_checkpoint()

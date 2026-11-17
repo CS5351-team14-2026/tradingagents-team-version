@@ -28,6 +28,24 @@ def _override_value(value):
     return value
 
 
+def _token_usage_line(meta: dict, get) -> str | None:
+    """The report's token-usage line (Implements: REQ-TA-QR-004).
+
+    Renders complete usage as in/out/total counts; incomplete usage is shown as
+    ``Tokens: unavailable`` so a partial total is never mistaken for a complete
+    one. Presentation text only — the record keeps null values with
+    ``usage_complete=false``.
+    """
+    complete = meta.get("usage_complete", get("usage_complete"))
+    if complete:
+        tokens_in = meta.get("tokens_in", get("tokens_in"))
+        tokens_out = meta.get("tokens_out", get("tokens_out"))
+        total = meta.get("total_tokens", get("total_tokens"))
+        if isinstance(total, int) and total >= 0:
+            return (f"- Tokens: {tokens_in} in, {tokens_out} out, {total} total")
+    return "- Tokens: unavailable"
+
+
 def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     """The report's title and what produced it: analysis date, version, models, analysts, vendors."""
     lines = [f"# Trading Analysis Report: {ticker}", ""]
@@ -66,6 +84,19 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             lines.append("- Data vendors: " + ", ".join(f"{k} {v}" for k, v in vendors.items()))
+        # Observational run metadata (Implements: REQ-TA-QR-004): completion
+        # status and token totals. The canonical fields live in run_metadata;
+        # the flat run_settings() view carries them too, so read whichever is
+        # present. Unavailable usage is shown as "unavailable", never as 0.
+        meta = s("run_metadata") or {}
+        status = meta.get("status") or s("status")
+        if status:
+            lines.append(f"- Run status: {status}")
+        usage_complete = meta.get("usage_complete", s("usage_complete"))
+        if usage_complete is not None:
+            token_line = _token_usage_line(meta, s)
+            if token_line:
+                lines.append(token_line)
     if final_state.get("memory_note"):
         lines.append(f"- Memory log: {final_state['memory_note']}")
     return "\n".join(lines) + "\n\n"
