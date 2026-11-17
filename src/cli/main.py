@@ -174,6 +174,54 @@ def backtest(
         console.print(f"[yellow]unsettled:[/yellow] {ticker}: {reason}")
 
 
+@app.command()
+def compare(
+    cases: str = typer.Option(..., help="JSON list of ticker/analysis_date objects"),
+    baseline: str = typer.Option(..., help="JSON baseline configuration overrides"),
+    enhanced: str = typer.Option(..., help="JSON enhanced configuration overrides"),
+    output: str = typer.Option(..., help="New output directory (must not exist)"),
+    repetitions: int = typer.Option(3, min=1),
+    live: bool = typer.Option(False, "--live", help="Confirm real provider calls and costs"),
+    input_price: float | None = typer.Option(None, min=0, help="USD per million input tokens"),
+    output_price: float | None = typer.Option(None, min=0, help="USD per million output tokens"),
+):
+    """REQ-TA-FR-007 / PERF-001: run paired configurations and export measurements."""
+    import json
+    from pathlib import Path
+
+    from tradingagents.evaluation import EvaluationCase, TokenPricing, export_comparison
+    from tradingagents.evaluation_runner import prepare_configs, run_comparison
+
+    if not live:
+        typer.echo("No calls made. Pass --live to acknowledge provider calls and costs.")
+        raise typer.Exit(1)
+    try:
+        case_data = json.loads(Path(cases).read_text(encoding="utf-8"))
+        if not isinstance(case_data, list) or len(case_data) < 3:
+            raise ValueError("provide at least three ticker/date cases")
+        chosen = [EvaluationCase(**item) for item in case_data]
+        before, after = prepare_configs(
+            DEFAULT_CONFIG, json.loads(Path(baseline).read_text(encoding="utf-8")),
+            json.loads(Path(enhanced).read_text(encoding="utf-8")))
+        if (input_price is None) != (output_price is None):
+            raise ValueError("provide both input-price and output-price or neither")
+        pricing = TokenPricing(input_price, output_price) if input_price is not None else None
+        destination = Path(output)
+        if destination.exists():
+            raise ValueError("output directory must not already exist")
+        result = run_comparison(chosen, before, after, destination, repetitions,
+                                pricing=pricing)
+        export_comparison(result, destination / "comparison.json")
+        export_comparison(result, destination / "comparison.csv", "csv")
+        typer.echo(json.dumps(result.summary(), indent=2))
+        typer.echo("Saved comparison.json and comparison.csv. Performance target remains TBD.")
+        if any(r.status == "failed" for r in result.runs):
+            raise typer.Exit(2)
+    except (ValueError, TypeError, OSError):
+        typer.echo("Invalid input or export failure; check case/config schema and output location.", err=True)
+        raise typer.Exit(1) from None
+
+
 # The plans `login` and `logout` take: the providers signed in to, not keyed.
 Plan = StrEnum("Plan", {name: name for name in SIGNED_IN_PROVIDERS})
 

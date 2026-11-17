@@ -266,6 +266,7 @@ entries:
       standalone run record persisted, observations attached before successful
       persistence) and authorized a single live Quick-profile smoke test.
     verification: "focused QR-004 tests: 20 passed; full offline suite: 1613 passed, 1 skipped, 1 deselected; ruff check . clean; detect-secrets 0 findings. A live DeepSeek smoke attempt returned HTTP 401 (invalid configured credential) so the successful provider-backed path was not exercised; the failure path was validated end to end (schema-version 1 record persisted, status failed, timestamps recorded, replayable settings separated from observational metadata, no secret-like value or absolute path). Successful-run metadata/status/report-header/token rendering are covered by deterministic offline tests."
+
   - id: AI-2026-11-18-codex-fr002-s1
     date: "2026-11-18"
     task: "REQ-TA-FR-002 S1 only: shared per-run usage/budget ledger, provider normalization, observation-only CLI/graph wiring, QR-004 completeness compatibility, foundation offline tests and approved interface/ADR registration."
@@ -466,3 +467,62 @@ entries:
       and push outcome are verified through Git, without claiming success
       before the network operation completes.
     transcript: transcripts/FR-002-codex.md
+
+
+  - id: AI-2026-11-16-xiangwen-huang-01
+    date: "2026-11-16"
+    task: "REQ-TA-FR-007 / REQ-TA-PERF-001: comparison records, percentage calculations, JSON/CSV export and offline tests."
+    agent: Codex
+    model: "not recorded"
+    prompt_ref: "Prompt.md; human-approved four-round evaluation plan, 2026-11-16"
+    files:
+      - src/tradingagents/evaluation.py
+      - test/offline/test_evaluation.py
+    human_decision: "xiangwen Huang approved the plan before implementation; required local-only detailed logs, manual Git operations and review at submission checkpoints."
+    verification: "42 evaluation tests; full offline suite: 1454 passed, 1 skipped, 1 deselected; ruff and requirements schema passed. No real AI performance experiment."
+    transcript: "Detailed session notes retained locally by xiangwen Huang; not uploaded."
+
+  - id: AI-2026-11-17-xiangwen-huang-01
+    date: "2026-11-17"
+    task: "REQ-TA-FR-007 / REQ-TA-PERF-001: integrate paired graph execution, usage observation, compare CLI, repeated timing summaries, documentation and traceability."
+    agent: Codex
+    model: "not recorded"
+    prompt_ref: "Prompt.md; human instruction to combine remaining rounds into task clarification, implementation and comprehensive testing, 2026-11-17"
+    files:
+      - src/tradingagents/evaluation.py
+      - src/tradingagents/evaluation_runner.py
+      - src/cli/main.py
+      - test/offline/test_evaluation_runner.py
+      - docs/evaluation.md
+      - docs/architecture/trace-matrix.md
+    human_decision: "xiangwen Huang authorized completing the remaining approved scope in one round against updated teammate code; retained manual Git submission and local detailed logs."
+    verification: "Full offline suite: 1542 passed, 1 skipped, 1 deselected; ruff and requirements schema passed. Real Quick-profile experiment and performance target approval remain pending; no measured speedup claimed."
+    transcript: "Detailed session notes retained locally by xiangwen Huang; not uploaded."
+
+  - id: AI-2026-11-17-xiangwen-huang-02
+    date: "2026-11-17"
+    task: "PR #34 gate 6: append minimal summaries of the evaluation development sessions; preserve existing team entries."
+    agent: Codex
+    model: "not recorded"
+    prompt_ref: "Human request to update the minimal AI-use log after inspecting PR #34 checks"
+    files:
+      - docs/ai-use-log.yaml
+    human_decision: "xiangwen Huang authorized adding minimal AI-use summaries to the repository; detailed logs remain local and Git operations remain manual."
+    verification: "AI-use log validator passed; prior team entries preserved. This update does not resolve the separate test-plan approval gate."
+    transcript: "Current Codex chat; detailed session notes retained locally, not uploaded."
+
+  - id: AI-2026-11-17-xiangwen-huang-03
+    date: "2026-11-17"
+    task: "PR #34 follow-up: integrate public FR-001 profile resolver and graph API; run Quick with real graph and scripted model/data. Prepare test-plan and PR body drafts."
+    agent: Codex
+    model: "not recorded"
+    prompt_ref: "Human request based on teammate feedback to integrate Quick and trial before the formal post-merge experiment"
+    files:
+      - src/tradingagents/evaluation_runner.py
+      - test/offline/test_evaluation_quick.py
+      - docs/evaluation.md
+      - docs/ai-use-log.yaml
+    human_decision: "Authorized Quick integration and trial; peer test-plan approval remains pending, not backdated. Git remains manual."
+    verification: "Quick real-graph/scripted-provider integration trial passed; no real provider call or measured production speedup claimed. See local validation report for full regression."
+    transcript: "Detailed records and PR/issue drafts retained locally by xiangwen Huang."
+

@@ -39,3 +39,13 @@ unavailable usage is `usage_complete=false` with null token totals (approved A3)
 rendered as "unavailable" in reports. Observational values (tokens, status,
 timestamps) are never part of `replayable_settings` (that is FR-008's future input,
 not implemented here).
+
+## FR-007 / PERF-001 — evaluation slice
+
+| Requirement | Component | Test | Monitor / evidence |
+|---|---|---|---|
+| REQ-TA-FR-007 | `evaluation.py`, `evaluation_runner.py`, `cli/main.py::compare` | `test_evaluation.py`, `test_evaluation_runner.py` | Raw paired JSON/CSV: settings, timings, calls, tokens, ratings, confidence and completion; absent usage explicit |
+| REQ-TA-PERF-001 | `ComparisonResult.summary`, paired runner monotonic timing | `test_evaluation_runner.py::test_three_cases_repeated_and_isolated`, failure retention tests | Successful paired medians/min/max/counts, failed counts; target TBD, real Quick-profile experiment pending |
+
+Scope: offline-verified tooling; no claim of measured production speedup or full
+PERF-001 acceptance. Public interfaces only; no change to claim/rating semantics.
