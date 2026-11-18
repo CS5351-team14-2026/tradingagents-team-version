@@ -315,7 +315,14 @@ def _pre_change_reference_signature(config, analysts, asset_type="stock"):
         "results_dir", "data_cache_dir", "memory_log_path", "checkpoint_enabled", "llm_max_retries",
         "claim_enforcement",
     })
-    settings = {k: v for k, v in config.items() if k not in not_in_signature}
+    # ``token_budget`` (REQ-TA-FR-002) did not exist at commit 03e7d48. A
+    # no-budget run (None) must keep that historical signature, so the absent
+    # default is excluded from the reference digest; an enabled budget is a real
+    # input and stays in (ADR-004 D6).
+    settings = {
+        k: v for k, v in config.items()
+        if k not in not_in_signature and not (k == "token_budget" and v is None)
+    }
     digest = hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()[:12]
     return "|".join([
         "analysts=" + ",".join(analysts),

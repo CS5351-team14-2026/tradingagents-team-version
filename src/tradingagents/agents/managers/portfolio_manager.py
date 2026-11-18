@@ -27,6 +27,7 @@ from tradingagents.agents.schemas import (
     render_pm_decision,
 )
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
+from tradingagents.llm_clients.invocation import admit_optional
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +163,11 @@ traceability check.
 
         # The typed rating is the decision; the rendered text only carries it.
         # Read back from text, a rating the thesis quotes could replace it.
+        # The structured call (with its own gated retry) is the required
+        # synthesis; the JSON-mode retry and free-text fallback are optional and
+        # stop once the budget refuses (Implements: ADR-004; REQ-TA-FR-002).
         decision = invoke_structured(structured_llm, prompt, "Portfolio Manager")
-        if decision is None:
+        if decision is None and admit_optional("pm_json_retry").allowed:
             decision = _invoke_json_mode(llm, prompt)
         claims = []
         if decision is not None:
@@ -184,7 +188,16 @@ traceability check.
                 for claim in factors
             ]
         else:
-            final_trade_decision = llm.invoke(prompt).content
+            # The free-text fallback is optional; if the budget refuses it, the
+            # run still ends with a controlled, non-tradeable REVIEW rather than
+            # an uncaught error or a fabricated recommendation (ADR-004 D4).
+            if admit_optional("pm_fallback").allowed:
+                final_trade_decision = llm.invoke(prompt).content
+            else:
+                final_trade_decision = (
+                    "No recommendation could be produced within the token budget; "
+                    "the run ended with REVIEW for human review."
+                )
             final_rating = parse_rating(final_trade_decision)
 
         new_risk_debate_state = {

@@ -10,6 +10,18 @@ Changes that need action when upgrading are listed under "Upgrading from" in the
 
 ### Added
 
+- Per-run token budget (`REQ-TA-FR-002`; `docs/architecture/ADR-004-token-budget.md`):
+  a run accepts a maximum token budget `N` (`--token-budget`, `TRADINGAGENTS_TOKEN_BUDGET`,
+  or the `token_budget` config key) and starts no further **optional** LLM call once
+  recorded usage reaches it. Enforced in the graph, so direct `TradingAgentsGraph`
+  callers get it too, not only the CLI. Reports a `BUDGET_OK` / `BUDGET_WARNING` /
+  `BUDGET_EXHAUSTED` result with machine-readable reasons in `run_metadata.budget`
+  and a `Budget:` report line; unavailable provider usage is recorded as such,
+  never estimated. A single in-flight call may exceed `N` (no exact hard cap).
+  No budget (`None`) reproduces the baseline and keeps the historical checkpoint
+  signature. New modules `run_budget.py`, `llm_clients/usage.py`,
+  `llm_clients/invocation.py`; `stats_handler.py` becomes a thin adapter over the
+  shared ledger. The final-report reserve percentage remains TBD.
 - Governance requirements `REQ-TA-GOV-001..005` in `docs/req/requirements.yaml`
   (prompt governance, secret governance, run-config traceability, data-chain
   governance, checkpoint signature) — all seven requirement types of

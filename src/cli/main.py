@@ -64,6 +64,12 @@ def analyze(
         "budgets (overrides TRADINGAGENTS_PROFILE). Explicit --analysts and "
         "TRADINGAGENTS_MAX_* still override individual fields.",
     ),
+    token_budget: int | None = typer.Option(
+        None, "--token-budget", min=0,
+        help="Maximum tokens for one run (REQ-TA-FR-002): once recorded usage reaches "
+        "it, no further optional LLM calls start. Omit to honor "
+        "TRADINGAGENTS_TOKEN_BUDGET; both unset disables enforcement.",
+    ),
     save: bool | None = typer.Option(
         None, "--save/--no-save", help="Save the report under results_dir without asking"
     ),
@@ -96,7 +102,8 @@ def analyze(
 
     try:
         flags = {"ticker": ticker, "date": date, "analysts": analysts, "save": save, "show": show, "html": html}
-        run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags, profile=profile)
+        run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags, profile=profile,
+                     token_budget=token_budget)
     except _NO_CONSOLE_ERRORS:
         # A terminal with no console buffer cannot host the interactive prompts.
         # Emit one actionable line on stderr instead of a prompt_toolkit
