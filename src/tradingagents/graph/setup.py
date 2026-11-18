@@ -22,6 +22,7 @@ from tradingagents.agents import (
 )
 from tradingagents.agents.analysts.turn import WRAP_UP
 from tradingagents.agents.state import AgentState
+from tradingagents.llm_clients.invocation import admit_optional
 
 from .analyst_execution import build_analyst_execution_plan
 from .conditional_logic import ConditionalLogic
@@ -43,6 +44,51 @@ RISK_ANALYSIS_PATH_MAP = {
     "Neutral Analyst": "Neutral Analyst",
     "Portfolio Manager": "Portfolio Manager",
 }
+
+# The skip marker a budget-refused optional node leaves in its debate/risk state
+# so the router ends the phase instead of scheduling another optional turn
+# (Implements: ADR-004; REQ-TA-FR-002).
+_BUDGET_SKIP_NOTE = "budget_exhausted"
+
+
+def _budget_optional_node(node, *, state_key: str, outcome_key: str, phase: str, terminal_count: int):
+    """Wrap an optional debate/risk node with an admission gate (ADR-004).
+
+    Before the node makes its LLM call, this asks the run's budget whether an
+    OPTIONAL call may start. When refused, it returns a controlled skip marker
+    (no LLM call) that the conditional router recognises to end the phase. A
+    required synthesis node is not wrapped: it always runs.
+
+    ``terminal_count`` is the ``count`` the phase's router treats as finished
+    (``2 * max_debate_rounds`` or ``3 * max_risk_discuss_rounds``). The wrapper
+    forces it on refusal so no further optional turn is requested.
+
+    The wrapper preserves the node's normal return when admitted; it never
+    cancels an already-started call (D5).
+    """
+
+    def wrapped(state):
+        admission = admit_optional(phase)
+        if admission.allowed:
+            return node(state)
+        # Refused: append a marked turn so the router sees the phase cannot
+        # continue. No request is issued and no verdict is fabricated.
+        previous = state.get(state_key) or {}
+        note = (
+            f"[Budget control: optional {phase} contribution was skipped "
+            f"({', '.join(admission.reason_codes)}); this phase did not complete.]"
+        )
+        new_state = dict(previous)
+        new_state[outcome_key] = (previous.get(outcome_key, "") + "\n" + note).strip()
+        new_state["history"] = (previous.get("history", "") + "\n" + note).strip()
+        if "current_response" in previous:
+            new_state["current_response"] = note
+        new_state["count"] = terminal_count
+        new_state[_BUDGET_SKIP_NOTE] = True
+        new_state["budget_reason_codes"] = list(admission.reason_codes)
+        return {state_key: new_state}
+
+    return wrapped
 
 
 def _tools_or_done(state) -> str:
@@ -74,7 +120,14 @@ def _analyst_graph(spec, agent, max_tool_rounds: int):
         return sum(1 for m in messages if getattr(m, "tool_calls", None))
 
     def more_or_wrap_up(state) -> str:
-        return "wrap_up" if rounds(state["messages"]) >= max_tool_rounds else "agent"
+        # The analyst's follow-up turns after a tool round are OPTIONAL: stop
+        # them (to the required wrap-up) once the budget refuses, never bypassing
+        # the tool-round cap (Implements: ADR-004; REQ-TA-FR-002; REQ-TA-INV-003).
+        if rounds(state["messages"]) >= max_tool_rounds:
+            return "wrap_up"
+        if not admit_optional("analyst_followup").allowed:
+            return "wrap_up"
+        return "agent"
 
     def wrap_up(state):
         repeated = ", ".join(f"{name} x{n}" for name, n in Counter(calls(state["messages"])).most_common())
@@ -139,19 +192,49 @@ class GraphSetup:
         conservative_analyst = create_conservative_debator(self.quick_thinking_llm)
         portfolio_manager_node = create_portfolio_manager(self.deep_thinking_llm)
 
+        # The count each phase's router treats as finished, so a budget-refused
+        # optional turn can end its phase cleanly (ADR-004; REQ-TA-FR-002).
+        terminal_debate = 2 * self.conditional_logic.max_debate_rounds
+        terminal_risk = 3 * self.conditional_logic.max_risk_discuss_rounds
+
         workflow = StateGraph(AgentState)
 
         for spec in plan.specs:
             workflow.add_node(spec.agent_node,
                               _analyst_graph(spec, analyst_factories[spec.key](), self.max_tool_rounds))
 
-        workflow.add_node("Bull Researcher", bull_researcher_node)
-        workflow.add_node("Bear Researcher", bear_researcher_node)
+        workflow.add_node("Bull Researcher",
+                          _budget_optional_node(bull_researcher_node,
+                                                state_key="investment_debate_state",
+                                                outcome_key="bull_history",
+                                                phase="debate",
+                                                terminal_count=terminal_debate))
+        workflow.add_node("Bear Researcher",
+                          _budget_optional_node(bear_researcher_node,
+                                                state_key="investment_debate_state",
+                                                outcome_key="bear_history",
+                                                phase="debate",
+                                                terminal_count=terminal_debate))
         workflow.add_node("Research Manager", research_manager_node)
         workflow.add_node("Trader", trader_node)
-        workflow.add_node("Aggressive Analyst", aggressive_analyst)
-        workflow.add_node("Neutral Analyst", neutral_analyst)
-        workflow.add_node("Conservative Analyst", conservative_analyst)
+        workflow.add_node("Aggressive Analyst",
+                          _budget_optional_node(aggressive_analyst,
+                                                state_key="risk_debate_state",
+                                                outcome_key="aggressive_history",
+                                                phase="risk",
+                                                terminal_count=terminal_risk))
+        workflow.add_node("Neutral Analyst",
+                          _budget_optional_node(neutral_analyst,
+                                                state_key="risk_debate_state",
+                                                outcome_key="neutral_history",
+                                                phase="risk",
+                                                terminal_count=terminal_risk))
+        workflow.add_node("Conservative Analyst",
+                          _budget_optional_node(conservative_analyst,
+                                                state_key="risk_debate_state",
+                                                outcome_key="conservative_history",
+                                                phase="risk",
+                                                terminal_count=terminal_risk))
         workflow.add_node("Portfolio Manager", portfolio_manager_node)
 
         # The analysts work at the same time; the research debate starts once

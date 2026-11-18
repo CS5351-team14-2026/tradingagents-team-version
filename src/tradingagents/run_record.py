@@ -132,12 +132,17 @@ def build_usage_summary(stats: dict[str, Any] | None) -> UsageSummary:
     tokens_out = stats.get("tokens_out")
     llm_calls = stats.get("llm_calls")
     tool_calls = stats.get("tool_calls")
+    # An explicit ``usage_complete`` (from the budget ledger, REQ-TA-FR-002)
+    # takes precedence over the inference below: a ledger knows whether every
+    # call reported both counts, so a partial sum is never promoted to complete.
     complete = (
         isinstance(tokens_in, int)
         and isinstance(tokens_out, int)
         and tokens_in >= 0
         and tokens_out >= 0
     )
+    if isinstance(stats.get("usage_complete"), bool):
+        complete = stats["usage_complete"] and complete
     return UsageSummary(
         tokens_in=tokens_in if isinstance(tokens_in, int) else None,
         tokens_out=tokens_out if isinstance(tokens_out, int) else None,
@@ -156,6 +161,7 @@ def build_run_record(
     completed_at: str | None = None,
     version: str | None = None,
     legacy: dict[str, Any] | None = None,
+    budget: dict[str, Any] | None = None,
 ) -> RunRecord:
     """Assemble a :class:`RunRecord` from its parts.
 
@@ -163,6 +169,12 @@ def build_run_record(
     programming error and raises, so a caller cannot invent a status. The
     usage summary contributes only observational fields to ``run_metadata``;
     its values are never copied into ``replayable_settings``.
+
+    ``budget`` (REQ-TA-FR-002; ADR-004) is an optional allowlisted block placed
+    under ``run_metadata.budget``. It is a separate dimension from the lifecycle
+    ``status`` and never changes it; a run that completed with optional work
+    curtailed keeps lifecycle ``completed`` and reports its budget result
+    alongside. When omitted, no ``budget`` key is added (backward compatible).
     """
     if status not in RECORD_STATUSES:
         raise ValueError(
@@ -176,6 +188,8 @@ def build_run_record(
         "completed_at": completed_at,
     }
     run_metadata.update(usage.to_metadata())
+    if budget is not None:
+        run_metadata["budget"] = dict(budget)
     return RunRecord(
         replayable_settings=dict(replayable_settings),
         run_metadata=run_metadata,

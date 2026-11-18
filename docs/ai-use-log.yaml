@@ -323,3 +323,51 @@ entries:
     human_decision: "Authorized Quick integration and trial; peer test-plan approval remains pending, not backdated. Git remains manual."
     verification: "Quick real-graph/scripted-provider integration trial passed; no real provider call or measured production speedup claimed. See local validation report for full regression."
     transcript: "Detailed records and PR/issue drafts retained locally by xiangwen Huang."
+
+  - id: AI-2026-11-18-xiaokewei001-fr002
+    date: "2026-11-18"
+    task: "REQ-TA-FR-002 S1-S3: implement the per-run token budget (ADR-004) — shared usage ledger/context/status, provider usage normalization, node-boundary optional-call admission, debate/risk/retry/reflection skipping, controlled termination, CLI/API config surface, run_metadata.budget + report line, checkpoint budget identity, backtest isolation; with offline tests."
+    agent: OpenCode
+    model: "CS5351/DeepSeek-V4-Flash"
+    session: "feat/FR002-OpenCode supervised session"
+    prompt_ref: "User-approved execution plan (D1-D6 recommendations) on feat/FR002-OpenCode; staged S1→S2→S3 with a human gate after each stage."
+    files:
+      - docs/architecture/ADR-004-token-budget.md
+      - docs/architecture/FR-002-trace.md
+      - docs/ai-use-log.yaml
+      - CHANGELOG.md
+      - src/tradingagents/run_budget.py
+      - src/tradingagents/llm_clients/usage.py
+      - src/tradingagents/llm_clients/invocation.py
+      - src/tradingagents/default_config.py
+      - src/tradingagents/run_record.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/report_html.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/graph/setup.py
+      - src/tradingagents/graph/conditional_logic.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/agents/structured.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/memory/reflection.py
+      - src/tradingagents/memory/settlement.py
+      - src/cli/stats_handler.py
+      - src/cli/main.py
+      - src/cli/run.py
+      - test/offline/test_budget_usage.py
+      - test/offline/test_budget_status.py
+      - test/offline/test_budget_configuration.py
+      - test/offline/test_budget_reporting.py
+      - test/offline/test_budget_routing.py
+      - test/offline/test_budget_admission.py
+      - test/offline/test_budget_concurrency.py
+      - test/offline/test_budget_termination.py
+      - test/offline/test_budget_settlement.py
+      - test/offline/test_budget_entrypoints.py
+      - test/offline/test_budget_checkpoint.py
+      - test/offline/test_budget_backtest.py
+      - test/offline/test_profiles_graph.py
+      - test/offline/test_cli_commands.py
+    human_decision: "Human approved the read-only execution plan and instructed 'continue' after each of the three staged gates (S1, S2), and 'I approve, use your recommendation' for the recommended D1-D6 decisions."
+    verification: "ruff check . clean; full offline suite 1729 passed, 6 skipped, 1 deselected, 100 subtests. The 6 failures are pre-existing Windows-GBK read_text() locale artifacts, reproduced identically on untouched baseline 65c45a5 in a clean worktree; zero regressions. Schema gate passed. AI-use log validator passed."
+    transcript: "Supervised OpenCode session on branch feat/FR002-OpenCode; retained locally."

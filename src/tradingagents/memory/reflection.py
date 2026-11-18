@@ -48,7 +48,19 @@ class Reflector:
         ``benchmark_name`` is the label used for the alpha line (e.g. ``"SPY"``
         for US tickers, ``"^N225"`` for ``.T`` listings); defaults to SPY for
         callers that haven't been updated to thread the benchmark through.
+
+        A reflection is an OPTIONAL call: when the run's budget refuses it, this
+        raises :class:`BudgetInvocationRefused` so the caller leaves the decision
+        pending instead of spending past the limit (Implements: ADR-004;
+        REQ-TA-FR-002).
         """
+        from tradingagents.llm_clients.invocation import admit_optional
+
+        admission = admit_optional("reflection")
+        if not admission.allowed:
+            from tradingagents.llm_clients.invocation import BudgetInvocationRefused
+
+            raise BudgetInvocationRefused("reflection", admission.reason_codes)
         messages = [
             ("system", self._system_prompt(holding_days)),
             (

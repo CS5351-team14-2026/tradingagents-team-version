@@ -34,6 +34,7 @@ from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.run_budget import RunBudgetContext, RunBudgetTracker
 from tradingagents.run_record import build_usage_summary
 
 
@@ -65,7 +66,8 @@ def _announce_checkpoint_state(graph, ticker: str, trade_date: str) -> None:
         message_buffer.add_message("System", f"Starting fresh for {ticker} on {trade_date}")
 
 
-def _build_run_config(selections: dict, checkpoint: bool | None, profile: str | None = None) -> dict:
+def _build_run_config(selections: dict, checkpoint: bool | None, profile: str | None = None,
+                      token_budget: int | None = None) -> dict:
     """Assemble the run config from interactive selections, honoring env precedence.
 
     Round counts and checkpoint follow "explicit env/flag wins": an env-applied
@@ -76,8 +78,14 @@ def _build_run_config(selections: dict, checkpoint: bool | None, profile: str | 
     config, so a stale depth can never fight the profile. The analyst and round
     environment variables still reach the graph as per-field overrides
     (Implements: REQ-TA-FR-001).
+
+    ``token_budget`` (REQ-TA-FR-002): an explicit ``--token-budget`` wins over the
+    environment; when neither is given the value is ``None`` (enforcement off),
+    so a run without a budget reproduces the baseline.
     """
     config = DEFAULT_CONFIG.copy()
+    if token_budget is not None:
+        config["token_budget"] = token_budget
     if profile is None:
         # Research depth sets both round counts, but an explicit env override
         # (TRADINGAGENTS_MAX_DEBATE_ROUNDS / _MAX_RISK_ROUNDS) wins over the
@@ -112,7 +120,8 @@ def _build_run_config(selections: dict, checkpoint: bool | None, profile: str | 
     return config
 
 
-def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, profile: str | None = None):
+def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, profile: str | None = None,
+                 token_budget: int | None = None):
     flags = dict(flags or {})
     # A profile is recognised and validated first — before the unattended-gap
     # check, the interactive questions and any model client — so an unknown
@@ -136,9 +145,15 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
 
     selections = get_user_selections(flags)
 
-    config = _build_run_config(selections, checkpoint, profile=profile_name)
+    if token_budget is not None:
+        config = _build_run_config(selections, checkpoint, profile=profile_name, token_budget=token_budget)
+    else:
+        config = _build_run_config(selections, checkpoint, profile=profile_name)
 
-    stats_handler = StatsCallbackHandler()
+    # One accounting source for the whole run (REQ-TA-FR-002; ADR-004): the CLI
+    # builds the tracker from the resolved token_budget and shares it with the
+    # graph's observation scope, so the CLI and the graph read one ledger.
+    stats_handler = StatsCallbackHandler(RunBudgetTracker(config.get("token_budget")))
 
     # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
     selected_set = {analyst.value for analyst in selections["analysts"]}
@@ -284,6 +299,13 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
         if checkpoint_tid is not None:
             args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = checkpoint_tid
             _announce_checkpoint_state(graph, selections["ticker"], selections["analysis_date"])
+
+        # Share the CLI's tracker with the graph so both read one ledger
+        # (REQ-TA-FR-002; ADR-004). Held for the whole streamed run via the
+        # context's enter/exit so the per-message loop keeps its indentation.
+        graph._run_budget_tracker = stats_handler.tracker
+        _budget_scope = RunBudgetContext(stats_handler.tracker).activate()
+        _budget_scope.__enter__()
 
         # Stream the analysis. On resume, feed None so LangGraph continues the
         # interrupted run instead of re-appending the initial state (#1249); the
@@ -436,7 +458,10 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
                     graph.write_run_record(selections["ticker"], selections["analysis_date"])
             raise
         finally:
-            # Always restore the plain uncheckpointed graph, even on failure.
+            # Leave the run's budget context, then restore the plain
+            # uncheckpointed graph, even on failure.
+            with suppress(Exception):
+                _budget_scope.__exit__(None, None, None)
             graph.end_checkpoint()
 
         for agent in message_buffer.agent_status:

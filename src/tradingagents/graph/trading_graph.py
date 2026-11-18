@@ -23,6 +23,10 @@ from tradingagents.reporting import (
     evaluate_claim_acceptance,
     write_report_tree,
 )
+from tradingagents.run_budget import (
+    RunBudgetContext,
+    RunBudgetTracker,
+)
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
@@ -30,6 +34,19 @@ from .propagation import Propagator
 from .setup import GraphSetup
 
 logger = logging.getLogger(__name__)
+
+
+def _bind_budget_context(tracker) -> None:
+    """Bind ``tracker`` as the current run's budget context inside a copied Context.
+
+    Used by ``stream_run``: it runs in a copied ``contextvars.Context`` so each
+    streamed step resolves this run's ledger rather than the caller's. This is
+    the public ``bind_context`` helper from ``run_budget`` (ADR-004), not a
+    private cross-module read.
+    """
+    from tradingagents.run_budget import bind_context
+
+    bind_context(tracker)
 
 
 def _validate_trade_date(trade_date) -> str:
@@ -314,6 +331,11 @@ class TradingAgentsGraph:
         settings = {
             k: v for k, v in self.config.items()
             if k not in in_signature_exclusions and k != "claim_enforcement"
+            # A no-budget run (token_budget None) must keep the pre-change
+            # signature byte-for-byte, so the absent-key default is excluded;
+            # an enabled budget is a real run input and stays in the digest
+            # (Implements: ADR-004; REQ-TA-FR-002).
+            and not (k == "token_budget" and v is None)
         }
         if "claim_enforcement" not in in_signature_exclusions:
             settings["claim_enforcement"] = claim_enforcement
@@ -351,6 +373,35 @@ class TradingAgentsGraph:
         ]
         return "|".join(parts)
 
+    @contextmanager
+    def observation_scope(self):
+        """Bind this run's usage ledger for the length of an execution (ADR-004).
+
+        Yields a :class:`~tradingagents.run_budget.RunBudgetTracker` built from
+        ``config["token_budget"]`` and activates its context, so callbacks and
+        the invocation boundary attribute usage to this run. A
+        ``token_budget`` of ``None`` disables enforcement and reproduces the
+        baseline, while usage is still observed honestly (ADR-004 D6).
+
+        Direct ``propagate()``/``stream_run()`` callers traverse this scope so
+        the budget is enforced in the graph, not only in the CLI. A caller that
+        already activated a compatible context (the CLI activating its
+        ``StatsCallbackHandler`` tracker) keeps that tracker instead of
+        re-binding a second ledger.
+        """
+        from tradingagents.run_budget import current_run_context
+
+        active = current_run_context()
+        limit = self.config.get("token_budget")
+        if active is not None and active.tracker.limit == limit:
+            self._run_budget_tracker = active.tracker
+            yield active.tracker
+            return
+        tracker = RunBudgetTracker(limit)
+        self._run_budget_tracker = tracker
+        with RunBudgetContext(tracker).activate():
+            yield tracker
+
     def propagate(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
         """Run the trading agents graph for a company on a specific date.
 
@@ -361,6 +412,10 @@ class TradingAgentsGraph:
         a per-ticker SqliteSaver so a crashed run can resume from the last
         successful node on a subsequent invocation with the same ticker+date.
 
+        The run executes inside :meth:`observation_scope`, so a configured
+        ``token_budget`` is enforced for direct API callers too (ADR-004;
+        REQ-TA-FR-002).
+
         Returns ``(final_state, signal)`` where ``signal`` is one of the 5-tier
         ratings (Buy / Overweight / Hold / Underweight / Sell) or ``"REVIEW"``
         when the decision had no parseable rating (#1170); guard with
@@ -369,12 +424,14 @@ class TradingAgentsGraph:
         """
         trade_date = _validate_trade_date(trade_date)
 
-        with run_config(self.config), \
+        with self.observation_scope(), run_config(self.config), \
                 self.checkpoint_scope(company_name, trade_date, asset_type, portfolio) as thread_id_value:
-            return self._run_graph(
+            result = self._run_graph(
                 company_name, trade_date, asset_type=asset_type,
                 checkpoint_thread_id=thread_id_value, portfolio=portfolio,
             )
+            self._attach_budget_observation()
+            return result
 
     def begin_checkpoint(self, company_name, trade_date, asset_type: str = "stock", portfolio=None) -> str | None:
         """Recompile the graph with a per-ticker checkpointer and return the
@@ -566,6 +623,9 @@ class TradingAgentsGraph:
             "output_language": cfg.get("output_language"),
             "data_vendors": dict(cfg.get("data_vendors") or {}),
             "tool_vendors": dict(cfg.get("tool_vendors") or {}),
+            # Per-run token budget is a run input, so it belongs to replayable
+            # settings (REQ-TA-FR-002; ADR-004). None = no budget (baseline).
+            "token_budget": cfg.get("token_budget"),
         }
 
         usage = getattr(self, "_run_usage", None)
@@ -601,8 +661,34 @@ class TradingAgentsGraph:
             completed_at=getattr(self, "_run_completed_at", None),
             version=tradingagents.__version__,
             legacy=legacy,
+            budget=self._budget_block(),
         )
         return record_obj.to_dict()
+
+    def _budget_block(self) -> dict | None:
+        """The run's budget result for ``run_metadata.budget`` (REQ-TA-FR-002).
+
+        Present only when this graph owns a ledger (an observation scope ran);
+        a bare instance built in a test has none, so no block is added and the
+        record stays byte-compatible with QR-004.
+        """
+        tracker = getattr(self, "_run_budget_tracker", None)
+        if tracker is None:
+            return None
+        return tracker.snapshot().to_metadata()
+
+    def _attach_budget_observation(self) -> None:
+        """Copy the ledger's usage into the run observations (REQ-TA-QR-004 bridge).
+
+        Called after a run completes or fails so the persisted record carries
+        the budget ledger's own usage and completeness, never a fabricated
+        total. It leaves a caller-supplied usage summary in place when the
+        graph owns no ledger.
+        """
+        tracker = getattr(self, "_run_budget_tracker", None)
+        if tracker is None:
+            return
+        self._run_usage = tracker.to_usage_summary()
 
     def save_reports(self, final_state, ticker, save_path=None, html=True) -> Path:
         """Write the report tree for a completed run, like the CLI does.
@@ -789,6 +875,14 @@ class TradingAgentsGraph:
         # when the process-wide config has changed since. Each step runs in the
         # run's context, so the caller keeps its own between steps.
         context = run_config_context(self.config)
+        # Bind this run's budget ledger into the same step context so callbacks
+        # raised while streaming attribute usage to this run (ADR-004; FR-002).
+        # A caller-supplied StatsCallbackHandler tracker is reused when present.
+        tracker = getattr(self, "_run_budget_tracker", None)
+        if tracker is None:
+            tracker = RunBudgetTracker(self.config.get("token_budget"))
+            self._run_budget_tracker = tracker
+        context.run(_bind_budget_context, tracker)
         stream = context.run(self.graph.stream, graph_input, subgraphs=True, **args)
         try:
             while (step := context.run(next, stream, None)) is not None:

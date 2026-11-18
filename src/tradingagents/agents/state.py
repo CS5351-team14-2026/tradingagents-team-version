@@ -5,7 +5,7 @@ from typing_extensions import TypedDict
 
 
 # Researcher team state
-class InvestDebateState(TypedDict):
+class InvestDebateState(TypedDict, total=False):
     bull_history: Annotated[
         str, "Bullish Conversation history"
     ]
@@ -15,10 +15,14 @@ class InvestDebateState(TypedDict):
     history: Annotated[str, "Conversation history"]
     current_response: Annotated[str, "Latest response"]
     count: Annotated[int, "Length of the current conversation"]
+    # Set when the token budget refused a further optional debate turn, so the
+    # router ends the phase (Implements: ADR-004; REQ-TA-FR-002).
+    budget_exhausted: Annotated[bool, "A budget refusal ended the debate phase"]
+    budget_reason_codes: Annotated[list[str], "Machine-readable budget refusal reasons"]
 
 
 # Risk management team state
-class RiskDebateState(TypedDict):
+class RiskDebateState(TypedDict, total=False):
     aggressive_history: Annotated[
         str, "Aggressive Agent's Conversation history"
     ]
@@ -40,6 +44,10 @@ class RiskDebateState(TypedDict):
         str, "Latest response by the neutral analyst"
     ]
     count: Annotated[int, "Length of the current conversation"]
+    # Set when the token budget refused a further optional risk turn
+    # (Implements: ADR-004; REQ-TA-FR-002).
+    budget_exhausted: Annotated[bool, "A budget refusal ended the risk phase"]
+    budget_reason_codes: Annotated[list[str], "Machine-readable budget refusal reasons"]
 
 
 class AgentState(MessagesState):

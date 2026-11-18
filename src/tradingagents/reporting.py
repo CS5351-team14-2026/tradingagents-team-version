@@ -46,6 +46,28 @@ def _token_usage_line(meta: dict, get) -> str | None:
     return "- Tokens: unavailable"
 
 
+def _budget_line(budget: dict) -> str | None:
+    """The run's budget result as one report line (Implements: REQ-TA-FR-002).
+
+    Status and the aggregate usage state, plus a reason code. Unavailable
+    totals are not printed; the token line already renders "unavailable".
+    """
+    status = budget.get("status")
+    if not status:
+        return None
+    limit = budget.get("limit")
+    state = budget.get("usage_state")
+    reasons = budget.get("reason_codes") or []
+    parts = [status]
+    if limit is not None:
+        parts.append(f"limit {limit}")
+    if state:
+        parts.append(f"usage {state}")
+    if reasons:
+        parts.append("reasons: " + ", ".join(reasons))
+    return "- Budget: " + "; ".join(parts)
+
+
 def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     """The report's title and what produced it: analysis date, version, models, analysts, vendors."""
     lines = [f"# Trading Analysis Report: {ticker}", ""]
@@ -97,6 +119,13 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
             token_line = _token_usage_line(meta, s)
             if token_line:
                 lines.append(token_line)
+        # The run's budget result, a dimension separate from lifecycle status
+        # (REQ-TA-FR-002; ADR-004). Shown only when a budget block was recorded.
+        budget = meta.get("budget") or s("budget")
+        if isinstance(budget, dict) and budget.get("status"):
+            budget_line = _budget_line(budget)
+            if budget_line:
+                lines.append(budget_line)
     if final_state.get("memory_note"):
         lines.append(f"- Memory log: {final_state['memory_note']}")
     return "\n".join(lines) + "\n\n"

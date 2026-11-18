@@ -24,6 +24,8 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
+from tradingagents.llm_clients.invocation import admit_optional
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
@@ -66,6 +68,13 @@ def invoke_structured(structured_llm: Any | None, prompt: Any, agent_name: str) 
     if structured_llm is None:
         return None
     for attempt in range(2):
+        # A retry after the first attempt is an OPTIONAL extra call: stop it
+        # once the budget refuses, rather than spend past the limit
+        # (Implements: ADR-004; REQ-TA-FR-002).
+        if attempt and not admit_optional("retry").allowed:
+            logger.warning("%s: budget refused the structured retry; not retrying",
+                           agent_name)
+            return None
         try:
             result = structured_llm.invoke(prompt)
             if result is None:
@@ -97,8 +106,18 @@ def invoke_structured_or_freetext(
     render: Callable[[T], str],
     agent_name: str,
 ) -> str:
-    """Run the structured call and render to markdown; fall back to free-text on any failure."""
+    """Run the structured call and render to markdown; fall back to free-text on any failure.
+
+    The free-text fallback is an OPTIONAL extra call: when the budget refuses it,
+    the run does not make it and returns the empty string, which the node's
+    caller treats as a missing report (never a fabricated one)
+    (Implements: ADR-004; REQ-TA-FR-002).
+    """
     result = invoke_structured(structured_llm, prompt, agent_name)
     if result is not None:
         return render(result)
+    if not admit_optional("fallback").allowed:
+        logger.warning("%s: budget refused the free-text fallback; report left empty",
+                       agent_name)
+        return ""
     return plain_llm.invoke(prompt).content
