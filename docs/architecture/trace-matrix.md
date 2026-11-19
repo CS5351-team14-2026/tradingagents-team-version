@@ -71,3 +71,12 @@ v1 allowlist, and is NOT replayed. A replayed run's budget comes only from the
 new invocation (`--token-budget`/env), and it flows through the same FR-002
 `StatsCallbackHandler`/`RunBudgetTracker` construction so there is one ledger
 and no duplicate accounting.
+
+## FR-004 / INV-001 — final-decision validation
+
+Contract: ADR-003. Approved test plan: Issue #32.
+
+| Requirement | Component | Test | Monitor / evidence |
+|---|---|---|---|
+| REQ-TA-FR-004 (validate rating + prices before adoption) | `agents/rating.py` (`validate_final_decision`, `normalise_price`, reason constants); `agents/schemas.py` (`PortfolioDecision.entry_price`/`stop_loss` as raw `Any`, `decode_strict_json`, `decision_raw_mapping`, `build_decision`); `agents/managers/portfolio_manager.py` (`_structured_with_raw`, `_invoke_json_mode`, node); `agents/structured.py` (retry gate); `graph/trading_graph.py` (`_log_state`); `reporting.py` (header review reasons); `cli/run.py` (review notice) | `test/offline/test_final_decision_validation.py` (FR004-01/02/03/05/06/07 unit + end-to-end); `test/offline/test_decision_validation_routes.py` (FR004-05 routes: structured, JSON-mode, decode-miss, budget) | `decision_review_reasons` in the PM state and the state log; `- Review reasons:` header line; HTML `span.rating` = `REVIEW`; CLI review notice naming the reasons |
+| REQ-TA-INV-001 (a non-resolvable rating is never a tradeable position) | `agents/rating.py` (`extract_rating`, `parse_rating`, `validate_final_decision` unresolved short-circuit) | `test/offline/test_rating_integrity.py` (unchanged); `test/offline/test_final_decision_validation.py::test_an_unresolved_rating_short_circuits_to_unresolved`; `test/offline/test_final_decision_validation.py::test_a_bare_non_finite_token_fails_strict_decoding` | `final_rating=REVIEW` with `["unresolved_rating"]`; no `invalid_*`/`missing_*` inferred from an undecodable body |

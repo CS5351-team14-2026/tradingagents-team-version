@@ -394,3 +394,54 @@ entries:
       single RunBudgetTracker/StatsCallbackHandler (no second counter); reconcile
       in an isolated worktree without touching the dirty FR-008 branch.
     verification: "reconciliation done in an isolated git worktree on branch reconcile/fr-008-settings-replay, based on origin/integration; results reported in the reconciliation session (FR-002 focused, FR-008 focused, combined regression, full offline suite, ruff, schema, AI-use, detect-secrets)."
+  - id: AI-2026-11-19-fr004-zelin-01
+    date: "2026-11-19"
+    task: "REQ-TA-FR-004 / REQ-TA-INV-001: validate the final Portfolio Manager decision before adoption — raw-price retention, per-rating price policy, decision_review_reasons, strict JSON decoding, REVIEW rendering in CLI/report/state log/memory."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; test-plan #32 (test-approved); ADR-003"
+    files:
+      - docs/architecture/adr/003-final-decision-validation.md
+      - docs/architecture/trace-matrix.md
+      - docs/req/requirements.yaml
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/rating.py
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/reporting.py
+      - src/cli/run.py
+      - test/offline/test_decision_validation_routes.py
+      - test/offline/test_final_decision_validation.py
+      - test/offline/test_graph_end_to_end.py
+      - test/offline/test_cli_profile_e2e.py
+      - test/offline/test_profiles_report.py
+      - test/offline/test_memory_log.py
+      - test/offline/test_fr004_04_price_ownership.py
+      - test/offline/test_cli_fr004_subprocess.py
+      - test/offline/test_fr004_07_before_after.py
+      - docs/evidence/fr004_07_probe.py
+      - docs/evidence/fr004_07_evidence.txt
+    human_decision: >-
+      The human approved the revised execution plan, confirmed the merged D-4/D-5
+      rule (a decoded response's "15%" is an invalid price -> REVIEW + invalid_*,
+      no retry; a bare NaN/Infinity token is a strict decoding failure that keeps
+      the existing FR-002 fallback), approved Stage 1 tests, and then approved
+      Stage 2 implementation against the test-approved Issue #32. Instructed: keep
+      the CLI REVIEW notice and the Markdown review reasons, complete the remaining
+      FR-004 acceptance items (FR004-04 price ownership, FR004-06 real python -m
+      cli.main subprocess, FR004-07 before/after evidence), QR-005 deferred to a
+      second PR, and do not commit or push this round.
+    verification: >-
+      ruff check . clean; schema gate passed; AI-use log gate passed. Full offline
+      suite 1835 passed, 1 skipped, 1 deselected, 100 subtests (baseline 7517803 =
+      1771; +64, zero regressions). FR-004 acceptance: FR004-01/02/03/05 in
+      test_final_decision_validation.py and test_decision_validation_routes.py;
+      FR004-04 in test_fr004_04_price_ownership.py (5 pass); FR004-06 in
+      test_cli_fr004_subprocess.py (real python -m cli.main subprocess, 2 pass);
+      FR004-07 before/after in test_fr004_07_before_after.py (baseline 7517803
+      adopts the Buy, current returns REVIEW + missing_entry_price; evidence in
+      docs/evidence/fr004_07_evidence.txt); INV001-01/02 covered. QR005-03 remains
+      unverified on this host (no Docker / unshare -n denied) and is deferred to PR 2.
+    transcript: "Supervised OpenCode session on branch feat/fr004-qr005; retained locally."

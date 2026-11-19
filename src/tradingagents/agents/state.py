@@ -76,6 +76,13 @@ class AgentState(MessagesState):
     ]
     final_trade_decision: Annotated[str, "Final decision from the Portfolio Manager"]
     final_rating: Annotated[str, "The Portfolio Manager's 5-tier rating, or REVIEW when it has none"]
+    decision_review_reasons: Annotated[
+        list,
+        "Why a decoded final decision is not actionable (REQ-TA-FR-004): stable "
+        "strings such as unresolved_rating / missing_entry_price / "
+        "invalid_stop_loss. Empty when the decision was accepted; any reason "
+        "means final_rating is REVIEW",
+    ]
     material_claims: Annotated[
         list[dict],
         "The final recommendation's material claims (ADR-001): supporting and opposing "

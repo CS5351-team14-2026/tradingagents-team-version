@@ -75,6 +75,10 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         lines.append(f"- Analysis date: {final_state['trade_date']}")
     if final_state.get("final_trade_decision"):
         lines.append(f"- Rating: {run_rating(final_state)}")
+        # REQ-TA-FR-004: a REVIEW decision says why it was not actionable.
+        review_reasons = final_state.get("decision_review_reasons") or []
+        if review_reasons:
+            lines.append("- Review reasons: " + ", ".join(review_reasons))
     traceability = _traceability_header(final_state)
     if traceability:
         lines.append(traceability)
