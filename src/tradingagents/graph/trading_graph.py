@@ -929,6 +929,10 @@ class TradingAgentsGraph:
             # (empty when accepted). Persisted beside the rating so the state log
             # records why a REVIEW run was not a tradeable call.
             "decision_review_reasons": list(final_state.get("decision_review_reasons") or []),
+            # REQ-TA-FR-004 (FR004-01): the validated price levels of an accepted
+            # decision (floats), {} on REVIEW. An older state without the field
+            # reads back as {} rather than failing.
+            "final_prices": dict(final_state.get("final_prices") or {}),
             "claim_audit": final_state.get("claim_audit"),
             "claim_acceptance": final_state.get("claim_acceptance"),
             "material_claims": final_state.get("material_claims", []),

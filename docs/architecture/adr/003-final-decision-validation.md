@@ -38,6 +38,23 @@ fails Pydantic, and a coerced value is indistinguishable from an omitted one.
    normalise to a finite, strictly positive `float` (JSON number or trimmed
    numeric string; binary64 rounding, no exact-decimal or tick-size guarantee).
 
+   The accepted numeric grammar (Issue #32 FR004-03) is ASCII only, with an
+   integer part: an optional sign, one or more ASCII `0-9` digits, an optional
+   `.` and fractional ASCII digits, and an optional `e`/`E` exponent. A bare
+   non-finite token is a decoding failure handled earlier (§6), not a price here.
+   Therefore a **leading-dot decimal** (`.5`), a **fullwidth/Unicode digit**
+   (`５０`) and an **integer too large for a finite float** (`10**400`) are all
+   *invalid* prices → `REVIEW` with the field's `invalid_*` code; the oversized
+   integer must not raise `OverflowError`. `0.5`, `1e2`, `100` and `"100.5"`
+   remain valid.
+
+   The validator returns each accepted field normalised to a `float`; the
+   Portfolio Manager node publishes those levels as `final_prices`
+   (`{"entry_price": <float>, "stop_loss": <float>}`) in the run state, and
+   `graph/trading_graph.py::_log_state` records them in the run-state JSON. A
+   `REVIEW` publishes `{}` — no partially validated level is presented as a call
+   — and a state saved before this field existed reads back as `{}` (FR004-01).
+
 4. **Review reasons are stable strings.** `decision_review_reasons` is a list:
    `unresolved_rating`, or `missing_entry_price` / `missing_stop_loss` /
    `invalid_entry_price` / `invalid_stop_loss`, accumulated entry-then-stop, one

@@ -332,6 +332,11 @@ traceability check.
             "count": risk_debate_state["count"],
         }
 
+        # REQ-TA-FR-004 (FR004-01): the validated price levels, published for the
+        # run-state log. Only an accepted (non-REVIEW) decision carries prices;
+        # a REVIEW publishes {} so no half-validated level is read as a call.
+        final_prices = raw_prices if not decision_review_reasons else {}
+
         return {
             "risk_debate_state": new_risk_debate_state,
             "final_trade_decision": final_trade_decision,
@@ -339,6 +344,9 @@ traceability check.
             # REQ-TA-FR-004: why a decoded decision was not actionable; empty
             # when it was accepted. At least one reason means final_rating=REVIEW.
             "decision_review_reasons": decision_review_reasons,
+            # REQ-TA-FR-004 (FR004-01): {"entry_price": <float>, "stop_loss":
+            # <float>} when accepted, {} on REVIEW.
+            "final_prices": final_prices,
             "material_claims": claims,
             # ADR-001: makes a structured-output miss visible to the audit,
             # which otherwise cannot tell it from a model that emitted no claims.

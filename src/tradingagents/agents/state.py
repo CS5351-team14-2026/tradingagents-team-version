@@ -83,6 +83,13 @@ class AgentState(MessagesState):
         "invalid_stop_loss. Empty when the decision was accepted; any reason "
         "means final_rating is REVIEW",
     ]
+    final_prices: Annotated[
+        dict,
+        "The validated price levels of an accepted final decision "
+        "(REQ-TA-FR-004; FR004-01): {'entry_price': <float>, 'stop_loss': "
+        "<float>} with the values normalised by the validator. Empty {} when the "
+        "decision is REVIEW, so no price from a non-actionable call is presented",
+    ]
     material_claims: Annotated[
         list[dict],
         "The final recommendation's material claims (ADR-001): supporting and opposing "
