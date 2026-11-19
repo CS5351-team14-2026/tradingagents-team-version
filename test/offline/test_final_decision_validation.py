@@ -110,6 +110,11 @@ INVALID_VALUES = [
     "$100", "1,000", "15%", "150-160", "about 150",
     "1e", ".", "1.2.3", "nan", "NaN", "Infinity", "-Infinity",
     math.nan, math.inf, -math.inf,
+    # FR004-03 (Issue #32): a leading dot is not a price, Unicode/fullwidth
+    # digits are not ASCII digits, and an integer too large for a finite float
+    # is REVIEW (never an OverflowError).
+    ".5", ".5 ", "５０", "５０.５", "１００",
+    10**400, "1" + "0" * 400,
 ]
 
 
@@ -135,6 +140,29 @@ def test_missing_and_invalid_are_ordered_entry_then_stop():
     assert validate_final_decision(
         "Buy", {"entry_price": "nope", "stop_loss": "nope"})[1] == [
             REASON_INVALID_ENTRY_PRICE, REASON_INVALID_STOP_LOSS]
+
+
+@pytest.mark.unit
+def test_a_price_too_large_for_a_float_is_review_not_an_overflow():
+    """REQ-TA-FR-004 (FR004-03): an integer beyond the finite-float range is a
+    supplied invalid price -> REVIEW, never an uncaught ``OverflowError``."""
+    for huge in (10**400, 10**5000, "1" + "0" * 400):
+        final, reasons, prices = validate_final_decision(
+            "Buy", {"entry_price": huge, "stop_loss": 90.0})
+        assert (final, reasons) == (RATING_REVIEW, [REASON_INVALID_ENTRY_PRICE])
+        assert "entry_price" not in prices
+
+
+@pytest.mark.unit
+def test_ordinary_decimal_and_exponent_forms_remain_valid():
+    """REQ-TA-FR-004 (FR004-03): tightening the grammar leaves ``0.5`` and
+    ``1e2`` (leading integer digit) valid; only a missing integer part is not."""
+    assert normalise_price(0.5) == 0.5
+    assert normalise_price("0.5") == 0.5
+    assert normalise_price("1e2") == 100.0
+    final, reasons, _ = validate_final_decision(
+        "Buy", {"entry_price": "0.5", "stop_loss": "1e2"})
+    assert (final, reasons) == ("Buy", [])
 
 
 # ---------------------------------------------------------------------------
@@ -256,12 +284,16 @@ def test_a_rejected_decision_is_review_everywhere_it_is_recorded(tmp_path, monke
 
     assert signal == state["final_rating"] == RATING_REVIEW
     assert state["decision_review_reasons"] == [REASON_INVALID_ENTRY_PRICE]
+    # FR004-01: a REVIEW publishes no prices in the final state.
+    assert state["final_prices"] == {}
 
     log = json.loads(
         (tmp_path / "results" / "NVDA" / "TradingAgentsStrategy_logs"
          / f"full_states_log_{TRADE_DATE}.json").read_text())
     assert log["final_rating"] == RATING_REVIEW
     assert log["decision_review_reasons"] == [REASON_INVALID_ENTRY_PRICE]
+    # FR004-01: and the run-state JSON records {} for a REVIEW.
+    assert log["final_prices"] == {}
 
     write_report_tree(state, "NVDA", tmp_path / "report", settings=graph.run_settings(), html=True)
     markdown = (tmp_path / "report" / "complete_report.md").read_text()
@@ -284,7 +316,46 @@ def test_a_valid_decision_is_not_reviewed(tmp_path, monkeypatch, offline):
 
     assert signal == state["final_rating"] == "Buy"
     assert state["decision_review_reasons"] == []
+    # FR004-01: an accepted decision publishes the validated prices (floats).
+    assert state["final_prices"] == {"entry_price": 100.0, "stop_loss": 90.0}
+
+    log = json.loads(
+        (tmp_path / "results" / "NVDA" / "TradingAgentsStrategy_logs"
+         / f"full_states_log_{TRADE_DATE}.json").read_text())
+    assert log["final_prices"] == {"entry_price": 100.0, "stop_loss": 90.0}
+
     write_report_tree(state, "NVDA", tmp_path / "report", settings=graph.run_settings(), html=True)
     markdown = (tmp_path / "report" / "complete_report.md").read_text()
     assert "- Rating: Buy" in markdown
     assert "Review reasons:" not in markdown
+
+
+@pytest.mark.unit
+def test_a_state_without_final_prices_reads_back_as_empty(tmp_path, monkeypatch, offline):
+    """REQ-TA-FR-004 (FR004-01): a state written before this field existed (no
+    ``final_prices`` key) is persisted as {} rather than failing."""
+    import copy
+
+    graph = trading_graph.TradingAgentsGraph(config=copy.deepcopy(DEFAULT_CONFIG))
+    graph.config = {**graph.config, "results_dir": str(tmp_path / "results")}
+
+    old_state = {
+        "company_of_interest": "NVDA", "trade_date": TRADE_DATE,
+        "market_report": "m", "sentiment_report": "s", "news_report": "n",
+        "fundamentals_report": "f",
+        "investment_debate_state": {"bull_history": "", "bear_history": "", "history": "",
+                                    "current_response": ""},
+        "trader_investment_plan": "t",
+        "risk_debate_state": {"aggressive_history": "", "conservative_history": "",
+                              "neutral_history": "", "history": ""},
+        "investment_plan": "p", "final_trade_decision": "**Rating**: Buy",
+        "final_rating": "Buy",
+        # deliberately no "final_prices" key: an older saved state
+    }
+
+    graph._log_state(TRADE_DATE, old_state)
+
+    log = json.loads(
+        (tmp_path / "results" / "NVDA" / "TradingAgentsStrategy_logs"
+         / f"full_states_log_{TRADE_DATE}.json").read_text())
+    assert log["final_prices"] == {}
