@@ -509,3 +509,31 @@ entries:
       Temporary TCP endpoint stopped after acceptance. Evidence:
       docs/evidence/qr005_offline_evidence.txt.
     transcript: "Supervised OpenCode session on branch feat/qr005-offline-testability; retained locally."
+  - id: AI-2026-11-20-qr005-zelin-02
+    date: "2026-11-20"
+    task: "REQ-TA-QR-005 CI fix: the four QR-005 test files failed collection under the bare `pytest` console entry (CI's `pytest -q`) because `from tools.ci import ...` could not resolve `tools`; add `pythonpath` (repo root) to pyproject's pytest options."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; Issue #32 (test-approved); PR #53"
+    files:
+      - pyproject.toml
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      The human reported the PR #53 CI collection error (ModuleNotFoundError for
+      `tools`), reproduced locally with the CI pytest entry point, and confirmed
+      `-o pythonpath=.` resolves it. Instructed: add pythonpath repo-root entry under
+      [tool.pytest.ini_options], verify collection and the QR-005 cases with the
+      CI-same pytest entry, confirm the default selected set is unchanged, update
+      this log, do not change the workflow, do not rerun the four-round isolation
+      acceptance, and do not push this round.
+    verification: >-
+      Reproduced the failure with the bare console entry (.venv/bin/pytest -q
+      --collect-only): 4 errors ("No module named 'tools'") for
+      test_seeded_order_plugin/compare_orders/isolation_preflight/controlled_endpoint;
+      `python -m pytest` masked it because it puts the CWD on sys.path. After adding
+      pythonpath repo-root entry: bare `pytest --collect-only` collects 1866/1867 (1
+      deselected) — the same default selected set as before the fix; the 6 QR-005
+      test files pass (39 passed); full suite via the console entry 1865 passed, 1
+      skipped, 1 deselected, 100 subtests (zero regressions). ruff check . clean.
+      No workflow change; the four-round isolated acceptance was not rerun.
+    transcript: "Supervised OpenCode session on branch feat/qr005-offline-testability; retained locally."
