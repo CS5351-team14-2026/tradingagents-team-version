@@ -1,0 +1,139 @@
+QR-005 offline testability — acceptance evidence (REQ-TA-QR-005, Issue #32)
+
+Approved test plan: Issue #32 (labelled test-approved). Scope: QR005-01..04.
+All four cases are verified. QR005-03/04 are verified locally in a real isolated
+network namespace (`unshare -Urn`, loopback brought up) against a temporary
+controlled TCP endpoint; no CI container is required.
+
+Local environment
+-----------------
+  OS      : Linux (WSL2)
+  Python  : 3.12.3 (venv), pytest 9.2.0
+  Branch  : feat/qr005-offline-testability
+  Baseline: HEAD d650164 (merge of PR #52, FR-004), plus the uncommitted QR-005
+            working tree. Code under test = HEAD d650164 + working-tree
+            fingerprint sha256:0000a315a27f8276674205e463a8da1b92c64037c2571ff106ffbd82c75eb6da.
+  Isolation: `unshare -Urn` (user + network namespace), `ip link set lo up`
+             inside it, so only loopback exists and external is unreachable.
+
+Final acceptance run (QR005-03 + QR005-04, controlled + isolated)
+-----------------------------------------------------------------
+  Clean source snapshot: the working tree (tracked files + the QR-005 untracked
+    files) was copied into a fresh directory with no `.git` and no `.venv`
+    (/tmp/opencode/qr005-final/checkout), then run via PYTHONPATH=<checkout>/src.
+  Independent temporary dirs per round: a fresh HOME, XDG_CONFIG_HOME,
+    XDG_CACHE_HOME and TMPDIR, plus TRADINGAGENTS_RESULTS_DIR/_CACHE_DIR/
+    _MEMORY_LOG_PATH, all under a per-round mktemp dir.
+  Controlled environment: every TRADINGAGENTS_* variable and every known provider
+    API-key variable (OPENAI/GOOGLE/ANTHROPIC/XAI/DEEPSEEK/DASHSCOPE/ZHIPU/MINIMAX/
+    OPENROUTER/AZURE_OPENAI/ALPHA_VANTAGE) is unset before the run; the suite's
+    own conftest supplies test-only placeholders.
+  Endpoint: temporary TCP listener (tools/ci/controlled_endpoint.py) on the
+    numeric non-loopback address 172.18.110.113:<ephemeral port>, one instance for
+    all four rounds; stopped after acceptance.
+  Each round ran in its own `unshare -Urn` namespace with `ip link set lo up`;
+    the isolated preflight ran first in every round and printed:
+    PREFLIGHT external 172.18.110.113:<port> reachable=False (OSError: [Errno 101]
+      Network is unreachable)
+    PREFLIGHT loopback ok=True (127.0.0.1:<ephemeral> reachable)
+    PREFLIGHT isolated PASSED
+  Four rounds, each a separate process, all exit 0:
+    default        : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    seed 42        : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    seed 5351      : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    seed 42 repeat : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    (the 1 skip is test_bedrock_provider.py:74, optional langchain_aws absent)
+  compare_orders.py over the four junitxml:
+    default/seed-42/seed-42-repeat/seed-5351 = 1866 tests each; PASSED
+    (identical selected sets; default!=42; default!=5351; 42==42-repeat; 42!=5351)
+
+
+QR005-01 — default selection collects offline, excludes integration
+-------------------------------------------------------------------
+  Command : python -m pytest --collect-only -q        (repo root)
+  Result  : 1852/1853 collected (1 deselected)
+            - deselected = test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput
+              (the only `integration`-marked case)
+            - test/live/ nodes collected: 0
+            - QR-005 new cases selected: test_offline_selection.py (3),
+              test_seeded_order_plugin.py (11), test_suite_isolation.py (14)
+  Covered by: test/offline/test_offline_selection.py (3 tests, subprocess
+              --collect-only, default selection)
+
+QR005-02 — pytest guard refuses external before real DNS/connect
+---------------------------------------------------------------
+  Covered by: test/offline/test_suite_isolation.py
+    - test_a_test_cannot_reach_the_network[connect|connect_ex|dns|curl_cffi|
+      curl_cffi_async|requests|urllib]  -> OSError("reach the network")
+    - test_the_guard_refuses_before_a_real_connection_happens -> sentinel
+      socket.connect never called for external requests/urllib attempts
+  Narrow 127.0.0.1 exception kept as-is (Issue #32 §41):
+    - test_chatgpt_auth.py::test_the_browser_answer_reaches_the_loopback_and_strays_are_ignored
+      passes unchanged (re-patches loopback on top of the strict guard).
+  Local run: test_suite_isolation.py + test_chatgpt_auth.py => 46 passed.
+
+QR005-03 — isolated env: external blocked, loopback OK, full suite
+-----------------------------------------------------------------
+  Tool     : tools/ci/isolation_preflight.py  (runs OUTSIDE pytest)
+  Endpoint : tools/ci/controlled_endpoint.py  (temporary TCP listener)
+  Procedure:
+    1. Start the endpoint on the host: bound 0.0.0.0, port 0 -> chosen port P.
+       Numeric non-loopback host address H (this host: 172.18.110.113).
+    2. CONTROL, outside the namespace, same H:P:
+         $ python tools/ci/isolation_preflight.py control --host H --port P
+         PREFLIGHT external H:P reachable=True (connected)
+         PREFLIGHT loopback ok=True (127.0.0.1:<ephemeral> reachable)
+         PREFLIGHT control PASSED                                    (exit 0)
+    3. ISOLATED, inside `unshare -Urn` with `ip link set lo up`, same H:P:
+         $ unshare -Urn sh -c 'ip link set lo up &&
+             python tools/ci/isolation_preflight.py isolated --host H --port P'
+         PREFLIGHT external H:P reachable=False (OSError: [Errno 101] Network is unreachable)
+         PREFLIGHT loopback ok=True (127.0.0.1:<ephemeral> reachable)
+         PREFLIGHT isolated PASSED                                   (exit 0)
+  Result: ordinary environment reaches the endpoint; the isolated namespace
+  cannot; 127.0.0.1 bind/connect works in both. Negative paths also checked
+  (control vs blocked -> exit 1; isolated vs reachable -> exit 1).
+  Covered by: test/offline/test_isolation_preflight.py (7 tests, mocked probes);
+              test/offline/test_controlled_endpoint.py (2 tests, local bind/accept).
+
+QR005-04 — default vs seed 42/5351: same set, order differs, seed reproduces
+---------------------------------------------------------------------------
+  Plugin: tools/ci/pytest_seeded_order.py  (-p ... --order-seed N; sorts then
+          shuffles with random.Random(N); never changes the selected set)
+  Tool  : tools/ci/compare_orders.py  (reads junitxml execution order)
+  Runs  : FULL default suite, each a separate process inside `unshare -Urn`
+          (lo up), isolated: default order, seed 42, seed 42 repeat, seed 5351.
+  Per-run result (each pytest exit 0):
+    default        : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    seed 42        : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    seed 42 repeat : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    seed 5351      : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+    (the 1 skip is test_bedrock_provider.py:74, missing optional langchain_aws)
+  Comparison: $ python tools/ci/compare_orders.py <artifacts-dir>
+    QR005 run 'default': 1866 tests
+    QR005 run 'seed-42': 1866 tests
+    QR005 run 'seed-42-repeat': 1866 tests
+    QR005 run 'seed-5351': 1866 tests
+    QR005-04 order comparison PASSED: identical selected sets,
+      at least one seed reordered, seed 42 reproducible                 (exit 0)
+  Facts: default order != seed 42; default order != seed 5351;
+         seed 42 order == seed 42 repeat (reproducible); seed 42 != seed 5351.
+  Covered by: test/offline/test_seeded_order_plugin.py (11 tests),
+              test/offline/test_compare_orders.py (5 tests, synthetic junitxml).
+
+Verification on this host (this round)
+--------------------------------------
+  ruff check .  : All checks passed
+  full suite    : 1865 passed, 1 skipped, 1 deselected, 100 subtests
+                  (zero regressions; recorded in docs/ai-use-log.yaml).
+
+Artifacts kept for the PR (final acceptance run, /tmp/opencode/qr005-final/artifacts)
+--------------------------------------------------------------------------------
+  offline-default.xml
+  offline-seed-42.xml
+  offline-seed-42-repeat.xml
+  offline-seed-5351.xml
+  controlled-endpoint.log
+  (compare_orders.py output reproduced above; per-round isolated preflight output
+   reproduced above. The CI `qr005-isolation` job was withdrawn; this controlled,
+   isolated, clean-snapshot run is the acceptance evidence for QR005-03/04.)
