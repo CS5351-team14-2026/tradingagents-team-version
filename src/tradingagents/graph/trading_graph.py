@@ -10,7 +10,7 @@ from typing import Any
 import tradingagents
 from tradingagents import run_record as record
 from tradingagents.agents.context import build_instrument_context, resolve_instrument_identity
-from tradingagents.agents.rating import run_rating
+from tradingagents.agents.rating import RATING_REVIEW, is_review, run_rating
 from tradingagents.dataflows.config import run_config, run_config_context, set_config
 from tradingagents.dataflows.date_window import get_current_date, is_historical
 from tradingagents.dataflows.symbols import safe_ticker_component
@@ -166,8 +166,15 @@ class TradingAgentsGraph:
         os.makedirs(self.config["results_dir"], exist_ok=True)
 
         extra = {"callbacks": self.callbacks} if self.callbacks else {}
+        # REQ-TA-QR-001 (ADR-005 D-B): a missing/invalid provider key raises a
+        # typed MissingApiKeyError (a ValueError subclass), which the CLI turns
+        # into a controlled failure record. The key value is never included.
         self.deep_thinking_llm = create_tier_client(self.config, "deep", **extra).get_llm()
         self.quick_thinking_llm = create_tier_client(self.config, "quick", **extra).get_llm()
+
+        # A controlled failure recorded for this run (REQ-TA-QR-001; ADR-005).
+        # None until a run ends in one; carried into run_settings()["run_metadata"].
+        self._run_failure = None
 
         self.memory_log = TradingMemoryLog(self.config)
 
@@ -521,7 +528,8 @@ class TradingAgentsGraph:
 
     def set_run_observations(self, *, usage=None, status: str | None = None,
                              started_at: str | None = None,
-                             completed_at: str | None = None) -> None:
+                             completed_at: str | None = None,
+                             failure: dict | None = None) -> None:
         """Attach observational data for the current run (REQ-TA-QR-004).
 
         ``usage`` is a :class:`tradingagents.run_record.UsageSummary` (or any
@@ -531,11 +539,16 @@ class TradingAgentsGraph:
         (REQ-TA-FR-008 loads only those). A caller that does not attach usage (a
         bare instance, or a caller with no token accounting) leaves the record's
         usage fields null with ``usage_complete`` false.
+
+        ``failure`` (REQ-TA-QR-001; ADR-005) is an optional allowlisted
+        ``{code, phase, diagnostic, exception_type?}`` block recorded under
+        ``run_metadata.failure``; it never changes the lifecycle ``status``.
         """
         self._run_usage = usage
         self._run_status = status
         self._run_started_at = started_at
         self._run_completed_at = completed_at
+        self._run_failure = failure
 
     def write_run_record(self, ticker: str, trade_date: str) -> Path:
         """Write this run's structured record to a metadata file on disk.
@@ -662,6 +675,7 @@ class TradingAgentsGraph:
             version=tradingagents.__version__,
             legacy=legacy,
             budget=self._budget_block(),
+            failure=getattr(self, "_run_failure", None),
         )
         return record_obj.to_dict()
 
@@ -825,12 +839,44 @@ class TradingAgentsGraph:
                         final_state.update(state)
             else:
                 final_state = self.graph.invoke(graph_input, **args)
-        except BaseException:
-            # REQ-TA-QR-004: a run that ends in an exception still records
-            # structured metadata, with status=failed. The state log cannot be
-            # written (its required keys are missing on a partial run), so a
-            # standalone run record is written. The exception is re-raised so
-            # existing failure behaviour is unchanged.
+        except BaseException as exc:
+            # REQ-TA-QR-001 (ADR-005 D-A): a provider timeout or an exhausted
+            # structured path is a *controlled* failure. Record it and return a
+            # non-tradeable REVIEW result rather than letting the exception
+            # escape. Any other exception keeps the existing re-raise behaviour
+            # (a genuine bug must stay visible, not be silently masked).
+            from tradingagents import failure as failure_mod
+
+            code = failure_mod.classify_exception(exc)
+            if code is not None:
+                failure = failure_mod.build_failure(
+                    code, phase="run", exception_type=type(exc).__name__)
+                self.set_run_observations(
+                    usage=getattr(self, "_run_usage", None),
+                    status=record.STATUS_FAILED,
+                    started_at=getattr(self, "_run_started_at", None) or started_at,
+                    completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+                    failure=failure,
+                )
+                try:
+                    self.write_run_record(company_name, trade_date)
+                except OSError:  # never mask the controlled result with a write error
+                    logger.warning("Could not write the run record for a failed run", exc_info=True)
+                logger.warning("Run for %s on %s ended in a controlled failure: %s (%s)",
+                               company_name, trade_date, failure["code"], type(exc).__name__)
+                controlled_state = {
+                    "company_of_interest": company_name,
+                    "trade_date": str(trade_date),
+                    "final_trade_decision": (
+                        f"No tradeable recommendation could be produced: {failure['diagnostic']}"
+                    ),
+                    "final_rating": RATING_REVIEW,
+                    "run_failure": failure,
+                }
+                return controlled_state, RATING_REVIEW
+
+            # REQ-TA-QR-004: an unclassified exception still records structured
+            # metadata with status=failed, and is re-raised as before.
             self.set_run_observations(
                 usage=getattr(self, "_run_usage", None),
                 status=record.STATUS_FAILED,
@@ -846,11 +892,24 @@ class TradingAgentsGraph:
         # REQ-TA-QR-004: stamp completed status and timestamps before the state
         # log is written, so the persisted record carries the final observations
         # rather than the pre-observation defaults.
+        # REQ-TA-QR-001 (ADR-005): a run that completed but produced only a
+        # non-tradeable REVIEW because the token budget was exhausted records a
+        # TOKEN_BUDGET_EXHAUSTED failure mirror. The lifecycle status stays
+        # ``completed`` (D-D); the budget block already carries its own status.
+        rating = run_rating(final_state)
+        failure = None
+        tracker = getattr(self, "_run_budget_tracker", None)
+        if is_review(rating) and tracker is not None and tracker.snapshot().status == "BUDGET_EXHAUSTED":
+            from tradingagents import failure as failure_mod
+
+            failure = failure_mod.build_failure(
+                failure_mod.FailureCode.TOKEN_BUDGET_EXHAUSTED, phase="synthesis")
         self.set_run_observations(
             usage=getattr(self, "_run_usage", None),
             status=record.STATUS_COMPLETED,
             started_at=getattr(self, "_run_started_at", None) or started_at,
             completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            failure=failure,
         )
         self.record_decision(company_name, trade_date, final_state)
 

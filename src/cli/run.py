@@ -26,10 +26,11 @@ from cli.display import (
 )
 from cli.selections import depth_from_env, get_user_selections, requested_profile, unattended_gaps
 from cli.stats_handler import StatsCallbackHandler
-from tradingagents import run_record as record
+from tradingagents import __version__ as ta_version, run_record as record
 from tradingagents.agents.rating import is_review, run_rating
 from tradingagents.dataflows.symbols import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.failure import MissingApiKeyError
 from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
@@ -50,6 +51,35 @@ def _run_directory(config: dict, ticker: str, trade_date: str) -> Path:
     ".." here would place the run outside the results directory.
     """
     return Path(config["results_dir"]) / safe_ticker_component(ticker) / trade_date
+
+
+def _record_startup_failure(config: dict, selections: dict, exc: MissingApiKeyError) -> None:
+    """Write a controlled failure record when a run cannot even be constructed.
+
+    REQ-TA-QR-001 (ADR-005 D-B): a missing API key surfaces before any graph or
+    run exists, so this writes the standalone run record directly to disk with
+    ``status=failed`` and ``run_metadata.failure.code=MISSING_API_KEY``. It never
+    records the key value, an endpoint, or a local path (the run-record allowlist
+    holds). A write failure is swallowed so the CLI diagnostic is still shown.
+    """
+    import json
+
+    try:
+        settings = record.build_run_record(
+            replayable_settings={},
+            status=record.STATUS_FAILED,
+            version=ta_version,
+            failure=exc.to_failure(),
+        ).to_dict()
+        directory = (Path(config["results_dir"])
+                     / safe_ticker_component(selections["ticker"])
+                     / "TradingAgentsStrategy_logs")
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"run_record_{selections['analysis_date']}.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=4, ensure_ascii=False)
+    except Exception:  # never mask the CLI diagnostic with a record-write error
+        pass
 
 
 def _announce_checkpoint_state(graph, ticker: str, trade_date: str) -> None:
@@ -167,14 +197,22 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
     explicit_overrides = {}
     if flags.get("analysts") is not None:
         explicit_overrides["analysts"] = selected_analyst_keys
-    graph = TradingAgentsGraph(
-        config=config,
-        debug=True,
-        callbacks=[stats_handler],
-        profile=profile_name,
-        explicit_overrides=explicit_overrides or None,
-        base_analysts=None if flags.get("analysts") is not None else selected_analyst_keys,
-    )
+    try:
+        graph = TradingAgentsGraph(
+            config=config,
+            debug=True,
+            callbacks=[stats_handler],
+            profile=profile_name,
+            explicit_overrides=explicit_overrides or None,
+            base_analysts=None if flags.get("analysts") is not None else selected_analyst_keys,
+        )
+    except MissingApiKeyError as exc:
+        # REQ-TA-QR-001 (ADR-005 D-B): a missing key at construction is a
+        # controlled failure. Write a standalone run record and stop with a safe
+        # diagnostic; the exception never escapes the CLI.
+        _record_startup_failure(config, selections, exc)
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from None
     # The analysts the graph actually runs with, from the same resolved config.
     effective_analysts = [a for a in ANALYST_ORDER if a in set(graph.selected_analysts)]
     analyst_execution_plan = build_analyst_execution_plan(effective_analysts)

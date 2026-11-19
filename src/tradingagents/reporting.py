@@ -68,6 +68,24 @@ def _budget_line(budget: dict) -> str | None:
     return "- Budget: " + "; ".join(parts)
 
 
+def _failure_line(failure: dict) -> str | None:
+    """The controlled-failure line: code, phase and safe diagnostic (REQ-TA-QR-001).
+
+    The diagnostic is produced from a fixed per-code message (ADR-005 D-E), so
+    the line never carries a secret, endpoint, URL or raw exception text.
+    """
+    code = failure.get("code")
+    if not code:
+        return None
+    parts = [str(code)]
+    if failure.get("phase"):
+        parts.append(f"phase {failure['phase']}")
+    line = "- Failure: " + "; ".join(parts)
+    if failure.get("diagnostic"):
+        line += f" — {failure['diagnostic']}"
+    return line
+
+
 def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     """The report's title and what produced it: analysis date, version, models, analysts, vendors."""
     lines = [f"# Trading Analysis Report: {ticker}", ""]
@@ -126,6 +144,13 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
             budget_line = _budget_line(budget)
             if budget_line:
                 lines.append(budget_line)
+        # A controlled failure (REQ-TA-QR-001; ADR-005): code + phase + safe
+        # diagnostic, additive to the lifecycle status. Never carries a secret.
+        failure = meta.get("failure") or s("failure")
+        if isinstance(failure, dict) and failure.get("code"):
+            failure_line = _failure_line(failure)
+            if failure_line:
+                lines.append(failure_line)
     if final_state.get("memory_note"):
         lines.append(f"- Memory log: {final_state['memory_note']}")
     return "\n".join(lines) + "\n\n"
