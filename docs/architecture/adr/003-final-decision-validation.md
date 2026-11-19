@@ -52,12 +52,33 @@ fails Pydantic, and a coerced value is indistinguishable from an omitted one.
    `schemas.py::decode_strict_json`) — follows the existing retry/fallback
    sequence and the existing REQ-TA-FR-002 budget gates. The final reason comes
    from whatever response actually arrived; a rejected body contributes no
-   field-specific code.
+   field-specific code. The bare-token check runs at the **raw-response layer**:
+   the JSON-mode binding is made with `include_raw=True` and the untouched
+   `AIMessage` text is strict-decoded *before* the provider parser's value is
+   trusted, because LangChain's own `json.loads` would otherwise turn a bare
+   `NaN` into a `float('nan')` and hide the decode failure. A body that *does*
+   decode but whose (already-decoded) price is non-finite is the contrast: it is
+   a supplied `invalid_*` price and does not retry (see §5).
 
-7. **The REVIEW is recorded everywhere.** The node publishes
+7. **The free-text fallback is price-validated too.** A prose answer carries no
+   price levels, so its rating is run through the same
+   `validate_final_decision(rating, {})` the decoded paths use: a prose-only
+   `Buy`/`Overweight` (which requires both prices) becomes `REVIEW` with
+   `missing_entry_price`/`missing_stop_loss`, while a prose `Hold`,
+   `Underweight` or `Sell` needs none and is accepted. No second rule is
+   introduced; the validator is reused.
+
+8. **The REVIEW is recorded everywhere.** The node publishes
    `final_rating` + `decision_review_reasons`; the state log, the Markdown
    header (`- Review reasons:`), the HTML header (`span.rating` = `REVIEW`), the
-   CLI notice and the memory entry all reflect the same decision.
+   CLI notice and the memory entry all reflect the same decision. The **final
+   decision region itself** — CLI `V. Portfolio Manager Decision` panel, Markdown
+   `## V. Portfolio Manager Decision`, and the HTML body — renders a single
+   REVIEW summary (`reporting.py::decision_display_text`) that names the reasons,
+   never the model's superseded `Rating: Buy` line or its entry instructions.
+   The reconciliation is applied on read, so a state saved by an earlier version
+   whose decision text still carries the old rating is also shown as the REVIEW
+   summary.
 
 ## Consequences
 
@@ -69,6 +90,25 @@ fails Pydantic, and a coerced value is indistinguishable from an omitted one.
   is REVIEW.
 - The price contract strengthens the registry's earlier "finite numbers" wording
   to "finite, strictly positive"; the registry and trace matrix carry the change.
+- The JSON-mode binding now requests `include_raw=True` so the raw body is
+  available for the strict-decode check; the extra field is consumed internally
+  and never reaches the decision model.
+
+## History
+
+- **Post-PR #52 corrections.** The slice landed in PR #52 left three defects that
+  the original tests did not catch, because they replaced the model response
+  boundary with string replies rather than the provider's parsed value:
+  1. a prose-only Buy/Overweight was adopted (the free-text path never ran the
+     price policy) — fixed by §7;
+  2. a bare `NaN`/`Infinity`/`-Infinity` in a real JSON-mode response was parsed
+     by LangChain into a `float('nan')` and misread as a supplied `invalid_*`
+     price instead of a decode miss — fixed by §6 (raw-response-layer check);
+  3. a top-level REVIEW still rendered the model's `Rating: Buy` and entry
+     instructions in the report/CLI decision region — fixed by §8 (one REVIEW
+     summary, reconciled on read).
+  Regression tests: `test/offline/test_fr004_regression.py`. These clarify, and
+  do not change, the contract above; the requirements registry is unchanged.
 
 ## Reopen conditions
 

@@ -512,6 +512,34 @@ def decode_strict_json(text: str) -> Any:
         raise StrictJSONDecodeError(str(exc)) from exc
 
 
+def raw_model_text(raw_message: Any) -> str | None:
+    """The JSON text a JSON-mode response actually carried, or ``None`` if unknown.
+
+    A provider's ``with_structured_output(method="json_mode", include_raw=True)``
+    returns the untouched ``AIMessage``; its ``content`` is the raw body the model
+    wrote. This is the *raw-response layer* where a bare ``NaN``/``Infinity`` must
+    be judged (REQ-TA-FR-004; ADR-003 §6): LangChain's own parser accepts those
+    tokens via ``json.loads`` and would otherwise hand back an already-parsed
+    decision, hiding the decode failure. The content may be a string or a list of
+    typed blocks (normalised to text), as elsewhere in the client layer.
+
+    Returns ``None`` when there is no text to judge (no raw message, empty
+    content); the caller then falls back to the parsed result unchanged.
+    """
+    content = getattr(raw_message, "content", raw_message)
+    if isinstance(content, str):
+        return content if content.strip() else None
+    if isinstance(content, list):
+        texts = [
+            item.get("text", "") if isinstance(item, dict) and item.get("type") == "text"
+            else item if isinstance(item, str) else ""
+            for item in content
+        ]
+        joined = "\n".join(t for t in texts if t)
+        return joined or None
+    return None
+
+
 def build_decision(raw: Mapping[str, Any]) -> PortfolioDecision:
     """Build a ``PortfolioDecision`` from a decoded mapping, keeping the raw prices.
 

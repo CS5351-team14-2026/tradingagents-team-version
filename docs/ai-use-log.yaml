@@ -537,3 +537,60 @@ entries:
       skipped, 1 deselected, 100 subtests (zero regressions). ruff check . clean.
       No workflow change; the four-round isolated acceptance was not rerun.
     transcript: "Supervised OpenCode session on branch feat/qr005-offline-testability; retained locally."
+  - id: AI-2026-11-20-fr004-zelin-02
+    date: "2026-11-20"
+    task: "REQ-TA-FR-004 / REQ-TA-INV-001: fix the three defects left by the PR #52 FR-004 slice — prose-only Buy/Overweight adopted, bare NaN/Infinity parsed early by the real JSON-mode wrapper, and REVIEW not shown in the final-decision region. Tests first, then implementation."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; Issue #32; ADR-003; integration 8fd19c7 (PR #52)"
+    files:
+      - docs/architecture/adr/003-final-decision-validation.md
+      - docs/architecture/trace-matrix.md
+      - docs/bug-diary.md
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/reporting.py
+      - src/cli/display.py
+      - src/cli/run.py
+      - test/offline/test_fr004_regression.py
+      - test/offline/test_reporting.py
+      - test/offline/test_graph_end_to_end.py
+    human_decision: >-
+      The human approved a test-first fix: (1) prose Buy/Overweight must be REVIEW
+      with both missing-price reasons, Hold the passing control; (2) the bare
+      NaN/Infinity/-Infinity token is judged at the real model wrapper's raw
+      response layer (decode failure, existing token budget), with the contrast
+      that an already-decoded float('nan') returns invalid_* with no retry — pass a
+      decoded nan directly; (3) display option (a): one REVIEW summary generated at
+      the valid-decision output and shown with its reasons across CLI, Markdown and
+      HTML, covering an old saved REVIEW state. Instructed: update ADR-003, trace
+      matrix, bug diary and this log; keep the requirements registry unchanged; do
+      not commit or push. Follow-up round: complete only the live path in
+      src/cli/run.py by reusing decision_display_text in the streamed Portfolio
+      Manager panel (REVIEW shows its reasons; a valid decision displays normally),
+      add one live-path regression test, run that test and ruff, update this log,
+      and do not rerun the full suite, commit, or push.
+    verification: >-
+      Regression tests written first against 8fd19c7: test_fr004_regression.py was
+      9 failed / 2 passed (prose Buy→Buy, bare NaN→invalid_* via the real
+      DeepSeekChatOpenAI json_mode binding + httpx.MockTransport, decision regions
+      never REVIEW); after the fix 11 passed. Targeted FR-004/report/CLI suites
+      green. ruff check . clean. CI-equivalent full offline suite: 1876 passed, 1
+      skipped, 1 deselected, 100 subtests (baseline 1865; +11 new, zero
+      regressions). Test-harness adjustments only where the fix intentionally
+      changes a fixture outcome: test_graph_end_to_end free-text TEXT is now a Hold
+      (a prose Buy/Overweight with no prices is correctly REVIEW), and
+      test_reporting's shared state carries a readable Buy decision.
+      Live-path follow-up: src/cli/run.py now renders decision_display_text in both
+      the streamed Portfolio Manager section and the post-stream section refresh,
+      so a REVIEW shows its summary (with reasons) live and in the closing refresh,
+      while a valid decision renders unchanged. New live-path regression test
+      test_the_live_panel_shows_review_in_the_final_decision_section drives the real
+      run_analysis stream with a REVIEW-producing model and asserts the live
+      final_trade_decision section is the REVIEW summary (no stale Buy/entry order);
+      it fails on the pre-fix run.py and passes after. ruff check on the touched
+      files clean; test_fr004_regression.py + test_cli_profile_e2e.py 18 passed;
+      test_cli_headless/commands/display/no_console 75 passed. Full suite not rerun
+      this round (as instructed).
+    transcript: "Supervised OpenCode session on branch safety/fr004-final-decision; retained locally."

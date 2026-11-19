@@ -13,6 +13,7 @@ free-text generation and the rating is read from that text.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 
 from tradingagents.agents.context import (
     get_instrument_context_from_state,
@@ -21,7 +22,6 @@ from tradingagents.agents.context import (
     report_or_absent,
 )
 from tradingagents.agents.rating import (
-    RATING_REVIEW,
     parse_rating,
     validate_final_decision,
 )
@@ -31,6 +31,8 @@ from tradingagents.agents.schemas import (
     StrictJSONDecodeError,
     build_decision,
     decision_raw_mapping,
+    decode_strict_json,
+    raw_model_text,
     render_pm_decision,
 )
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured
@@ -109,9 +111,18 @@ def _invoke_json_mode(llm, prompt) -> tuple[PortfolioDecision, dict] | None:
     validation runs on a JSON-mode answer as on a schema answer
     (Implements: REQ-TA-FR-004). A bare ``NaN``/``Infinity`` token is a strict
     decode failure and becomes a miss, following the existing fallback path.
+
+    The bare-token check happens at the *raw-response* layer: the binding is made
+    with ``include_raw=True`` so the untouched ``AIMessage`` is available. The
+    provider's own parser (``json.loads``) would turn a bare ``NaN`` into a
+    ``PortfolioDecision`` with ``float('nan')`` and hide the decode failure, so the
+    raw text is strict-decoded first (ADR-003 §6). A body that *does* decode — even
+    one carrying a rejected price — is not re-decoded here; its prices go to the
+    normal validator, which returns ``invalid_*`` and does not retry (ADR-003 §5).
     """
     try:
-        structured_json = llm.with_structured_output(PortfolioDecision, method="json_mode")
+        structured_json = llm.with_structured_output(
+            PortfolioDecision, method="json_mode", include_raw=True)
     except (NotImplementedError, AttributeError) as exc:
         logger.warning("PM: json_mode retry failed (binding: %s)", exc)
         return None
@@ -119,17 +130,54 @@ def _invoke_json_mode(llm, prompt) -> tuple[PortfolioDecision, dict] | None:
         result = structured_json.invoke(prompt)
         if result is None:
             raise ValueError("json_mode returned no result")
-        raw = decision_raw_mapping(result)
-        if raw is None:
+        result, raw = _json_mode_payload(result)
+        if result is None:
             raise ValueError("json_mode returned no decision")
-        decision = result if isinstance(result, PortfolioDecision) else build_decision(raw)
-        return decision, raw
+        return result, raw
     except StrictJSONDecodeError as exc:
         logger.warning("PM: json_mode retry failed (strict decode: %s)", exc)
         return None
     except Exception as exc:
         logger.warning("PM: json_mode retry failed (%s)", exc)
         return None
+
+
+def _json_mode_payload(result) -> tuple[PortfolioDecision | None, dict]:
+    """Normalise a JSON-mode result to ``(decision, raw_mapping)``; miss on failure.
+
+    Two shapes reach here. The real binding (``include_raw=True``) returns a dict
+    of ``raw`` / ``parsed`` / ``parsing_error``; the raw text is strict-decoded so a
+    bare non-finite token is a decode miss before the parser's value is trusted.
+    A test double (or an older binding) returns the decision directly; that is the
+    already-decoded case, validated on its own prices (a decoded non-finite float
+    is an ``invalid_*`` price, not a decode miss).
+    """
+    if isinstance(result, dict) and ("raw" in result or "parsed" in result):
+        parsed = result.get("parsed")
+        parsing_error = result.get("parsing_error")
+        raw_text = raw_model_text(result.get("raw"))
+        if raw_text is not None:
+            # Judge the raw body first: a bare NaN/Infinity/-Infinity (or any
+            # non-strict body) is a decode miss, not a supplied price.
+            decoded = decode_strict_json(raw_text)
+            if parsed is None or parsing_error is not None:
+                raise StrictJSONDecodeError(str(parsing_error or "unparsable body"))
+            if not isinstance(decoded, Mapping):
+                raise StrictJSONDecodeError("a decision body must be a JSON object")
+            return build_decision(decoded), dict(decoded)
+        # No raw body to judge (empty content): defer to the parser's result.
+        if parsed is None:
+            return None, {}
+        raw = decision_raw_mapping(parsed)
+        if raw is None:
+            raise ValueError("json_mode returned no decision")
+        return (parsed if isinstance(parsed, PortfolioDecision) else build_decision(raw)), raw
+
+    raw = decision_raw_mapping(result)
+    if raw is None:
+        raise ValueError("json_mode returned no decision")
+    decision = result if isinstance(result, PortfolioDecision) else build_decision(raw)
+    return decision, raw
 
 
 def create_portfolio_manager(llm):
@@ -262,12 +310,15 @@ traceability check.
                     "No recommendation could be produced within the token budget; "
                     "the run ended with REVIEW for human review."
                 )
-            # No decoded decision reached validation, so the only reason that can
-            # be stated is that no usable rating was resolved (REQ-TA-INV-001).
-            final_rating = parse_rating(final_trade_decision)
-            decision_review_reasons = (
-                [] if final_rating != RATING_REVIEW else ["unresolved_rating"]
-            )
+            # The prose carries no price levels, so its rating is run through the
+            # same price policy the decoded paths use: a free-text Buy/Overweight
+            # (which requires prices) becomes REVIEW with the two missing-price
+            # reasons; Hold/Underweight/Sell need none and pass unchanged. This
+            # reuses the validator rather than inventing a second rule
+            # (REQ-TA-FR-004; ADR-003 §6).
+            prose_rating = parse_rating(final_trade_decision)
+            final_rating, decision_review_reasons, _ = validate_final_decision(
+                prose_rating, {})
 
         new_risk_debate_state = {
             "history": risk_debate_state["history"],
