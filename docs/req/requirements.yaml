@@ -81,8 +81,8 @@ requirements:
   - id: REQ-TA-FR-004
     type: functional
     statement: "The system shall validate the final decision against a defined schema (a rating in the five-tier set, entry/stop levels as numeric prices, and the required fields present) before the result is accepted."
-    fit_criterion: "a final decision is accepted only if its rating resolves to exactly one of {Buy, Overweight, Hold, Underweight, Sell} AND required price fields parse as finite numbers; otherwise the run records a non-actionable REVIEW result with a machine-readable reason and presents no tradeable call."
-    enforcing_component: "agents/structured.py, agents/rating.py, agents/schemas.py, agents/trader/trader.py, agents/managers/portfolio_manager.py"
+    fit_criterion: "a final decision is accepted only if its rating resolves to exactly one of {Buy, Overweight, Hold, Underweight, Sell} AND every supplied entry/stop price normalises to a finite, strictly positive float; Buy and Overweight require both prices, Hold, Underweight and Sell accept absent or null; otherwise the run records final_rating=REVIEW with decision_review_reasons drawn from {unresolved_rating, missing_entry_price, missing_stop_loss, invalid_entry_price, invalid_stop_loss} and presents no tradeable call."
+    enforcing_component: "agents/rating.py (validate_final_decision, normalise_price), agents/schemas.py (raw price fields, strict JSON decode), agents/managers/portfolio_manager.py, agents/structured.py, graph/trading_graph.py (_log_state)"
     priority: must  # deterministic safety boundary required by project.pdf p3
     status: implement #Zelin Zhou
     source: "requirement-candidates.md CAND-FR-04; baseline: structured output + rating parsing exist; no end-to-end validation gate (free-text fallback path unvalidated)"
@@ -244,8 +244,8 @@ requirements:
   - id: REQ-TA-INV-001
     type: invariant
     statement: "The system shall never present a decision whose rating is invalid, missing, contradictory, or unreadable as a tradeable position."
-    fit_criterion: "zero-tolerance: for any final decision whose rating cannot be resolved to exactly one of {Buy, Overweight, Hold, Underweight, Sell}, recorded final_rating equals REVIEW, in every case, no exception; negative test: no-rating text, two conflicting ratings, and a fullwidth-colon rating each yield REVIEW (test/offline/test_rating_integrity.py)."
-    enforcing_component: "agents/rating.py (RATING_REVIEW, parse_rating, is_review)"
+    fit_criterion: "zero-tolerance: for any final decision whose rating cannot be resolved to exactly one of {Buy, Overweight, Hold, Underweight, Sell}, recorded final_rating equals REVIEW, in every case, no exception; negative tests: no-rating text and two conflicting ratings without an authoritative opening rating each yield REVIEW, and an unresolved rating short-circuits to decision_review_reasons=[unresolved_rating] (test/offline/test_rating_integrity.py, test/offline/test_final_decision_validation.py); a uniquely labelled rating with an ASCII or fullwidth colon is readable and is preserved."
+    enforcing_component: "agents/rating.py (RATING_REVIEW, extract_rating, parse_rating, validate_final_decision, is_review)"
     priority: must
     status: restate  # baseline behaviour kept
     source: "requirement-candidates.md CAND-INV-01; baseline EXISTING (implemented + tested) — formalisation work: invariant row in registry/trace matrix + keep negative test; operational fallback: mark run non-actionable, surface REVIEW + human-review notice, never substitute Hold"

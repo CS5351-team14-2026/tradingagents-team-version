@@ -1,0 +1,7 @@
+FR004-07 before/after — one missing-price Buy (Issue #32)
+
+before (7517803)            : {"final_rating": "Buy", "decision_review_reasons": "<absent>"}
+after  (feat/fr004-qr005)   : {"final_rating": "REVIEW", "decision_review_reasons": ["missing_entry_price"]}
+
+Probe: docs/evidence/fr004_07_probe.py, run with each checkout src on PYTHONPATH.
+Reproduce: FR004_BASELINE_WORKTREE=<7517803 worktree> python -m pytest test/offline/test_fr004_07_before_after.py -q -s

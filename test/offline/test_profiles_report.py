@@ -37,6 +37,9 @@ STRUCTURED = {
     schemas.PortfolioDecision: schemas.PortfolioDecision(
         rating=schemas.PortfolioRating.OVERWEIGHT, confidence="medium",
         executive_summary="s",
+        # REQ-TA-FR-004: an Overweight needs both price levels, so the shared
+        # fixture supplies valid ones; these tests exercise other behaviour.
+        entry_price=100.0, stop_loss=90.0,
         investment_thesis="Street consensus rating: Buy (28 of 35 analysts)."),
     schemas.SentimentReport: schemas.SentimentReport(
         overall_band=schemas.SentimentBand.NEUTRAL, overall_score=5.0, confidence="low", narrative="n"),

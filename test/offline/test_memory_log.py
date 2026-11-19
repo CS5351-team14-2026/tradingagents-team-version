@@ -848,6 +848,9 @@ class TestPortfolioManagerInjection:
             confidence="medium",
             executive_summary="Add on weakness.",
             investment_thesis="Demand is intact.",
+            # REQ-TA-FR-004: an Overweight needs both price levels.
+            entry_price=185.0,
+            stop_loss=172.0,
             supporting_factors=[MaterialClaim(
                 text="Close was 181.2.", source_id="market_report",
                 observation_date="2026-11-14")],

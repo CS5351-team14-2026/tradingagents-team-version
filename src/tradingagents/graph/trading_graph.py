@@ -989,6 +989,10 @@ class TradingAgentsGraph:
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
             "final_rating": run_rating(final_state),
+            # REQ-TA-FR-004: the reasons a decoded decision was not actionable
+            # (empty when accepted). Persisted beside the rating so the state log
+            # records why a REVIEW run was not a tradeable call.
+            "decision_review_reasons": list(final_state.get("decision_review_reasons") or []),
             "claim_audit": final_state.get("claim_audit"),
             "claim_acceptance": final_state.get("claim_acceptance"),
             "material_claims": final_state.get("material_claims", []),

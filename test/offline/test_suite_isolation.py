@@ -1,8 +1,19 @@
 """The suite runs the same on any machine: no test reaches the network or the user's files."""
 
+import asyncio
 import socket
 
 import pytest
+
+
+def _async_curl_get():
+    import curl_cffi.requests
+
+    async def _run():
+        async with curl_cffi.requests.AsyncSession() as session:
+            return await session.get("http://192.0.2.1", timeout=1)
+
+    return asyncio.run(_run())
 
 
 @pytest.mark.unit
@@ -12,12 +23,35 @@ import pytest
     lambda: socket.getaddrinfo("example.com", 443),
     # yfinance's HTTP client is libcurl, which never touches Python's sockets.
     lambda: __import__("curl_cffi.requests").requests.Session().get("http://192.0.2.1", timeout=1),
-], ids=["connect", "connect_ex", "dns", "curl_cffi"])
+    _async_curl_get,
+    # requests and urllib.request ride the guarded socket/DNS layer.
+    lambda: __import__("requests").get("http://192.0.2.1", timeout=1),
+    lambda: __import__("urllib.request").request.urlopen("http://192.0.2.1", timeout=1),
+], ids=["connect", "connect_ex", "dns", "curl_cffi", "curl_cffi_async", "requests", "urllib"])
 def test_a_test_cannot_reach_the_network(connect):
     """A test that silently depends on a live vendor passes or fails with the
-    machine it runs on; conftest refuses the connection instead."""
+    machine it runs on; conftest refuses the connection instead (QR005-02)."""
     with pytest.raises(OSError, match="reach the network"):
         connect()
+
+
+@pytest.mark.unit
+def test_the_guard_refuses_before_a_real_connection_happens(monkeypatch):
+    """QR005-02: the guard fires *before* the lower socket/DNS layer runs.
+
+    ``socket.socket.connect`` is replaced by a probe that records any invocation;
+    an external attempt through requests or urllib.request must raise from the
+    guard without ever reaching it, so no real resolver or connection runs.
+    """
+    calls = []
+    monkeypatch.setattr(socket.socket, "connect", lambda self, addr: calls.append(addr))
+
+    with pytest.raises(OSError, match="reach the network"):
+        __import__("requests").get("http://192.0.2.1", timeout=1)
+    with pytest.raises(OSError, match="reach the network"):
+        __import__("urllib.request").request.urlopen("http://192.0.2.1", timeout=1)
+
+    assert calls == []
 
 
 @pytest.mark.unit

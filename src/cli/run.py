@@ -35,6 +35,7 @@ from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.reporting import decision_display_text
 from tradingagents.run_budget import RunBudgetContext, RunBudgetTracker
 from tradingagents.run_record import build_usage_summary
 
@@ -535,8 +536,13 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
                         )
                     if judge and message_buffer.agent_status.get("Portfolio Manager") != "completed":
                         message_buffer.update_agent_status("Portfolio Manager", "in_progress")
+                        # The live panel shows the same REVIEW-aware text as the
+                        # saved report: a top-level REVIEW names its reasons here
+                        # rather than the model's superseded call; an accepted
+                        # decision renders unchanged (ADR-003 §8; REQ-TA-FR-004).
                         message_buffer.update_report_section(
-                            "final_trade_decision", f"### Portfolio Manager Decision\n{judge}"
+                            "final_trade_decision",
+                            f"### Portfolio Manager Decision\n{decision_display_text(chunk)}"
                         )
                         message_buffer.update_agent_status("Aggressive Analyst", "completed")
                         message_buffer.update_agent_status("Conservative Analyst", "completed")
@@ -606,19 +612,29 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
 
         for section in message_buffer.report_sections:
             if section in final_state:
-                message_buffer.update_report_section(section, final_state[section])
+                # The final refresh is the same REVIEW-aware view as the report:
+                # a REVIEW section shows its summary, not the model's superseded
+                # call (ADR-003 §8; REQ-TA-FR-004).
+                content = (decision_display_text(final_state)
+                           if section == "final_trade_decision"
+                           else final_state[section])
+                message_buffer.update_report_section(section, content)
 
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
     # Post-analysis prompts (outside Live context for clean interaction)
     console.print("\n[bold cyan]Analysis Complete![/bold cyan]\n")
 
-    # A decision nobody can read is not a position. Say so here rather than
-    # leaving the run to look like a normal result.
+    # A decision nobody can read, or one whose prices do not validate, is not a
+    # position. Say so here rather than leaving the run to look like a normal
+    # result, and name the reason when the final-decision gate recorded one
+    # (Implements: REQ-TA-FR-004).
     if is_review(run_rating(final_state)):
+        reasons = final_state.get("decision_review_reasons") or []
+        detail = f" ({', '.join(reasons)})" if reasons else ""
         console.print(
-            "[yellow]No rating could be read from the final decision, so this run "
-            "is recorded for review rather than as a position. Re-run, or read the "
+            f"[yellow]The final decision is recorded for review rather than as a "
+            f"position{detail}: no tradeable call is presented. Re-run, or read the "
             "decision text below and judge it yourself.[/yellow]\n"
         )
     console.print(f"[dim]{analyst_wall_time_tracker.format_summary()}[/dim]")

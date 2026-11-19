@@ -395,6 +395,7 @@ entries:
       in an isolated worktree without touching the dirty FR-008 branch.
     verification: "reconciliation done in an isolated git worktree on branch reconcile/fr-008-settings-replay, based on origin/integration; results reported in the reconciliation session (FR-002 focused, FR-008 focused, combined regression, full offline suite, ruff, schema, AI-use, detect-secrets)."
 
+
   - id: AI-2026-11-19-xiaokewei001-qr001
     date: "2026-11-19"
     task: "REQ-TA-QR-001 Q1-Q2: controlled failure codes and run-record failure block; sync with FR-008 (origin/integration) and reconcile FR-002 token_budget placement."
@@ -427,3 +428,205 @@ entries:
     human_decision: "Approved the plan with recommendations (D-A: classified failures return controlled (state, REVIEW); D-B: CLI catches missing key; D-C/D-E: {code,phase,diagnostic,exception_type?} with fixed safe messages; D-D: completed for graceful degradation; D-F: new ADR-005; D-G: no registry change). Approved H-1..H-5: move token_budget to run_metadata (not replayable), commit Q1 first, merge origin/integration (FR-008) as a merge commit, keep FR-008 replay branch + QR-001 missing-key wrap, add observational note."
     verification: "ruff check . clean; full offline suite 1777 passed, 6 skipped, 1 deselected, 100 subtests; only the pre-existing Windows-GBK read_text() locale failures (reproduced on baseline), plus intermittent test_memory_log/test_backtest rotation flakiness that passes in isolation and is unrelated to these changes (memory/log.py untouched). FR-008 reconcile + settings tests green; QR-001 tests green. A post-FR-002 run record replays OK after moving token_budget out of replayable_settings."
     transcript: "Supervised OpenCode session on branch feat/QR001-OpenCode; retained locally."
+
+  - id: AI-2026-11-19-fr004-zelin-01
+    date: "2026-11-19"
+    task: "REQ-TA-FR-004 / REQ-TA-INV-001: validate the final Portfolio Manager decision before adoption — raw-price retention, per-rating price policy, decision_review_reasons, strict JSON decoding, REVIEW rendering in CLI/report/state log/memory."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; test-plan #32 (test-approved); ADR-003"
+    files:
+      - docs/architecture/adr/003-final-decision-validation.md
+      - docs/architecture/trace-matrix.md
+      - docs/req/requirements.yaml
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/rating.py
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/reporting.py
+      - src/cli/run.py
+      - test/offline/test_decision_validation_routes.py
+      - test/offline/test_final_decision_validation.py
+      - test/offline/test_graph_end_to_end.py
+      - test/offline/test_cli_profile_e2e.py
+      - test/offline/test_profiles_report.py
+      - test/offline/test_memory_log.py
+      - test/offline/test_fr004_04_price_ownership.py
+      - test/offline/test_cli_fr004_subprocess.py
+      - test/offline/test_fr004_07_before_after.py
+      - docs/evidence/fr004_07_probe.py
+      - docs/evidence/fr004_07_evidence.txt
+    human_decision: >-
+      The human approved the revised execution plan, confirmed the merged D-4/D-5
+      rule (a decoded response's "15%" is an invalid price -> REVIEW + invalid_*,
+      no retry; a bare NaN/Infinity token is a strict decoding failure that keeps
+      the existing FR-002 fallback), approved Stage 1 tests, and then approved
+      Stage 2 implementation against the test-approved Issue #32. Instructed: keep
+      the CLI REVIEW notice and the Markdown review reasons, complete the remaining
+      FR-004 acceptance items (FR004-04 price ownership, FR004-06 real python -m
+      cli.main subprocess, FR004-07 before/after evidence), QR-005 deferred to a
+      second PR, and do not commit or push this round.
+    verification: >-
+      ruff check . clean; schema gate passed; AI-use log gate passed. Full offline
+      suite 1835 passed, 1 skipped, 1 deselected, 100 subtests (baseline 7517803 =
+      1771; +64, zero regressions). FR-004 acceptance: FR004-01/02/03/05 in
+      test_final_decision_validation.py and test_decision_validation_routes.py;
+      FR004-04 in test_fr004_04_price_ownership.py (5 pass); FR004-06 in
+      test_cli_fr004_subprocess.py (real python -m cli.main subprocess, 2 pass);
+      FR004-07 before/after in test_fr004_07_before_after.py (baseline 7517803
+      adopts the Buy, current returns REVIEW + missing_entry_price; evidence in
+      docs/evidence/fr004_07_evidence.txt); INV001-01/02 covered. QR005-03 remains
+      unverified on this host (no Docker / unshare -n denied) and is deferred to PR 2.
+    transcript: "Supervised OpenCode session on branch feat/fr004-qr005; retained locally."
+  - id: AI-2026-11-19-qr005-zelin-01
+    date: "2026-11-19"
+    task: "REQ-TA-QR-005 offline testability (Issue #32 QR005-01..04): seeded-order pytest plugin, network-guard probes, isolation preflight + controlled endpoint, local network-namespace isolation acceptance, auto order comparison."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; test-plan #32 (test-approved); Issue #32 QR-005 §41-44, §60-77"
+    files:
+      - tools/ci/pytest_seeded_order.py
+      - tools/ci/isolation_preflight.py
+      - tools/ci/controlled_endpoint.py
+      - tools/ci/compare_orders.py
+      - test/offline/test_seeded_order_plugin.py
+      - test/offline/test_offline_selection.py
+      - test/offline/test_isolation_preflight.py
+      - test/offline/test_controlled_endpoint.py
+      - test/offline/test_compare_orders.py
+      - test/offline/test_suite_isolation.py
+      - test/offline/conftest.py
+      - docs/architecture/trace-matrix.md
+      - docs/evidence/qr005_offline_evidence.txt
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      The human approved Stage 1 (the tools.ci.pytest_seeded_order plugin + tests),
+      Stage 2 (QR005-01 default-selection evidence and QR005-02 network-guard probes,
+      keeping the narrow 127.0.0.1 callback exception and reverting the suite-wide
+      loopback passthrough), and Stage 3 (QR005-03/04 CI isolation acceptance). For
+      the PR-preparation round the human ordered: fix the tee pipelines so a
+      preflight/docker/pytest failure is not masked (set -o pipefail) and logs still
+      upload on failure; start a temporary TCP endpoint in CI (replacing 1.1.1.1)
+      and verify with the same numeric address/port that a bridge container reaches
+      it and a --network none container does not, while loopback works inside the
+      isolated container; and record evidence, trace matrix and this log. In the
+      final round the human approved completing the local isolation acceptance
+      instead: withdraw the new qr005-isolation CI job (keep the original CI),
+      since `unshare -Urn` works on this host — run the controlled-endpoint control
+      vs isolated comparison and the full-suite default/seed-42/seed-5351/seed-42-
+      repeat runs inside `unshare -Urn` with `ip link set lo up`, then replace the
+      "PENDING CI" notes with the actual results. In the closing acceptance round
+      the human ordered a clean checkout with the code SHA recorded, per-round
+      independent temporary HOME/cache/TMPDIR and a controlled environment, then
+      the four isolated runs (default, seed 42, seed 5351, seed 42 repeat) each as
+      a separate process; afterwards verify exit codes, selected sets, order and
+      skip, update the evidence/trace/log, stop the temporary TCP endpoint, keep
+      the original CI intact, and do not push. Do not commit or push this round.
+    verification: >-
+      ruff check . clean. Full offline suite 1865 passed, 1 skipped, 1 deselected,
+      100 subtests (baseline d650164 = 1836 collected; zero regressions).
+      QR005-01: --collect-only shows 1852/1853 (1 deselected = the integration
+      case, 0 test/live nodes). QR005-02: guard probes (connect/connect_ex/dns/
+      curl_cffi/curl_cffi_async/requests/urllib) plus the before-real-connection
+      sentinel pass; narrow 127.0.0.1 callback unchanged (46 passed with
+      test_chatgpt_auth). QR005-03 final controlled run on a clean snapshot (HEAD
+      d650164, working-tree fingerprint sha256:0000a315...), per-round temp HOME/
+      XDG/TMPDIR and TRADINGAGENTS_*/provider keys cleared: `unshare -Urn` + `ip
+      link set lo up`, endpoint 172.18.110.113:<port> reachable outside the ns,
+      unreachable inside (ENETUNREACH), 127.0.0.1 bind/connect OK; isolated
+      preflight PASSED every round. QR005-04: four full-suite isolated runs, each
+      separate process — default / seed-42 / seed-5351 / seed-42-repeat each 1865
+      passed, 1 skipped, 1 deselected, exit 0; tools/ci/compare_orders.py PASSED
+      over the four junitxml (1866 tests each; identical selected sets, both seeds
+      reorder, seed 42 reproducible; default!=42, default!=5351, 42==42-repeat).
+      Temporary TCP endpoint stopped after acceptance. Evidence:
+      docs/evidence/qr005_offline_evidence.txt.
+    transcript: "Supervised OpenCode session on branch feat/qr005-offline-testability; retained locally."
+  - id: AI-2026-11-20-qr005-zelin-02
+    date: "2026-11-20"
+    task: "REQ-TA-QR-005 CI fix: the four QR-005 test files failed collection under the bare `pytest` console entry (CI's `pytest -q`) because `from tools.ci import ...` could not resolve `tools`; add `pythonpath` (repo root) to pyproject's pytest options."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; Issue #32 (test-approved); PR #53"
+    files:
+      - pyproject.toml
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      The human reported the PR #53 CI collection error (ModuleNotFoundError for
+      `tools`), reproduced locally with the CI pytest entry point, and confirmed
+      `-o pythonpath=.` resolves it. Instructed: add pythonpath repo-root entry under
+      [tool.pytest.ini_options], verify collection and the QR-005 cases with the
+      CI-same pytest entry, confirm the default selected set is unchanged, update
+      this log, do not change the workflow, do not rerun the four-round isolation
+      acceptance, and do not push this round.
+    verification: >-
+      Reproduced the failure with the bare console entry (.venv/bin/pytest -q
+      --collect-only): 4 errors ("No module named 'tools'") for
+      test_seeded_order_plugin/compare_orders/isolation_preflight/controlled_endpoint;
+      `python -m pytest` masked it because it puts the CWD on sys.path. After adding
+      pythonpath repo-root entry: bare `pytest --collect-only` collects 1866/1867 (1
+      deselected) — the same default selected set as before the fix; the 6 QR-005
+      test files pass (39 passed); full suite via the console entry 1865 passed, 1
+      skipped, 1 deselected, 100 subtests (zero regressions). ruff check . clean.
+      No workflow change; the four-round isolated acceptance was not rerun.
+    transcript: "Supervised OpenCode session on branch feat/qr005-offline-testability; retained locally."
+  - id: AI-2026-11-20-fr004-zelin-02
+    date: "2026-11-20"
+    task: "REQ-TA-FR-004 / REQ-TA-INV-001: fix the three defects left by the PR #52 FR-004 slice — prose-only Buy/Overweight adopted, bare NaN/Infinity parsed early by the real JSON-mode wrapper, and REVIEW not shown in the final-decision region. Tests first, then implementation."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; Issue #32; ADR-003; integration 8fd19c7 (PR #52)"
+    files:
+      - docs/architecture/adr/003-final-decision-validation.md
+      - docs/architecture/trace-matrix.md
+      - docs/bug-diary.md
+      - docs/ai-use-log.yaml
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/reporting.py
+      - src/cli/display.py
+      - src/cli/run.py
+      - test/offline/test_fr004_regression.py
+      - test/offline/test_reporting.py
+      - test/offline/test_graph_end_to_end.py
+    human_decision: >-
+      The human approved a test-first fix: (1) prose Buy/Overweight must be REVIEW
+      with both missing-price reasons, Hold the passing control; (2) the bare
+      NaN/Infinity/-Infinity token is judged at the real model wrapper's raw
+      response layer (decode failure, existing token budget), with the contrast
+      that an already-decoded float('nan') returns invalid_* with no retry — pass a
+      decoded nan directly; (3) display option (a): one REVIEW summary generated at
+      the valid-decision output and shown with its reasons across CLI, Markdown and
+      HTML, covering an old saved REVIEW state. Instructed: update ADR-003, trace
+      matrix, bug diary and this log; keep the requirements registry unchanged; do
+      not commit or push. Follow-up round: complete only the live path in
+      src/cli/run.py by reusing decision_display_text in the streamed Portfolio
+      Manager panel (REVIEW shows its reasons; a valid decision displays normally),
+      add one live-path regression test, run that test and ruff, update this log,
+      and do not rerun the full suite, commit, or push.
+    verification: >-
+      Regression tests written first against 8fd19c7: test_fr004_regression.py was
+      9 failed / 2 passed (prose Buy→Buy, bare NaN→invalid_* via the real
+      DeepSeekChatOpenAI json_mode binding + httpx.MockTransport, decision regions
+      never REVIEW); after the fix 11 passed. Targeted FR-004/report/CLI suites
+      green. ruff check . clean. CI-equivalent full offline suite: 1876 passed, 1
+      skipped, 1 deselected, 100 subtests (baseline 1865; +11 new, zero
+      regressions). Test-harness adjustments only where the fix intentionally
+      changes a fixture outcome: test_graph_end_to_end free-text TEXT is now a Hold
+      (a prose Buy/Overweight with no prices is correctly REVIEW), and
+      test_reporting's shared state carries a readable Buy decision.
+      Live-path follow-up: src/cli/run.py now renders decision_display_text in both
+      the streamed Portfolio Manager section and the post-stream section refresh,
+      so a REVIEW shows its summary (with reasons) live and in the closing refresh,
+      while a valid decision renders unchanged. New live-path regression test
+      test_the_live_panel_shows_review_in_the_final_decision_section drives the real
+      run_analysis stream with a REVIEW-producing model and asserts the live
+      final_trade_decision section is the REVIEW summary (no stale Buy/entry order);
+      it fails on the pre-fix run.py and passes after. ruff check on the touched
+      files clean; test_fr004_regression.py + test_cli_profile_e2e.py 18 passed;
+      test_cli_headless/commands/display/no_console 75 passed. Full suite not rerun
+      this round (as instructed).
+    transcript: "Supervised OpenCode session on branch safety/fr004-final-decision; retained locally."
+

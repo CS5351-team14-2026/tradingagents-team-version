@@ -17,3 +17,41 @@ invariant/requirement gap it exposed.
 
 No entries yet — the first entry lands with the first significant bug found
 during implementation rounds.
+
+## BUG-001 — FR-004 gate leaves REVIEW non-actionable results as tradeable calls (2026-11-20, follow-up to PR #52)
+
+- Symptom: after the FR-004 slice (PR #52) three paths still presented a
+  non-validated decision as a tradeable call: (1) when structured and JSON-mode
+  both missed, a plain-text `Buy`/`Overweight` was adopted with no prices and no
+  review reasons; (2) a real JSON-mode response carrying a bare
+  `NaN`/`Infinity`/`-Infinity` was parsed by LangChain's own `json.loads` into a
+  `float('nan')` and misread as a supplied `invalid_*` price instead of a decode
+  miss; (3) with a top-level `REVIEW`, the report §V, the HTML body and the CLI
+  panel still printed the model's `Rating: Buy` and its entry instruction.
+- Reproduction: `test/offline/test_fr004_regression.py` (written against the
+  PR #52 integration). The first run was 9 failed / 2 passed: prose Buy/Overweight
+  returned `Buy`/`Overweight`; bare `NaN` via the real wrapper returned
+  `['invalid_entry_price','invalid_stop_loss']`; and the Markdown/HTML/CLI
+  decision regions never showed `REVIEW`.
+- Classification: AI-output handling (structured/JSON/free-text decoding and the
+  boundary between a decode miss and an invalid value); acceptance path
+  validation; report/CLI rendering.
+- Root cause: (1) the free-text branch read the rating but never ran the price
+  policy; (2) the strict-decode guard only saw a *string* body, while the real
+  wrapper returns an already-parsed `PortfolioDecision`, so the bare token was
+  never judged at the raw-response layer; (3) the rendered decision text was the
+  model's own `render_pm_decision`, never reconciled with `final_rating=REVIEW`.
+- Fix: (1) free-text rating is run through `validate_final_decision(rating, {})`
+  (Hold/Underweight/Sell pass; prose Buy/Overweight → REVIEW with both missing
+  reasons); (2) `_invoke_json_mode` binds with `include_raw=True` and strict-
+  decodes the raw `AIMessage` text first (bare token → decode miss under the
+  existing token budget); an already-decoded non-finite float stays `invalid_*`
+  with no retry; (3) `reporting.py::decision_display_text` produces one REVIEW
+  summary (rating + reasons), used by `_report_parts` (Markdown + HTML) and
+  `cli/display.py`, reconciled on read so an old saved REVIEW state is covered.
+- Invariant/requirement gap exposed: REQ-TA-FR-004's acceptance contract was
+  verified against string replies, not the provider's parsed value or its raw
+  response, and the "presented as a tradeable call" half (REQ-TA-INV-001) was
+  only enforced on the header/state, not on the decision region the reader sees.
+  The lesson: test at the real boundary (raw HTTP / parsed instance) and assert
+  the rendered surface, not just persisted state.
