@@ -231,9 +231,9 @@ requirements:
     statement: "The system shall ensure that no configured secret appears unredacted in logs, reports, prompts, test fixtures, commits, or transcripts."
     fit_criterion: "zero occurrences (zero-tolerance); an offline test asserts logs redact a known configured API key; a secret scan runs on every PR and blocks merge on failure; .env is git-ignored; verification: offline redaction test around dataflows/net.py get_scrubbed extended to log/report rendering + CI secret-scan gate (tooling choice per requirement-candidates.md §8 row 6)."
     enforcing_component: "dataflows/net.py get_scrubbed, report/log renderers, CI secret-scan job (to be added)"
-    priority: wont  # unclaimed at S1 scope freeze
-    status: candidate
-    source: "requirement-candidates.md CAND-NFR-06; baseline PARTIAL: get_scrubbed exists and is tested; no repo-wide secret-scan CI gate"
+    priority: should  # reopened for Alex (was wont: unclaimed at S1 scope freeze)
+    status: implement #Alex
+    source: "requirement-candidates.md CAND-NFR-06; baseline PARTIAL: get_scrubbed exists and is tested; no repo-wide secret-scan CI gate; scope change: team approved reopening the S1-frozen SEC-001 for Alex (see test-plan Issue #50); implement only after FR-008 PR #49 merges"
     cross_refs:
       inv: [REQ-TA-INV-006]
 

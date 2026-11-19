@@ -145,3 +145,13 @@ unchanged. `reporting._header` and `report_html._run_details` render one
 - A required-call/degradation policy must change (FR-006 lands).
 - A consumer needs a different record schema migration.
 - A safety-critical file must change to type an error (needs its own ADR).
+
+## Amendment (2026-11-19) — FR-008 compatibility
+
+`run_metadata.failure` is **observational**, like `run_metadata.budget`: it is
+never part of `replayable_settings`, so a failed (or completed) run's record
+remains replayable by REQ-TA-FR-008, which reads only `schema_version` +
+`replayable_settings`. `token_budget` is likewise observational
+(`run_metadata.token_budget`), not replayable (see the ADR-004 amendment). The QR-004
+lifecycle `completed`/`failed` vocabulary is unchanged. Pinned by
+`test/offline/test_qr001_fr008_reconcile.py`.

@@ -163,6 +163,7 @@ def build_run_record(
     legacy: dict[str, Any] | None = None,
     budget: dict[str, Any] | None = None,
     failure: dict[str, Any] | None = None,
+    token_budget: int | None = None,
 ) -> RunRecord:
     """Assemble a :class:`RunRecord` from its parts.
 
@@ -196,6 +197,11 @@ def build_run_record(
         "completed_at": completed_at,
     }
     run_metadata.update(usage.to_metadata())
+    # ``token_budget`` is an execution-time safety control (REQ-TA-FR-002),
+    # recorded observationally here — never in ``replayable_settings`` (the
+    # REQ-TA-FR-008 replay allowlist deliberately excludes it). ``None`` means
+    # enforcement was off for this run.
+    run_metadata["token_budget"] = token_budget
     if budget is not None:
         run_metadata["budget"] = dict(budget)
     if failure is not None:

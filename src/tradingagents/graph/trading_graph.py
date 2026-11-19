@@ -636,9 +636,10 @@ class TradingAgentsGraph:
             "output_language": cfg.get("output_language"),
             "data_vendors": dict(cfg.get("data_vendors") or {}),
             "tool_vendors": dict(cfg.get("tool_vendors") or {}),
-            # Per-run token budget is a run input, so it belongs to replayable
-            # settings (REQ-TA-FR-002; ADR-004). None = no budget (baseline).
-            "token_budget": cfg.get("token_budget"),
+            # NOTE: ``token_budget`` is deliberately NOT part of the replayable
+            # settings. It is an execution-time safety control owned by
+            # REQ-TA-FR-002, not replayed configuration (REQ-TA-FR-008; see its
+            # trace). It is recorded observationally under ``run_metadata`` below.
         }
 
         usage = getattr(self, "_run_usage", None)
@@ -664,6 +665,9 @@ class TradingAgentsGraph:
             "output_language": replayable_settings["output_language"],
             "data_vendors": replayable_settings["data_vendors"],
             "tool_vendors": replayable_settings["tool_vendors"],
+            # Execution-time control recorded observationally (not replayable):
+            # REQ-TA-FR-002 owns it; REQ-TA-FR-008 must not replay it.
+            "token_budget": cfg.get("token_budget"),
         }
 
         record_obj = record.build_run_record(
@@ -676,6 +680,7 @@ class TradingAgentsGraph:
             legacy=legacy,
             budget=self._budget_block(),
             failure=getattr(self, "_run_failure", None),
+            token_budget=cfg.get("token_budget"),
         )
         return record_obj.to_dict()
 

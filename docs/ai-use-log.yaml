@@ -371,3 +371,26 @@ entries:
     human_decision: "Human approved the read-only execution plan and instructed 'continue' after each of the three staged gates (S1, S2), and 'I approve, use your recommendation' for the recommended D1-D6 decisions."
     verification: "ruff check . clean; full offline suite 1729 passed, 6 skipped, 1 deselected, 100 subtests. The 6 failures are pre-existing Windows-GBK read_text() locale artifacts, reproduced identically on untouched baseline 65c45a5 in a clean worktree; zero regressions. Schema gate passed. AI-use log validator passed."
     transcript: "Supervised OpenCode session on branch feat/FR002-OpenCode; retained locally."
+  - id: AI-2026-11-18-Alex-03
+    date: "2026-11-18"
+    task: "REQ-TA-FR-008 / REQ-TA-FR-002 reconciliation: reapply the FR-008 settings-replay work onto post-FR-002 integration in an isolated worktree so replayed runs use the shared FR-002 budget tracker (no duplicate accounting) and token_budget stays an execution-time control (not replayed)."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "FR-002/FR-008 reconciliation instructions (approved decisions: allow --from-settings + --token-budget; do not replay token_budget; preserve FR-002; single tracker)"
+    files:
+      - src/tradingagents/settings_replay.py
+      - src/cli/main.py
+      - src/cli/run.py
+      - test/offline/test_settings_replay.py
+      - test/offline/test_fr008_fr002_reconcile.py
+      - README.md
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Alex approved: allow --from-settings together with --token-budget (budget is
+      an execution safety control); do not replay token_budget (not in
+      replayable_settings/ALLOWED_KEYS, not imported from run_metadata.budget, no
+      QR-004 schema change); preserve all merged FR-002 behavior and reuse the
+      single RunBudgetTracker/StatsCallbackHandler (no second counter); reconcile
+      in an isolated worktree without touching the dirty FR-008 branch.
+    verification: "reconciliation done in an isolated git worktree on branch reconcile/fr-008-settings-replay, based on origin/integration; results reported in the reconciliation session (FR-002 focused, FR-008 focused, combined regression, full offline suite, ruff, schema, AI-use, detect-secrets)."

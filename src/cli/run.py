@@ -150,39 +150,126 @@ def _build_run_config(selections: dict, checkpoint: bool | None, profile: str | 
     return config
 
 
+def _selections_from_replay(record_path: str, flags: dict) -> dict:
+    """Build run selections from a replay record plus a supplied ticker/date.
+
+    Implements REQ-TA-FR-008. Replays configuration only: the record supplies the
+    allowlisted settings, while the ticker and analysis date are always supplied
+    by this invocation (never replayed). Output paths, credentials and
+    observational metadata are never read. Validation happens here, before any
+    tracker or provider/client is constructed.
+    """
+    from cli.models import AnalystType
+    from cli.prompts import detect_asset_type, parse_analysis_date, parse_ticker
+    from tradingagents.settings_replay import load_replayable_settings
+
+    if flags.get("ticker") is None or flags.get("date") is None:
+        raise ValueError("--from-settings also needs --ticker and --date (they are not replayed)")
+
+    try:
+        replayed = load_replayable_settings(record_path)
+    except ValueError as exc:  # ReplayError is a ValueError
+        raise ValueError(str(exc)) from None
+
+    ticker = parse_ticker(flags["ticker"])
+    analysis_date = parse_analysis_date(flags["date"])
+    asset_type = detect_asset_type(ticker)
+
+    return {
+        "ticker": ticker,
+        "asset_type": asset_type.value,
+        "analysis_date": analysis_date,
+        "analysts": [AnalystType(name) for name in replayed.analysts],
+        "research_depth": "Medium",
+        "llm_provider": replayed.llm_provider,
+        "backend_url": None,
+        "quick_think_llm": replayed.quick_think_llm,
+        "deep_think_llm": replayed.deep_think_llm,
+        "google_thinking_level": replayed.google_thinking_level,
+        "openai_reasoning_effort": replayed.openai_reasoning_effort,
+        "anthropic_effort": replayed.anthropic_effort,
+        "output_language": replayed.output_language,
+        "_replayed": replayed,
+    }
+
+
 def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, profile: str | None = None,
                  token_budget: int | None = None):
     flags = dict(flags or {})
-    # A profile is recognised and validated first — before the unattended-gap
-    # check, the interactive questions and any model client — so an unknown
-    # profile fails fast naming the legal values (Implements: REQ-TA-FR-001).
-    flags["profile"] = profile
-    try:
-        profile_name = requested_profile(flags)
-    except ValueError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1) from None
-
-    # With no terminal nothing can answer a prompt: name every question still
-    # open before any model is called, rather than stopping at the first one.
-    if not (sys.stdin and sys.stdin.isatty()):
-        gaps = unattended_gaps(flags)
-        if gaps:
-            console.print("[red]No terminal to answer the setup questions. Set:[/red]")
-            for gap in gaps:
-                console.print(f"  {gap}")
-            raise typer.Exit(code=1)
-
-    selections = get_user_selections(flags)
-
-    if token_budget is not None:
-        config = _build_run_config(selections, checkpoint, profile=profile_name, token_budget=token_budget)
+    if flags.get("from_settings"):
+        # REQ-TA-FR-008: replay a prior run's allowlisted settings. Ticker and
+        # date are supplied by this invocation; the record supplies the rest.
+        # Validation finishes here, before any tracker or provider/client is
+        # constructed (fail-closed, before provider execution).
+        try:
+            selections = _selections_from_replay(flags["from_settings"], flags)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from None
+        replayed = selections.pop("_replayed")
+        profile_name = None  # do not re-apply the recorded profile mapping
+        config = DEFAULT_CONFIG.copy()
+        config["llm_provider"] = replayed.llm_provider
+        config["deep_think_llm"] = replayed.deep_think_llm
+        config["quick_think_llm"] = replayed.quick_think_llm
+        if replayed.deep_think_provider:
+            config["deep_think_provider"] = replayed.deep_think_provider
+        if replayed.quick_think_provider:
+            config["quick_think_provider"] = replayed.quick_think_provider
+        config["temperature"] = replayed.temperature
+        for key in ("google_thinking_level", "openai_reasoning_effort", "anthropic_effort"):
+            if getattr(replayed, key) is not None:
+                config[key] = getattr(replayed, key)
+        config["output_language"] = replayed.output_language
+        config["data_vendors"] = dict(replayed.data_vendors)
+        config["tool_vendors"] = dict(replayed.tool_vendors)
+        if checkpoint is not None:
+            config["checkpoint_enabled"] = checkpoint
+        # REQ-TA-FR-008 / REQ-TA-FR-002: token_budget is an execution-time safety
+        # control, NOT replayed. It comes only from this invocation's FR-002
+        # argument, never from the prior record's run_metadata.budget.
+        if token_budget is not None:
+            config["token_budget"] = token_budget
+        replay_overrides = {
+            "analysts": list(replayed.analysts),
+            "max_debate_rounds": replayed.max_debate_rounds,
+            "max_risk_discuss_rounds": replayed.max_risk_discuss_rounds,
+            "max_tool_rounds": replayed.max_tool_rounds,
+        }
     else:
-        config = _build_run_config(selections, checkpoint, profile=profile_name)
+        # A profile is recognised and validated first — before the unattended-gap
+        # check, the interactive questions and any model client — so an unknown
+        # profile fails fast naming the legal values (Implements: REQ-TA-FR-001).
+        flags["profile"] = profile
+        try:
+            profile_name = requested_profile(flags)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from None
+
+        # With no terminal nothing can answer a prompt: name every question still
+        # open before any model is called, rather than stopping at the first one.
+        if not (sys.stdin and sys.stdin.isatty()):
+            gaps = unattended_gaps(flags)
+            if gaps:
+                console.print("[red]No terminal to answer the setup questions. Set:[/red]")
+                for gap in gaps:
+                    console.print(f"  {gap}")
+                raise typer.Exit(code=1)
+
+        selections = get_user_selections(flags)
+
+        if token_budget is not None:
+            config = _build_run_config(selections, checkpoint, profile=profile_name, token_budget=token_budget)
+        else:
+            config = _build_run_config(selections, checkpoint, profile=profile_name)
+        replay_overrides = None
 
     # One accounting source for the whole run (REQ-TA-FR-002; ADR-004): the CLI
     # builds the tracker from the resolved token_budget and shares it with the
-    # graph's observation scope, so the CLI and the graph read one ledger.
+    # graph's observation scope, so the CLI and the graph read one ledger. The
+    # replay path sets config["token_budget"] above and flows through this same
+    # line, so there is exactly one tracker and no duplicate accounting.
     stats_handler = StatsCallbackHandler(RunBudgetTracker(config.get("token_budget")))
 
     # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
@@ -193,10 +280,17 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
     # The menu/profile selection is already filtered for the asset type (crypto
     # drops fundamentals); it is the base analyst set, so it shapes the resolved
     # analysts but is not recorded as an override. Only an explicit --analysts is
-    # a user override (Implements: REQ-TA-FR-001).
-    explicit_overrides = {}
-    if flags.get("analysts") is not None:
-        explicit_overrides["analysts"] = selected_analyst_keys
+    # a user override (Implements: REQ-TA-FR-001). In replay mode the recorded
+    # resolved analysts/rounds are the explicit overrides (REQ-TA-FR-008).
+    if replay_overrides is not None:
+        explicit_overrides = replay_overrides
+        base_analysts = None
+    else:
+        explicit_overrides = {}
+        if flags.get("analysts") is not None:
+            explicit_overrides["analysts"] = selected_analyst_keys
+        base_analysts = (None if flags.get("analysts") is not None
+                         else selected_analyst_keys)
     try:
         graph = TradingAgentsGraph(
             config=config,
@@ -204,7 +298,7 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             callbacks=[stats_handler],
             profile=profile_name,
             explicit_overrides=explicit_overrides or None,
-            base_analysts=None if flags.get("analysts") is not None else selected_analyst_keys,
+            base_analysts=base_analysts,
         )
     except MissingApiKeyError as exc:
         # REQ-TA-QR-001 (ADR-005 D-B): a missing key at construction is a

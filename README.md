@@ -213,6 +213,53 @@ tradingagents --ticker NVDA --date 2026-09-23 --analysts market,news,fundamental
 ```
 Each flag skips only its own question. Run without a terminal, a missing answer stops the run before it starts and names the flag or variable to set.
 
+#### Re-run from a prior run's recorded settings (`--from-settings`)
+
+A finished run records a structured, versioned `replayable_settings` block (the
+allowlisted configuration that produced it). `--from-settings` starts a new
+analysis from that block:
+
+```bash
+tradingagents --from-settings path/to/run_record_2026-11-16.json --ticker AAPL --date 2026-12-01 --save --no-show
+```
+
+- **Accepted formats.** A standalone `run_record_<date>.json`, or a successful
+  `full_states_log_<date>.json` that contains a `run_settings` block. Both are
+  the record a normal run already writes; you do not format anything by hand.
+  The relevant fields look like this (a short, sanitized example):
+
+  ```json
+  {"schema_version": "1",
+   "replayable_settings": {
+     "profile": "quick", "analysts": ["market", "news"],
+     "llm_provider": "deepseek", "deep_think_llm": "deepseek-flash",
+     "quick_think_llm": "deepseek-flash",
+     "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_tool_rounds": 3,
+     "temperature": null, "output_language": "English",
+     "data_vendors": {"core_stock_apis": "yfinance"}}}
+  ```
+
+- **Ticker and date are supplied again.** They identify *what* to analyse now and
+  are never replayed; `--ticker` and `--date` are required with `--from-settings`.
+- **Not replayed:** output paths, credentials, endpoints, and observational
+  values (timestamps, status, token totals). Only the safe allowlisted settings
+  are read; the recorded ticker, date, and run metadata are ignored.
+- **Configuration only.** Replaying settings reproduces the *configuration*, not
+  the result: market data, provider and model output, the recommendation,
+  timing, and token usage will differ between runs.
+- **No overrides alongside it.** The record is the single source of
+  configuration, so `--from-settings` cannot be combined with `--profile`,
+  `--analysts`, or other configuration-override flags; a conflict is rejected.
+- **Validated before any provider call.** The record is parsed and every field
+  checked (schema version, unknown/forbidden fields, types, ranges, providers,
+  analysts, vendors, and path/credential-like values) before any model client is
+  created; invalid input fails closed and error messages never echo the
+  offending value.
+
+At start-up the interactive CLI mentions a newer release and notices from Tauric Research. It checks at most once a day, in the background, and sends nothing about your runs; set `TRADINGAGENTS_NO_UPDATE_CHECK=1` to turn it off. Runs without a terminal never check.
+
+A saved report also includes `complete_report.html`, the report as one page with its sections listed beside the text, for reading in a browser, on a phone or in print. Answering the save question at the prompt also asks about the page and can open it in your browser; `--no-html` skips it, and so does `ta.save_reports(state, "NVDA", html=False)` from Python.
+
 At start-up the interactive CLI mentions a newer release and notices from Tauric Research. It checks at most once a day, in the background, and sends nothing about your runs; set `TRADINGAGENTS_NO_UPDATE_CHECK=1` to turn it off. Runs without a terminal never check.
 
 A saved report also includes `complete_report.html`, the report as one page with its sections listed beside the text, for reading in a browser, on a phone or in print. Answering the save question at the prompt also asks about the page and can open it in your browser; `--no-html` skips it, and so does `ta.save_reports(state, "NVDA", html=False)` from Python.
