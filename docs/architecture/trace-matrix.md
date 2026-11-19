@@ -49,3 +49,25 @@ not implemented here).
 
 Scope: offline-verified tooling; no claim of measured production speedup or full
 PERF-001 acceptance. Public interfaces only; no change to claim/rating semantics.
+
+## FR-008 — settings replay from a prior run record
+
+| Requirement | Component | Test | Monitor / CI |
+|---|---|---|---|
+| REQ-TA-FR-008 (re-run an analysis using the exact settings recorded for a prior run; configuration reproducibility only) | `settings_replay.py` (`SUPPORTED_SCHEMA_VERSION`, `ALLOWED_KEYS`, `OPTIONAL_DEFAULTS`, `ReplaySettings`, `load_replayable_settings`, input-format extraction + strict validation); `cli/main.py` (`--from-settings` + conflict rejection, combinable with `--token-budget`); `cli/run.py` (`_selections_from_replay`, replay branch: `profile=None` + recorded resolved analysts/rounds as explicit overrides, then the shared FR-002 tracker) | `test/offline/test_settings_replay.py`; `test/offline/test_fr008_fr002_reconcile.py` | `run_settings()` of the replayed run is the report-metadata evidence; CI gate 5 full offline suite |
+
+Scope: FR-008 reads only `run_settings()["replayable_settings"]` (and
+`schema_version`) from a prior QR-004 record — never `run_metadata`, ticker,
+analysis date, output paths, credentials, or endpoints. Execution is
+reconstructed with `profile=None` and the recorded resolved analysts/round
+limits, so the profile mapping is not re-applied; the recorded resolved values
+are authoritative. Reproducibility is of configuration only and does not
+guarantee identical market data, provider responses, sampled LLM output, timing,
+token usage, confidence, or final recommendation.
+
+`token_budget` is owned by REQ-TA-FR-002 and is an execution-time safety
+control: it is recorded under `run_metadata.budget`, is NOT part of the FR-008
+v1 allowlist, and is NOT replayed. A replayed run's budget comes only from the
+new invocation (`--token-budget`/env), and it flows through the same FR-002
+`StatsCallbackHandler`/`RunBudgetTracker` construction so there is one ledger
+and no duplicate accounting.
