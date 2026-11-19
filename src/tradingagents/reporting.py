@@ -9,12 +9,63 @@ run produces the same on-disk report tree a CLI run does.
 from datetime import datetime
 from pathlib import Path
 
-from tradingagents.agents.rating import run_rating
+from tradingagents.agents.rating import RATING_REVIEW, run_rating
 
 
 def analyst_names(keys) -> list[str]:
     """The analysts as users select them: the sentiment analyst's key is "social"."""
     return ["sentiment" if key == "social" else key for key in keys or []]
+
+
+# Human-readable phrasing for the machine-readable review reasons (REQ-TA-FR-004).
+_REVIEW_REASON_TEXT = {
+    "unresolved_rating": "the rating could not be resolved to a single tier",
+    "missing_entry_price": "the entry price required for this rating is missing",
+    "missing_stop_loss": "the stop-loss required for this rating is missing",
+    "invalid_entry_price": "the entry price supplied is not a usable price",
+    "invalid_stop_loss": "the stop-loss supplied is not a usable price",
+}
+
+
+def review_summary_text(final_state: dict) -> str:
+    """The single REVIEW summary shown wherever the final decision is presented.
+
+    Implements REQ-TA-FR-004 / REQ-TA-INV-001 and ADR-003 §7. When the run's
+    rating is REVIEW the model's own decision text (its ``Rating:`` line and entry
+    instructions) must not be shown as an executable call, so every surface — CLI
+    panel, Markdown §V, HTML body — renders this one summary instead. It names the
+    recorded reasons. A verdict that was not a REVIEW returns the empty string.
+    """
+    if run_rating(final_state) != RATING_REVIEW:
+        return ""
+    reasons = list(final_state.get("decision_review_reasons") or [])
+    lines = [
+        "**Rating**: REVIEW",
+        "",
+        "**Status**: Recorded for review rather than as a tradeable position; "
+        "no entry, exit or sizing instruction is presented.",
+    ]
+    if reasons:
+        lines.extend(["", "**Review reasons**:"])
+        for reason in reasons:
+            text = _REVIEW_REASON_TEXT.get(reason)
+            lines.append(f"- `{reason}`" + (f" — {text}" if text else ""))
+    return "\n".join(lines)
+
+
+def decision_display_text(final_state: dict) -> str:
+    """The text shown in the final-decision region, REVIEW-aware for any state.
+
+    For an accepted decision this is the stored ``final_trade_decision`` unchanged.
+    For a REVIEW it is :func:`review_summary_text`, so a state whose decision text
+    still carries the model's original Buy/Hold rating (a fresh REVIEW, or a run
+    saved by an older version before the summary existed) is reconciled on read
+    and never presents the superseded rating as the call (ADR-003 §7).
+    """
+    summary = review_summary_text(final_state)
+    if summary:
+        return summary
+    return final_state.get("final_trade_decision") or ""
 
 
 def _override_value(value):
@@ -469,7 +520,13 @@ _SECTIONS = (
 
 
 def _report_parts(final_state: dict) -> list[tuple[str, str, list[tuple[str, str, str]]]]:
-    """The sections with something to say: (heading, folder, [(agent, file, text)])."""
+    """The sections with something to say: (heading, folder, [(agent, file, text)]).
+
+    The final-decision section shows :func:`decision_display_text`, so a REVIEW —
+    fresh or from an older saved run — renders the REVIEW summary here and in the
+    HTML body built from these same parts, never the superseded model rating
+    (ADR-003 §7).
+    """
     parts = []
     for heading, folder, agents in _SECTIONS:
         written = []
@@ -477,6 +534,8 @@ def _report_parts(final_state: dict) -> list[tuple[str, str, list[tuple[str, str
             value = final_state
             for key in path:
                 value = (value or {}).get(key)
+            if value and path == ("final_trade_decision",):
+                value = decision_display_text(final_state) or value
             if value:
                 written.append((agent, filename, value))
         if written:

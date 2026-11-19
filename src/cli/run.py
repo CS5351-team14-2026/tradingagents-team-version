@@ -34,6 +34,7 @@ from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.reporting import decision_display_text
 from tradingagents.run_budget import RunBudgetContext, RunBudgetTracker
 from tradingagents.run_record import build_usage_summary
 
@@ -497,8 +498,13 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
                         )
                     if judge and message_buffer.agent_status.get("Portfolio Manager") != "completed":
                         message_buffer.update_agent_status("Portfolio Manager", "in_progress")
+                        # The live panel shows the same REVIEW-aware text as the
+                        # saved report: a top-level REVIEW names its reasons here
+                        # rather than the model's superseded call; an accepted
+                        # decision renders unchanged (ADR-003 §8; REQ-TA-FR-004).
                         message_buffer.update_report_section(
-                            "final_trade_decision", f"### Portfolio Manager Decision\n{judge}"
+                            "final_trade_decision",
+                            f"### Portfolio Manager Decision\n{decision_display_text(chunk)}"
                         )
                         message_buffer.update_agent_status("Aggressive Analyst", "completed")
                         message_buffer.update_agent_status("Conservative Analyst", "completed")
@@ -568,7 +574,13 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
 
         for section in message_buffer.report_sections:
             if section in final_state:
-                message_buffer.update_report_section(section, final_state[section])
+                # The final refresh is the same REVIEW-aware view as the report:
+                # a REVIEW section shows its summary, not the model's superseded
+                # call (ADR-003 §8; REQ-TA-FR-004).
+                content = (decision_display_text(final_state)
+                           if section == "final_trade_decision"
+                           else final_state[section])
+                message_buffer.update_report_section(section, content)
 
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
