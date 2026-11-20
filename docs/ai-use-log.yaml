@@ -629,4 +629,46 @@ entries:
       test_cli_headless/commands/display/no_console 75 passed. Full suite not rerun
       this round (as instructed).
     transcript: "Supervised OpenCode session on branch safety/fr004-final-decision; retained locally."
+feat/QR001-OpenCode
+
+
+  - id: AI-2026-11-20-fr004-zelin-03
+    date: "2026-11-20"
+    task: "REQ-TA-FR-004 close-out (Issue #32) on integration dce1874 (PR #54): FR004-03 price-grammar fix (`.5`, fullwidth digits, oversized integers must be REVIEW) and FR004-01 persistence of the validated entry_price/stop_loss to the run-state JSON."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash (custom-foundry/CS5351/DeepSeek-V4-Flash)
+    prompt_ref: "Prompt.md; Issue #32; ADR-003; origin/integration dce1874"
+    files:
+      - src/tradingagents/agents/rating.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/graph/trading_graph.py
+      - test/offline/test_final_decision_validation.py
+      - docs/architecture/adr/003-final-decision-validation.md
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      The human approved one implementation stage covering both items: confirm
+      ".5", fullwidth digit strings and oversized integers return REVIEW, while
+      "0.5" and "1e2" stay valid; adopt a `final_prices` field that holds the
+      validated float prices on acceptance and {} on REVIEW (final state and JSON),
+      with an old state that lacks the field still readable. Place the empty-price
+      assertions at the final-state and JSON-output layers and keep the validator's
+      return contract unchanged. Run ruff and the full offline suite afterwards,
+      update the AI-use log, and show the diff and results before committing; do
+      not commit or push.
+    verification: >-
+      FR004-03: `_PRICE_RE` is now ASCII-only with a required integer part, and
+      `normalise_price` wraps int->float so an oversized integer is an invalid
+      price instead of an OverflowError (the overflow message is the fixed string
+      "a price must be finite", with no value echoed); `".5"`, `"５０"`, `"５０.５"`,
+      `10**400`, `10**5000` and `"1"+"0"*400` -> REVIEW + invalid_entry_price (no
+      exception), while `0.5`, `"1e2"`, `100`, `"100.5"` stay valid. FR004-01: the
+      PM node publishes `final_prices` (= validated floats when accepted, {} on
+      REVIEW), AgentState declares it, and `_log_state` writes it to
+      full_states_log_<date>.json with a `.get()`-based read that returns {} for an
+      older state. Targeted suites green (test_final_decision_validation; FR-004 +
+      graph e2e). ruff check . clean. Full offline suite result recorded with this
+      round's report.
+    transcript: "Supervised OpenCode session on branch feat/fr004-closeout; retained locally."
 

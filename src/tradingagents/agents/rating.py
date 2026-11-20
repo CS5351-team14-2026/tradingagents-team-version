@@ -161,11 +161,14 @@ _REASON_INVALID = {
 }
 
 # A price the model may write: an integer or decimal number as JSON or as text,
-# with an optional sign. Grouping separators, currency symbols, percentages and
-# ranges are not prices here (approved contract; Issue #32). A bare
-# ``NaN``/``Infinity`` token is a *decoding* failure, handled before this, not a
-# value that reaches the syntax check.
-_PRICE_RE = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?\Z")
+# with an optional sign, but only in ASCII with an integer part (approved
+# contract; Issue #32). Grouping separators, currency symbols, percentages and
+# ranges are not prices here. A leading dot (``".5"``) is not a price, and only
+# ASCII ``0-9`` digits count — a fullwidth/Unicode digit is not a digit here. A
+# bare ``NaN``/``Infinity`` token is a *decoding* failure, handled before this,
+# not a value that reaches the syntax check. ``[0-9]`` (not ``\d``) keeps the
+# grammar ASCII-only, since ``\d`` matches Unicode digits like ``５``.
+_PRICE_RE = re.compile(r"[+-]?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\Z")
 
 
 class PriceValueError(ValueError):
@@ -184,20 +187,25 @@ def _is_absent(value: Any) -> bool:
 def normalise_price(value: Any) -> float:
     """Normalise one supplied price to a finite, strictly positive ``float``.
 
-    Accepts a JSON number (int/float, but not a bool) or a trimmed numeric
+    Accepts a JSON number (int/float, but not a bool) or a trimmed ASCII numeric
     string; rejects everything else with :class:`PriceValueError`. Binary64
     rounding applies, as the approved contract states; there is no exact-decimal
-    or tick-size guarantee (REQ-TA-FR-004).
+    or tick-size guarantee (REQ-TA-FR-004). An integer too large for a finite
+    ``float`` overflows to infinity and is rejected as an invalid price rather
+    than raising ``OverflowError`` (Issue #32 FR004-03).
     """
     if isinstance(value, bool):
         raise PriceValueError("a boolean is not a price")
     if isinstance(value, int):
-        number = float(value)
+        try:
+            number = float(value)
+        except OverflowError:
+            raise PriceValueError("a price must be finite") from None
     elif isinstance(value, float):
         number = value
     elif isinstance(value, str):
         text = value.strip()
-        if not _PRICE_RE.match(text):
+        if not text.isascii() or not _PRICE_RE.match(text):
             raise PriceValueError(f"not a numeric price: {value!r}")
         number = float(text)
     else:
