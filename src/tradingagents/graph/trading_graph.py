@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import tradingagents
+from tradingagents import run_record as record
 from tradingagents.agents.context import build_instrument_context, resolve_instrument_identity
 from tradingagents.agents.rating import run_rating
 from tradingagents.dataflows.config import run_config, run_config_context, set_config
@@ -22,6 +23,10 @@ from tradingagents.reporting import (
     evaluate_claim_acceptance,
     write_report_tree,
 )
+from tradingagents.run_budget import (
+    RunBudgetContext,
+    RunBudgetTracker,
+)
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
@@ -29,6 +34,19 @@ from .propagation import Propagator
 from .setup import GraphSetup
 
 logger = logging.getLogger(__name__)
+
+
+def _bind_budget_context(tracker) -> None:
+    """Bind ``tracker`` as the current run's budget context inside a copied Context.
+
+    Used by ``stream_run``: it runs in a copied ``contextvars.Context`` so each
+    streamed step resolves this run's ledger rather than the caller's. This is
+    the public ``bind_context`` helper from ``run_budget`` (ADR-004), not a
+    private cross-module read.
+    """
+    from tradingagents.run_budget import bind_context
+
+    bind_context(tracker)
 
 
 def _validate_trade_date(trade_date) -> str:
@@ -313,6 +331,11 @@ class TradingAgentsGraph:
         settings = {
             k: v for k, v in self.config.items()
             if k not in in_signature_exclusions and k != "claim_enforcement"
+            # A no-budget run (token_budget None) must keep the pre-change
+            # signature byte-for-byte, so the absent-key default is excluded;
+            # an enabled budget is a real run input and stays in the digest
+            # (Implements: ADR-004; REQ-TA-FR-002).
+            and not (k == "token_budget" and v is None)
         }
         if "claim_enforcement" not in in_signature_exclusions:
             settings["claim_enforcement"] = claim_enforcement
@@ -350,6 +373,35 @@ class TradingAgentsGraph:
         ]
         return "|".join(parts)
 
+    @contextmanager
+    def observation_scope(self):
+        """Bind this run's usage ledger for the length of an execution (ADR-004).
+
+        Yields a :class:`~tradingagents.run_budget.RunBudgetTracker` built from
+        ``config["token_budget"]`` and activates its context, so callbacks and
+        the invocation boundary attribute usage to this run. A
+        ``token_budget`` of ``None`` disables enforcement and reproduces the
+        baseline, while usage is still observed honestly (ADR-004 D6).
+
+        Direct ``propagate()``/``stream_run()`` callers traverse this scope so
+        the budget is enforced in the graph, not only in the CLI. A caller that
+        already activated a compatible context (the CLI activating its
+        ``StatsCallbackHandler`` tracker) keeps that tracker instead of
+        re-binding a second ledger.
+        """
+        from tradingagents.run_budget import current_run_context
+
+        active = current_run_context()
+        limit = self.config.get("token_budget")
+        if active is not None and active.tracker.limit == limit:
+            self._run_budget_tracker = active.tracker
+            yield active.tracker
+            return
+        tracker = RunBudgetTracker(limit)
+        self._run_budget_tracker = tracker
+        with RunBudgetContext(tracker).activate():
+            yield tracker
+
     def propagate(self, company_name, trade_date, asset_type: str = "stock", portfolio=None):
         """Run the trading agents graph for a company on a specific date.
 
@@ -360,6 +412,10 @@ class TradingAgentsGraph:
         a per-ticker SqliteSaver so a crashed run can resume from the last
         successful node on a subsequent invocation with the same ticker+date.
 
+        The run executes inside :meth:`observation_scope`, so a configured
+        ``token_budget`` is enforced for direct API callers too (ADR-004;
+        REQ-TA-FR-002).
+
         Returns ``(final_state, signal)`` where ``signal`` is one of the 5-tier
         ratings (Buy / Overweight / Hold / Underweight / Sell) or ``"REVIEW"``
         when the decision had no parseable rating (#1170); guard with
@@ -368,12 +424,14 @@ class TradingAgentsGraph:
         """
         trade_date = _validate_trade_date(trade_date)
 
-        with run_config(self.config), \
+        with self.observation_scope(), run_config(self.config), \
                 self.checkpoint_scope(company_name, trade_date, asset_type, portfolio) as thread_id_value:
-            return self._run_graph(
+            result = self._run_graph(
                 company_name, trade_date, asset_type=asset_type,
                 checkpoint_thread_id=thread_id_value, portfolio=portfolio,
             )
+            self._attach_budget_observation()
+            return result
 
     def begin_checkpoint(self, company_name, trade_date, asset_type: str = "stock", portfolio=None) -> str | None:
         """Recompile the graph with a per-ticker checkpointer and return the
@@ -461,19 +519,66 @@ class TradingAgentsGraph:
                           self._integration_run_signature(asset_type, portfolio)}:
             clear_checkpoint(data_dir, company_name, date, signature)
 
-    def run_settings(self) -> dict:
-        """What produces this graph's runs, for the saved report and state log.
+    def set_run_observations(self, *, usage=None, status: str | None = None,
+                             started_at: str | None = None,
+                             completed_at: str | None = None) -> None:
+        """Attach observational data for the current run (REQ-TA-QR-004).
 
-        An allowlist: endpoints (a backend_url can carry credentials), keys and
-        local paths are never recorded.
+        ``usage`` is a :class:`tradingagents.run_record.UsageSummary` (or any
+        object exposing the same fields). These values are observational: they
+        appear in ``run_settings()["run_metadata"]`` and are reprised in the
+        flattened legacy keys, but they are never part of ``replayable_settings``
+        (REQ-TA-FR-008 loads only those). A caller that does not attach usage (a
+        bare instance, or a caller with no token accounting) leaves the record's
+        usage fields null with ``usage_complete`` false.
+        """
+        self._run_usage = usage
+        self._run_status = status
+        self._run_started_at = started_at
+        self._run_completed_at = completed_at
+
+    def write_run_record(self, ticker: str, trade_date: str) -> Path:
+        """Write this run's structured record to a metadata file on disk.
+
+        REQ-TA-QR-004: every terminal run path must record structured metadata,
+        including a failed run whose ``final_state`` is incomplete. The full
+        state log (``_log_state``) indexes required state keys and so cannot be
+        written for a partial run; this writer records only the canonical run
+        record (``run_settings()``), which needs no state. It writes under the
+        same per-ticker results directory as the state log, so a run that ended
+        in a controlled failure or an exception still leaves a record whose
+        ``run_metadata.status`` is ``failed``.
+
+        It never records endpoints, keys, or local paths (the record's allowlist
+        guarantees this). Returns the path written.
+        """
+        safe_ticker = safe_ticker_component(ticker)
+        directory = Path(self.config["results_dir"]) / safe_ticker / "TradingAgentsStrategy_logs"
+        directory.mkdir(parents=True, exist_ok=True)
+        log_path = directory / f"run_record_{trade_date}.json"
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump(self.run_settings(), f, indent=4, ensure_ascii=False)
+        return log_path
+
+    def run_settings(self) -> dict:
+        """The run's canonical structured record, for the report and state log.
+
+        Implements REQ-TA-QR-004: the record is the single canonical
+        representation, with ``schema_version``, a ``replayable_settings`` section
+        (safe settings, no endpoints/keys/local paths) and a ``run_metadata``
+        section (version, timestamps, completion status, token totals, call
+        counts). Legacy flat keys are retained for one schema version so existing
+        report and state-log consumers keep working (migration strategy C).
 
         The four run-shaping settings (analysts and the three round caps) are the
-        resolved values the graph actually run with, so a profile or an explicit
+        resolved values the graph actually ran with, so a profile or an explicit
         override is reflected here. A run that requested a profile also records
         what was asked for (``profile_requested``), which fields an explicit input
         overrode (``profile_overrides``) and the resolved settings as one block
-        (``profile_resolved``), so the report can show requested-versus-resolved
-        (Implements: ADR-002; REQ-TA-FR-001).
+        (``profile_resolved``) (Implements: ADR-002; REQ-TA-FR-001).
+
+        An allowlist: endpoints (a backend_url can carry credentials), keys and
+        local paths are never recorded.
         """
         cfg = self.config
         resolved = getattr(self, "profile_resolution", None)
@@ -498,13 +603,44 @@ class TradingAgentsGraph:
                 "max_risk_discuss_rounds": max_risk_discuss_rounds,
                 "max_tool_rounds": max_tool_rounds,
             }
-        return {
-            "version": tradingagents.__version__,
-            "llm_provider": cfg.get("llm_provider"),
-            "deep_think_provider": tier_provider(cfg, "deep") if cfg.get("llm_provider") else None,
+
+        llm_provider = cfg.get("llm_provider")
+        replayable_settings = {
+            "profile": profile_requested,
+            "analysts": analysts,
+            "llm_provider": llm_provider,
+            "deep_think_provider": tier_provider(cfg, "deep") if llm_provider else None,
             "deep_think_llm": cfg.get("deep_think_llm"),
-            "quick_think_provider": tier_provider(cfg, "quick") if cfg.get("llm_provider") else None,
+            "quick_think_provider": tier_provider(cfg, "quick") if llm_provider else None,
             "quick_think_llm": cfg.get("quick_think_llm"),
+            "max_debate_rounds": max_debate_rounds,
+            "max_risk_discuss_rounds": max_risk_discuss_rounds,
+            "max_tool_rounds": max_tool_rounds,
+            "temperature": cfg.get("temperature"),
+            "openai_reasoning_effort": cfg.get("openai_reasoning_effort"),
+            "google_thinking_level": cfg.get("google_thinking_level"),
+            "anthropic_effort": cfg.get("anthropic_effort"),
+            "output_language": cfg.get("output_language"),
+            "data_vendors": dict(cfg.get("data_vendors") or {}),
+            "tool_vendors": dict(cfg.get("tool_vendors") or {}),
+            # Per-run token budget is a run input, so it belongs to replayable
+            # settings (REQ-TA-FR-002; ADR-004). None = no budget (baseline).
+            "token_budget": cfg.get("token_budget"),
+        }
+
+        usage = getattr(self, "_run_usage", None)
+        status = getattr(self, "_run_status", None) or record.STATUS_COMPLETED
+
+        # Legacy flat keys (migration strategy C): the shape existing report and
+        # state-log consumers read. Derived observational keys reflect the
+        # resolved settings so requested-versus-resolved stays available.
+        legacy = {
+            "version": tradingagents.__version__,
+            "llm_provider": llm_provider,
+            "deep_think_provider": replayable_settings["deep_think_provider"],
+            "deep_think_llm": replayable_settings["deep_think_llm"],
+            "quick_think_provider": replayable_settings["quick_think_provider"],
+            "quick_think_llm": replayable_settings["quick_think_llm"],
             "analysts": analysts,
             "max_debate_rounds": max_debate_rounds,
             "max_risk_discuss_rounds": max_risk_discuss_rounds,
@@ -512,10 +648,47 @@ class TradingAgentsGraph:
             "profile_requested": profile_requested,
             "profile_overrides": profile_overrides,
             "profile_resolved": profile_resolved,
-            "output_language": cfg.get("output_language"),
-            "data_vendors": dict(cfg.get("data_vendors") or {}),
-            "tool_vendors": dict(cfg.get("tool_vendors") or {}),
+            "output_language": replayable_settings["output_language"],
+            "data_vendors": replayable_settings["data_vendors"],
+            "tool_vendors": replayable_settings["tool_vendors"],
         }
+
+        record_obj = record.build_run_record(
+            replayable_settings=replayable_settings,
+            usage=usage if usage is not None else record.UsageSummary(),
+            status=status,
+            started_at=getattr(self, "_run_started_at", None),
+            completed_at=getattr(self, "_run_completed_at", None),
+            version=tradingagents.__version__,
+            legacy=legacy,
+            budget=self._budget_block(),
+        )
+        return record_obj.to_dict()
+
+    def _budget_block(self) -> dict | None:
+        """The run's budget result for ``run_metadata.budget`` (REQ-TA-FR-002).
+
+        Present only when this graph owns a ledger (an observation scope ran);
+        a bare instance built in a test has none, so no block is added and the
+        record stays byte-compatible with QR-004.
+        """
+        tracker = getattr(self, "_run_budget_tracker", None)
+        if tracker is None:
+            return None
+        return tracker.snapshot().to_metadata()
+
+    def _attach_budget_observation(self) -> None:
+        """Copy the ledger's usage into the run observations (REQ-TA-QR-004 bridge).
+
+        Called after a run completes or fails so the persisted record carries
+        the budget ledger's own usage and completeness, never a fabricated
+        total. It leaves a caller-supplied usage summary in place when the
+        graph owns no ledger.
+        """
+        tracker = getattr(self, "_run_budget_tracker", None)
+        if tracker is None:
+            return
+        self._run_usage = tracker.to_usage_summary()
 
     def save_reports(self, final_state, ticker, save_path=None, html=True) -> Path:
         """Write the report tree for a completed run, like the CLI does.
@@ -637,20 +810,48 @@ class TradingAgentsGraph:
 
         # None resumes an existing checkpoint; init_agent_state starts fresh (#1249).
         graph_input = self.checkpoint_input(init_agent_state)
-        if self.debug:
-            # A state repeats the messages before it, so each prints once (#1027).
-            final_state, printed = {}, set()
-            for messages, state in self.stream_run(graph_input, **args):
-                for msg in messages:
-                    key = getattr(msg, "id", None) or (type(msg).__name__, getattr(msg, "content", None))
-                    if key not in printed:
-                        printed.add(key)
-                        msg.pretty_print()
-                if state is not None:
-                    final_state.update(state)
-        else:
-            final_state = self.graph.invoke(graph_input, **args)
+        started_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        try:
+            if self.debug:
+                # A state repeats the messages before it, so each prints once (#1027).
+                final_state, printed = {}, set()
+                for messages, state in self.stream_run(graph_input, **args):
+                    for msg in messages:
+                        key = getattr(msg, "id", None) or (type(msg).__name__, getattr(msg, "content", None))
+                        if key not in printed:
+                            printed.add(key)
+                            msg.pretty_print()
+                    if state is not None:
+                        final_state.update(state)
+            else:
+                final_state = self.graph.invoke(graph_input, **args)
+        except BaseException:
+            # REQ-TA-QR-004: a run that ends in an exception still records
+            # structured metadata, with status=failed. The state log cannot be
+            # written (its required keys are missing on a partial run), so a
+            # standalone run record is written. The exception is re-raised so
+            # existing failure behaviour is unchanged.
+            self.set_run_observations(
+                usage=getattr(self, "_run_usage", None),
+                status=record.STATUS_FAILED,
+                started_at=getattr(self, "_run_started_at", None) or started_at,
+                completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+            try:
+                self.write_run_record(company_name, trade_date)
+            except OSError:  # never mask the original failure with a write error
+                logger.warning("Could not write the run record for a failed run", exc_info=True)
+            raise
 
+        # REQ-TA-QR-004: stamp completed status and timestamps before the state
+        # log is written, so the persisted record carries the final observations
+        # rather than the pre-observation defaults.
+        self.set_run_observations(
+            usage=getattr(self, "_run_usage", None),
+            status=record.STATUS_COMPLETED,
+            started_at=getattr(self, "_run_started_at", None) or started_at,
+            completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+        )
         self.record_decision(company_name, trade_date, final_state)
 
         # Clear checkpoint on successful completion to avoid stale state.
@@ -674,6 +875,14 @@ class TradingAgentsGraph:
         # when the process-wide config has changed since. Each step runs in the
         # run's context, so the caller keeps its own between steps.
         context = run_config_context(self.config)
+        # Bind this run's budget ledger into the same step context so callbacks
+        # raised while streaming attribute usage to this run (ADR-004; FR-002).
+        # A caller-supplied StatsCallbackHandler tracker is reused when present.
+        tracker = getattr(self, "_run_budget_tracker", None)
+        if tracker is None:
+            tracker = RunBudgetTracker(self.config.get("token_budget"))
+            self._run_budget_tracker = tracker
+        context.run(_bind_budget_context, tracker)
         stream = context.run(self.graph.stream, graph_input, subgraphs=True, **args)
         try:
             while (step := context.run(next, stream, None)) is not None:
@@ -716,6 +925,14 @@ class TradingAgentsGraph:
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
             "final_rating": run_rating(final_state),
+            # REQ-TA-FR-004: the reasons a decoded decision was not actionable
+            # (empty when accepted). Persisted beside the rating so the state log
+            # records why a REVIEW run was not a tradeable call.
+            "decision_review_reasons": list(final_state.get("decision_review_reasons") or []),
+            # REQ-TA-FR-004 (FR004-01): the validated price levels of an accepted
+            # decision (floats), {} on REVIEW. An older state without the field
+            # reads back as {} rather than failing.
+            "final_prices": dict(final_state.get("final_prices") or {}),
             "claim_audit": final_state.get("claim_audit"),
             "claim_acceptance": final_state.get("claim_acceptance"),
             "material_claims": final_state.get("material_claims", []),

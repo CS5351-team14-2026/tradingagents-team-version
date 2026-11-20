@@ -5,7 +5,7 @@ from typing_extensions import TypedDict
 
 
 # Researcher team state
-class InvestDebateState(TypedDict):
+class InvestDebateState(TypedDict, total=False):
     bull_history: Annotated[
         str, "Bullish Conversation history"
     ]
@@ -15,10 +15,14 @@ class InvestDebateState(TypedDict):
     history: Annotated[str, "Conversation history"]
     current_response: Annotated[str, "Latest response"]
     count: Annotated[int, "Length of the current conversation"]
+    # Set when the token budget refused a further optional debate turn, so the
+    # router ends the phase (Implements: ADR-004; REQ-TA-FR-002).
+    budget_exhausted: Annotated[bool, "A budget refusal ended the debate phase"]
+    budget_reason_codes: Annotated[list[str], "Machine-readable budget refusal reasons"]
 
 
 # Risk management team state
-class RiskDebateState(TypedDict):
+class RiskDebateState(TypedDict, total=False):
     aggressive_history: Annotated[
         str, "Aggressive Agent's Conversation history"
     ]
@@ -40,6 +44,10 @@ class RiskDebateState(TypedDict):
         str, "Latest response by the neutral analyst"
     ]
     count: Annotated[int, "Length of the current conversation"]
+    # Set when the token budget refused a further optional risk turn
+    # (Implements: ADR-004; REQ-TA-FR-002).
+    budget_exhausted: Annotated[bool, "A budget refusal ended the risk phase"]
+    budget_reason_codes: Annotated[list[str], "Machine-readable budget refusal reasons"]
 
 
 class AgentState(MessagesState):
@@ -68,6 +76,20 @@ class AgentState(MessagesState):
     ]
     final_trade_decision: Annotated[str, "Final decision from the Portfolio Manager"]
     final_rating: Annotated[str, "The Portfolio Manager's 5-tier rating, or REVIEW when it has none"]
+    decision_review_reasons: Annotated[
+        list,
+        "Why a decoded final decision is not actionable (REQ-TA-FR-004): stable "
+        "strings such as unresolved_rating / missing_entry_price / "
+        "invalid_stop_loss. Empty when the decision was accepted; any reason "
+        "means final_rating is REVIEW",
+    ]
+    final_prices: Annotated[
+        dict,
+        "The validated price levels of an accepted final decision "
+        "(REQ-TA-FR-004; FR004-01): {'entry_price': <float>, 'stop_loss': "
+        "<float>} with the values normalised by the validator. Empty {} when the "
+        "decision is REVIEW, so no price from a non-actionable call is presented",
+    ]
     material_claims: Annotated[
         list[dict],
         "The final recommendation's material claims (ADR-001): supporting and opposing "

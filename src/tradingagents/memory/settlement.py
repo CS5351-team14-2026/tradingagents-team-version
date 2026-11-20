@@ -131,6 +131,16 @@ class Settlement:
 
     settled: list[tuple[str, str]] = field(default_factory=list)        # (ticker, date)
     failed: list[tuple[str, str, str]] = field(default_factory=list)    # (ticker, date, reason)
+    # Budget refusals: (ticker, date, reason codes). The decision stays pending;
+    # this is a control result, not a provider failure (ADR-004; FR-002).
+    budget_skipped: list[tuple[str, str, tuple[str, ...]]] = field(default_factory=list)
+
+
+def _budget_refusal_types() -> tuple[type[BaseException], ...]:
+    """The budget-refusal exception type, imported lazily to avoid an import cycle."""
+    from tradingagents.llm_clients.invocation import BudgetInvocationRefused
+
+    return (BudgetInvocationRefused,)
 
 
 def settle_pending(ticker: str, memory_log, reflector, config: dict, wait: bool = True) -> Settlement:
@@ -170,6 +180,15 @@ def settle_pending(ticker: str, memory_log, reflector, config: dict, wait: bool 
                     benchmark_name=benchmark,
                     holding_days=days,
                 )
+            except _budget_refusal_types() as refusal:
+                # A budget refusal is a control result, not a provider failure:
+                # the decision and the rest of this pass stay pending so nothing
+                # is spent past the limit (Implements: ADR-004; REQ-TA-FR-002).
+                reason_codes = tuple(getattr(refusal, "reason_codes", ()))
+                logger.info("Budget refused reflection for %s on %s: %s",
+                            ticker, entry["date"], ", ".join(reason_codes))
+                result.budget_skipped.append((ticker, entry["date"], reason_codes))
+                break
             except Exception as exc:
                 # Reflection calls a provider: a transient failure leaves the entry
                 # pending for the next pass rather than stopping the analysis.
@@ -193,4 +212,9 @@ def settle_all_pending(memory_log, reflector, config: dict, wait: bool = True) -
         done = settle_pending(ticker, memory_log, reflector, config, wait=wait)
         result.settled.extend(done.settled)
         result.failed.extend(done.failed)
+        result.budget_skipped.extend(done.budget_skipped)
+        if done.budget_skipped:
+            # The pass stopped for lack of budget; do not start another ticker's
+            # reflections past the limit (Implements: ADR-004; REQ-TA-FR-002).
+            break
     return result

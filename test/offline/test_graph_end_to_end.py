@@ -28,8 +28,11 @@ from tradingagents.graph import trading_graph
 TRADE_DATE = "2026-01-09"
 
 # Enough for every free-text reader: the PM's labelled rating and the trader's
-# closing proposal line.
-TEXT = "Report.\n\n**Rating**: Overweight\n\nFINAL TRANSACTION PROPOSAL: **BUY**"
+# closing proposal line. The free-text rating is Hold: a Hold needs no price
+# levels, so it stays a tradeable decision under the FR-004 price policy
+# (a prose-only Buy/Overweight would be REVIEW for its missing prices). These
+# tests exercise graph wiring, not the price gate.
+TEXT = "Report.\n\n**Rating**: Hold\n\nFINAL TRANSACTION PROPOSAL: **BUY**"
 
 STRUCTURED = {
     schemas.ResearchPlan: schemas.ResearchPlan(
@@ -39,6 +42,9 @@ STRUCTURED = {
     schemas.PortfolioDecision: schemas.PortfolioDecision(
         rating=schemas.PortfolioRating.OVERWEIGHT, confidence="medium",
         executive_summary="s",
+        # REQ-TA-FR-004: an Overweight needs both price levels, so the shared
+        # fixture supplies valid ones; these tests exercise other behaviour.
+        entry_price=100.0, stop_loss=90.0,
         investment_thesis="Street consensus rating: Buy (28 of 35 analysts)."),
     schemas.SentimentReport: schemas.SentimentReport(
         overall_band=schemas.SentimentBand.NEUTRAL, overall_score=5.0, confidence="low", narrative="n"),
@@ -144,7 +150,8 @@ def test_a_full_run_reaches_a_logged_decision(tmp_path, monkeypatch, offline, st
     state, signal = graph.propagate("NVDA", TRADE_DATE)
 
     assert model.calls                                   # LLM test double was exercised
-    assert signal == state["final_rating"] == "Overweight"
+    expected = "Overweight" if structured else "Hold"
+    assert signal == state["final_rating"] == expected
     for key in ("market_report", "sentiment_report", "news_report", "fundamentals_report",
                 "investment_plan", "trader_investment_plan", "final_trade_decision"):
         assert state[key].strip(), key
@@ -153,7 +160,7 @@ def test_a_full_run_reaches_a_logged_decision(tmp_path, monkeypatch, offline, st
                     "get_balance_sheet", "get_cashflow", "get_income_statement",
                     "get_insider_transactions", "ohlcv"}
     assert offline == tool_methods
-    assert [e["rating"] for e in graph.memory_log.load_entries()] == ["Overweight"]
+    assert [e["rating"] for e in graph.memory_log.load_entries()] == [expected]
 
 
 @pytest.mark.unit
@@ -166,7 +173,7 @@ def test_an_interrupted_run_resumes_from_its_checkpoint(tmp_path, monkeypatch, o
 
     _, signal = graph.propagate("NVDA", TRADE_DATE)
 
-    assert signal == "Overweight"
+    assert signal == "Hold"
     resumed_calls = len(model.calls) - calls_before
     full_run = ScriptedModel()
     _graph(tmp_path / "fresh", monkeypatch, full_run).propagate("NVDA", TRADE_DATE)
@@ -205,7 +212,7 @@ def test_a_debug_run_prints_the_analysts_work_and_reaches_the_same_decision(tmp_
 
     state, signal = graph.propagate("NVDA", TRADE_DATE)
 
-    assert signal == "Overweight"
+    assert signal == "Hold"
     assert state["market_report"].strip() and state["fundamentals_report"].strip()
     printed = capsys.readouterr().out
     assert "get_stock_data" in printed and "get_balance_sheet" in printed

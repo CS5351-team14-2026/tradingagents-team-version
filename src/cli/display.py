@@ -19,6 +19,7 @@ from tradingagents.graph.analyst_execution import (
     ANALYST_NODE_SPECS,
     AnalystExecutionPlan,
 )
+from tradingagents.reporting import decision_display_text
 
 console = Console()
 
@@ -434,7 +435,7 @@ def display_complete_report(final_state):
     # V. Portfolio Manager Decision
     if final_state.get("final_trade_decision"):
         console.print(Panel("[bold]V. Portfolio Manager Decision[/bold]", border_style="green"))
-        console.print(Panel(Markdown(final_state["final_trade_decision"]), title="Portfolio Manager", border_style="blue", padding=(1, 2)))
+        console.print(Panel(Markdown(decision_display_text(final_state)), title="Portfolio Manager", border_style="blue", padding=(1, 2)))
 
 
 def update_research_team_status(status):

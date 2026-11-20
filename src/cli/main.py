@@ -64,6 +64,12 @@ def analyze(
         "budgets (overrides TRADINGAGENTS_PROFILE). Explicit --analysts and "
         "TRADINGAGENTS_MAX_* still override individual fields.",
     ),
+    token_budget: int | None = typer.Option(
+        None, "--token-budget", min=0,
+        help="Maximum tokens for one run (REQ-TA-FR-002): once recorded usage reaches "
+        "it, no further optional LLM calls start. Omit to honor "
+        "TRADINGAGENTS_TOKEN_BUDGET; both unset disables enforcement.",
+    ),
     save: bool | None = typer.Option(
         None, "--save/--no-save", help="Save the report under results_dir without asking"
     ),
@@ -73,6 +79,15 @@ def analyze(
     html: bool | None = typer.Option(
         None, "--html/--no-html",
         help="Save the report as one HTML page too, complete_report.html, without asking (default: yes)",
+    ),
+    from_settings: str = typer.Option(
+        None, "--from-settings",
+        help="Re-run using the allowlisted settings recorded for a prior run "
+        "(a run_record_*.json or a full_states_log_*.json). Needs --ticker and "
+        "--date; cannot be combined with profile/analyst/model/provider/round/"
+        "temperature/effort/language/vendor overrides (REQ-TA-FR-008). "
+        "--token-budget (REQ-TA-FR-002) may be combined: it is an execution-time "
+        "safety control, not replayable configuration.",
     ),
 ):
     """Run an analysis. This is what a bare `tradingagents` does.
@@ -95,8 +110,31 @@ def analyze(
             raise typer.Exit(code=1) from None
 
     try:
+        if from_settings:
+            # REQ-TA-FR-008: the record is the single source of configuration, so
+            # any explicit configuration-override flag is a conflict and is
+            # rejected. --token-budget (REQ-TA-FR-002) is an execution-time safety
+            # control, not replayed configuration, so it may be combined.
+            conflicts = [
+                name for name, value in (
+                    ("--profile", profile),
+                    ("--analysts", analysts),
+                ) if value is not None
+            ]
+            if conflicts:
+                console.print(
+                    "[red]--from-settings cannot be combined with "
+                    + ", ".join(conflicts)
+                    + "; the run record supplies the configuration.[/red]"
+                )
+                raise typer.Exit(code=1)
         flags = {"ticker": ticker, "date": date, "analysts": analysts, "save": save, "show": show, "html": html}
-        run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags, profile=profile)
+        # Only carry the replay key when set, so a normal run's flags dict is
+        # byte-for-byte what it was before FR-008 (REQ-TA-FR-008).
+        if from_settings:
+            flags["from_settings"] = from_settings
+        run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags, profile=profile,
+                     token_budget=token_budget)
     except _NO_CONSOLE_ERRORS:
         # A terminal with no console buffer cannot host the interactive prompts.
         # Emit one actionable line on stderr instead of a prompt_toolkit

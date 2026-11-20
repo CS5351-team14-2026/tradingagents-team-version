@@ -18,7 +18,7 @@ def _state():
         "investment_plan": "RM PLAN",
         "trader_investment_plan": "TRADE",
         "risk_debate_state": {"neutral_history": "NEUTRAL"},
-        "final_trade_decision": "PM DECISION",
+        "final_trade_decision": "**Rating**: Buy\n\nPM DECISION",
     }
 
 
@@ -35,7 +35,7 @@ def test_write_report_tree_creates_files(tmp_path):
     assert (tmp_path / "1_analysts" / "news.md").read_text() == "NEWS"
     assert (tmp_path / "2_research" / "manager.md").read_text() == "RM PLAN"
     assert (tmp_path / "3_trading" / "trader.md").read_text() == "TRADE"
-    assert (tmp_path / "5_portfolio" / "decision.md").read_text() == "PM DECISION"
+    assert (tmp_path / "5_portfolio" / "decision.md").read_text() == "**Rating**: Buy\n\nPM DECISION"
     complete = out.read_text()
     assert "Trading Analysis Report: AAPL" in complete
     assert "MKT" in complete and "PM DECISION" in complete
