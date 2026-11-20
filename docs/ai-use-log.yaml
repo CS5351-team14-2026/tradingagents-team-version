@@ -394,41 +394,6 @@ entries:
       single RunBudgetTracker/StatsCallbackHandler (no second counter); reconcile
       in an isolated worktree without touching the dirty FR-008 branch.
     verification: "reconciliation done in an isolated git worktree on branch reconcile/fr-008-settings-replay, based on origin/integration; results reported in the reconciliation session (FR-002 focused, FR-008 focused, combined regression, full offline suite, ruff, schema, AI-use, detect-secrets)."
-
-
-  - id: AI-2026-11-19-xiaokewei001-qr001
-    date: "2026-11-19"
-    task: "REQ-TA-QR-001 Q1-Q2: controlled failure codes and run-record failure block; sync with FR-008 (origin/integration) and reconcile FR-002 token_budget placement."
-    agent: OpenCode
-    model: "CS5351/DeepSeek-V4-Flash"
-    session: "feat/QR001-OpenCode supervised session"
-    prompt_ref: "Human-approved QR-001 plan (Q1-Q2, H-1..H-5) on feat/QR001-OpenCode; staged with a human gate after Q1 and after the FR-008 merge."
-    files:
-      - docs/architecture/ADR-004-token-budget.md
-      - docs/architecture/ADR-005-controlled-failures.md
-      - docs/architecture/QR-001-trace.md
-      - docs/architecture/trace-matrix.md
-      - docs/ai-use-log.yaml
-      - CHANGELOG.md
-      - src/tradingagents/failure.py
-      - src/tradingagents/run_record.py
-      - src/tradingagents/graph/trading_graph.py
-      - src/tradingagents/agents/structured.py
-      - src/tradingagents/llm_clients/openai_client.py
-      - src/tradingagents/reporting.py
-      - src/tradingagents/report_html.py
-      - src/cli/run.py
-      - test/offline/test_qr001_missing_api_key.py
-      - test/offline/test_qr001_stock_data_unavailable.py
-      - test/offline/test_qr001_budget_exhausted.py
-      - test/offline/test_qr001_provider_timeout.py
-      - test/offline/test_qr001_invalid_json.py
-      - test/offline/test_qr001_fr008_reconcile.py
-      - test/offline/test_budget_reporting.py
-    human_decision: "Approved the plan with recommendations (D-A: classified failures return controlled (state, REVIEW); D-B: CLI catches missing key; D-C/D-E: {code,phase,diagnostic,exception_type?} with fixed safe messages; D-D: completed for graceful degradation; D-F: new ADR-005; D-G: no registry change). Approved H-1..H-5: move token_budget to run_metadata (not replayable), commit Q1 first, merge origin/integration (FR-008) as a merge commit, keep FR-008 replay branch + QR-001 missing-key wrap, add observational note."
-    verification: "ruff check . clean; full offline suite 1777 passed, 6 skipped, 1 deselected, 100 subtests; only the pre-existing Windows-GBK read_text() locale failures (reproduced on baseline), plus intermittent test_memory_log/test_backtest rotation flakiness that passes in isolation and is unrelated to these changes (memory/log.py untouched). FR-008 reconcile + settings tests green; QR-001 tests green. A post-FR-002 run record replays OK after moving token_budget out of replayable_settings."
-    transcript: "Supervised OpenCode session on branch feat/QR001-OpenCode; retained locally."
-
   - id: AI-2026-11-19-fr004-zelin-01
     date: "2026-11-19"
     task: "REQ-TA-FR-004 / REQ-TA-INV-001: validate the final Portfolio Manager decision before adoption — raw-price retention, per-rating price policy, decision_review_reasons, strict JSON decoding, REVIEW rendering in CLI/report/state log/memory."
@@ -629,9 +594,6 @@ entries:
       test_cli_headless/commands/display/no_console 75 passed. Full suite not rerun
       this round (as instructed).
     transcript: "Supervised OpenCode session on branch safety/fr004-final-decision; retained locally."
-feat/QR001-OpenCode
-
-
   - id: AI-2026-11-20-fr004-zelin-03
     date: "2026-11-20"
     task: "REQ-TA-FR-004 close-out (Issue #32) on integration dce1874 (PR #54): FR004-03 price-grammar fix (`.5`, fullwidth digits, oversized integers must be REVIEW) and FR004-01 persistence of the validated entry_price/stop_loss to the run-state JSON."
@@ -671,4 +633,35 @@ feat/QR001-OpenCode
       graph e2e). ruff check . clean. Full offline suite result recorded with this
       round's report.
     transcript: "Supervised OpenCode session on branch feat/fr004-closeout; retained locally."
-
+  - id: AI-2026-11-19-xiaokewei001-qr001
+    date: "2026-11-19"
+    task: "REQ-TA-QR-001 Q1-Q2: controlled failure codes and run-record failure block; sync with FR-008 (origin/integration) and reconcile FR-002 token_budget placement."
+    agent: OpenCode
+    model: "CS5351/DeepSeek-V4-Flash"
+    session: "feat/QR001-OpenCode supervised session"
+    prompt_ref: "Human-approved QR-001 plan (Q1-Q2, H-1..H-5) on feat/QR001-OpenCode; staged with a human gate after Q1 and after the FR-008 merge."
+    files:
+      - docs/architecture/ADR-004-token-budget.md
+      - docs/architecture/ADR-005-controlled-failures.md
+      - docs/architecture/QR-001-trace.md
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+      - CHANGELOG.md
+      - src/tradingagents/failure.py
+      - src/tradingagents/run_record.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/agents/structured.py
+      - src/tradingagents/llm_clients/openai_client.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/report_html.py
+      - src/cli/run.py
+      - test/offline/test_qr001_missing_api_key.py
+      - test/offline/test_qr001_stock_data_unavailable.py
+      - test/offline/test_qr001_budget_exhausted.py
+      - test/offline/test_qr001_provider_timeout.py
+      - test/offline/test_qr001_invalid_json.py
+      - test/offline/test_qr001_fr008_reconcile.py
+      - test/offline/test_budget_reporting.py
+    human_decision: "Approved the plan with recommendations (D-A: classified failures return controlled (state, REVIEW); D-B: CLI catches missing key; D-C/D-E: {code,phase,diagnostic,exception_type?} with fixed safe messages; D-D: completed for graceful degradation; D-F: new ADR-005; D-G: no registry change). Approved H-1..H-5: move token_budget to run_metadata (not replayable), commit Q1 first, merge origin/integration (FR-008) as a merge commit, keep FR-008 replay branch + QR-001 missing-key wrap, add observational note."
+    verification: "ruff check . clean; full offline suite 1777 passed, 6 skipped, 1 deselected, 100 subtests; only the pre-existing Windows-GBK read_text() locale failures (reproduced on baseline), plus intermittent test_memory_log/test_backtest rotation flakiness that passes in isolation and is unrelated to these changes (memory/log.py untouched). FR-008 reconcile + settings tests green; QR-001 tests green. A post-FR-002 run record replays OK after moving token_budget out of replayable_settings."
+    transcript: "Supervised OpenCode session on branch feat/QR001-OpenCode; retained locally."
