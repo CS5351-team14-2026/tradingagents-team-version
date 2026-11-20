@@ -819,6 +819,12 @@ class TradingAgentsGraph:
     def _run_graph(self, company_name, trade_date, asset_type: str = "stock",
                    checkpoint_thread_id: str | None = None, portfolio=None):
         """Execute the graph and write the resulting state to disk and memory log."""
+        # Bind a fresh per-run data-availability holder (REQ-TA-QR-001; ADR-005)
+        # before the graph runs, so tool nodes (in copied contexts) mutate the
+        # holder this frame reads at completion.
+        from tradingagents import data_signal
+
+        data_signal.bind()
         init_agent_state = self.create_run_state(company_name, trade_date, asset_type, portfolio)
         args = self.propagator.get_graph_args()
 
@@ -897,18 +903,29 @@ class TradingAgentsGraph:
         # REQ-TA-QR-004: stamp completed status and timestamps before the state
         # log is written, so the persisted record carries the final observations
         # rather than the pre-observation defaults.
-        # REQ-TA-QR-001 (ADR-005): a run that completed but produced only a
-        # non-tradeable REVIEW because the token budget was exhausted records a
-        # TOKEN_BUDGET_EXHAUSTED failure mirror. The lifecycle status stays
-        # ``completed`` (D-D); the budget block already carries its own status.
+        # REQ-TA-QR-001 (ADR-005; D-D1): a run whose CORE market data was
+        # unavailable must not present a confident tradeable call. Record
+        # STOCK_DATA_UNAVAILABLE and force the result to REVIEW (status stays
+        # ``completed`` — a caveated report was produced, D-D). This takes
+        # precedence over the budget mirror: missing data is the more specific
+        # cause.
+        from tradingagents import data_signal, failure as failure_mod
+
         rating = run_rating(final_state)
         failure = None
-        tracker = getattr(self, "_run_budget_tracker", None)
-        if is_review(rating) and tracker is not None and tracker.snapshot().status == "BUDGET_EXHAUSTED":
-            from tradingagents import failure as failure_mod
-
+        if data_signal.core_data_unavailable():
+            final_state["final_rating"] = RATING_REVIEW
+            rating = RATING_REVIEW
             failure = failure_mod.build_failure(
-                failure_mod.FailureCode.TOKEN_BUDGET_EXHAUSTED, phase="synthesis")
+                failure_mod.FailureCode.STOCK_DATA_UNAVAILABLE, phase="analysis")
+        else:
+            tracker = getattr(self, "_run_budget_tracker", None)
+            if is_review(rating) and tracker is not None and tracker.snapshot().status == "BUDGET_EXHAUSTED":
+                # A run that produced only a non-tradeable REVIEW because the
+                # token budget was exhausted records a TOKEN_BUDGET_EXHAUSTED
+                # failure mirror (status completed, D-D).
+                failure = failure_mod.build_failure(
+                    failure_mod.FailureCode.TOKEN_BUDGET_EXHAUSTED, phase="synthesis")
         self.set_run_observations(
             usage=getattr(self, "_run_usage", None),
             status=record.STATUS_COMPLETED,
@@ -921,7 +938,7 @@ class TradingAgentsGraph:
         # Clear checkpoint on successful completion to avoid stale state.
         self.clear_checkpoint_on_success(company_name, trade_date, asset_type, portfolio)
 
-        return final_state, run_rating(final_state)
+        return final_state, rating
 
     def stream_run(self, graph_input, **args):
         """Stream a run as ``(messages, state)`` pairs.

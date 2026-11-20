@@ -18,10 +18,10 @@ an uncaught exception, and `final_rating=REVIEW` when no valid call exists.
 
 | Scenario | Code (`run_metadata.failure.code`) | Implementation | Test |
 |---|---|---|---|
-| provider timeout | `PROVIDER_TIMEOUT` | `graph/trading_graph._run_graph` classify + controlled `(state, REVIEW)`; `failure.classify_exception` | `test_qr001_provider_timeout.py` |
+| provider timeout | `PROVIDER_TIMEOUT` | `graph/trading_graph._run_graph` classify + controlled `(state, REVIEW)`; **CLI stream path** classifies + `typer.Exit` (D-CLI); `failure.classify_exception` | `test_qr001_provider_timeout.py`, `test_qr001_cli_timeout.py` |
 | agent returns invalid JSON | `INVALID_AGENT_JSON` | `agents/structured.py` classification; controlled empty/REVIEW report | `test_qr001_invalid_json.py` |
 | missing API key | `MISSING_API_KEY` | `TradingAgentsGraph.__init__` typed `MissingApiKeyError`; CLI catches + writes record | `test_qr001_missing_api_key.py` |
-| stock data unavailable | `STOCK_DATA_UNAVAILABLE` | data-layer `NO_DATA_AVAILABLE`/`DATA_UNAVAILABLE` sentinels (reuse) + record `failure.code` | `test_qr001_stock_data_unavailable.py` |
+| stock data unavailable | `STOCK_DATA_UNAVAILABLE` | `data_signal` per-run holder set from core-data sentinels; `_run_graph` **and** CLI `_terminal_failure` downgrade to REVIEW + record (D-D1) | `test_qr001_stock_data_unavailable.py` (end-to-end) |
 | token budget exhausted | `TOKEN_BUDGET_EXHAUSTED` | FR-002 statuses (ADR-004) mirrored on the review path + record `failure.code` | `test_qr001_budget_exhausted.py` |
 
 ## Record contract (D-C)
@@ -49,7 +49,7 @@ local path is recorded (D-E; REQ-TA-SEC-001 intent).
 ## Files
 
 - New: `src/tradingagents/failure.py`; `docs/architecture/ADR-005-controlled-failures.md`,
-  this trace; `test/offline/test_qr001_*.py` (five files).
+  this trace; `test/offline/test_qr001_*.py` (seven files: five scenarios + FR-008 reconcile + CLI timeout).
 - Modified: `graph/trading_graph.py`, `agents/structured.py`, `run_record.py`,
   `reporting.py`, `report_html.py`, `cli/run.py`, `llm_clients/openai_client.py`
   (typed key error, with ADR-005 reference per the safety-path guard),

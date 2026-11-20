@@ -155,3 +155,27 @@ remains replayable by REQ-TA-FR-008, which reads only `schema_version` +
 (`run_metadata.token_budget`), not replayable (see the ADR-004 amendment). The QR-004
 lifecycle `completed`/`failed` vocabulary is unchanged. Pinned by
 `test/offline/test_qr001_fr008_reconcile.py`.
+
+## Amendment (2026-11-19) — end-to-end coverage for the CLI entry and data unavailability
+
+The five scenarios are now handled on **both** entry points:
+
+- **CLI stream path** (the CLI streams the graph itself; it does not call
+  `propagate`). `run_analysis` classifies an escaping exception at the stream
+  boundary: a *classified* failure (timeout/transport, invalid JSON) records
+  `run_metadata.failure` and exits via `typer.Exit(1)` with a safe message — no
+  traceback (D-CLI). An unclassified exception keeps the existing behaviour
+  (record `status=failed`, re-raise).
+- **Stock data unavailable (D-D1).** Core market data is reported as a sentinel
+  string, not an exception. A per-run `data_signal` holder (bound at the run
+  start; tools mutate the shared holder, which survives LangGraph's context
+  copies) records when core market data was unavailable. At completion the run is
+  downgraded to `REVIEW` and `run_metadata.failure.code = STOCK_DATA_UNAVAILABLE`
+  is recorded (lifecycle `completed`, a caveated report was produced). This is
+  applied identically in `_run_graph` and the CLI stream path
+  (`cli.run._terminal_failure`).
+
+New end-to-end tests: `test_qr001_stock_data_unavailable.py` (full run ->
+REVIEW + `STOCK_DATA_UNAVAILABLE`, and no block when data is available) and
+`test_qr001_cli_timeout.py` (CLI stream timeout -> `typer.Exit` + record, no
+traceback; unclassified still raises).
