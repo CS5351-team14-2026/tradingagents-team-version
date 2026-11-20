@@ -1,5 +1,11 @@
 * text=auto eol=lf
-docs/ai-use-log.yaml merge=union
+
+# docs/ai-use-log.yaml is a YAML *list of mappings*. `merge=union` concatenates
+# every line from both sides on conflict, which interleaves multi-line entries
+# (e.g. a `files:` list) and produces invalid YAML (a bare line with no `key:`).
+# Resolve conflicts in this file by hand: keep BOTH branches' whole entries,
+# then validate with `python tools/ci/validate_ai_use_log.py docs/ai-use-log.yaml`.
+# (No merge driver attribute: default 3-way merge, human-resolved.)
 
 *.png binary
 *.jpg binary
