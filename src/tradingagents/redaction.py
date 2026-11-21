@@ -36,7 +36,8 @@ _SENSITIVE_KEY_RE = re.compile(
 # (e.g. ``tokens_in``, ``api_key_name``) must not be redacted by name alone.
 _SAFE_TOKEN_KEYS = frozenset(
     {"tokens_in", "tokens_out", "total_tokens", "max_tokens", "api_key_name",
-     "api_key_env", "token_budget", "token_count", "token_totals"}
+     "api_key_env", "token_budget", "token_count", "token_totals",
+     "input_tokens", "output_tokens"}
 )
 
 # High-confidence value patterns (ordered; applied to text).

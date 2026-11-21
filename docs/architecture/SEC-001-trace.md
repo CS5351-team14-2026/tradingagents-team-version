@@ -2,7 +2,7 @@
 
 Requirement: REQ-TA-SEC-001 (security) — "no configured secret appears
 unredacted in logs, reports, prompts, test fixtures, commits, or transcripts."
-Test plan: Issue #50. Owner: Alex.
+Test plan: Issue #50. Owner: Alex. Decision record: ADR-006.
 
 ## Redaction contract
 
@@ -21,8 +21,9 @@ Test plan: Issue #50. Owner: Alex.
 - Provider/CLI errors: `redact_text` before user-visible print (CLI) and in the
   graph's warning logs for settle/memory failures.
 - `message_tool.log`: both write points sanitized at the write boundary.
-- QR-004 records / full-state logs: unchanged schema; the existing allowlist
-  already excludes secrets and paths (regression-tested).
+- QR-004 records: safe by allowlist (no agent text/secrets serialized) — proved by tests.
+- Full-state logs: free-text report/history fields redacted at write (`_redact_state_log_text`).
+- Reports (Markdown + HTML): agent-generated section text redacted at serialization (`write_report_tree`).
 - FR-008 replay validation: already rejects secret/path-like values without
   echoing them (unchanged; regression-tested).
 

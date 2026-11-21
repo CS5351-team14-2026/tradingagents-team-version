@@ -236,3 +236,65 @@ def test_cli_error_render_is_sanitized():
     rendered = redact_text(msg)
     assert "sk-" + "a" * 24 not in rendered
     assert "HTTP 401" in rendered
+
+
+# ------------------------------------------ output-boundary proof tests
+
+@pytest.mark.unit
+def test_safe_token_keys_include_input_output():
+    """SEC-001 P2: token telemetry keys are preserved by structured redaction."""
+    out = redact({"input_tokens": 100, "output_tokens": 50, "tokens_in": 7})
+    assert out == {"input_tokens": 100, "output_tokens": 50, "tokens_in": 7}
+
+
+def _state_with_secret():
+    return {
+        "trade_date": "2026-11-10",
+        "final_trade_decision": "Buy. leaked " + _key(),
+        "market_report": "report mentions " + _key() + " and AAPL",
+        "sentiment_report": "", "news_report": "", "fundamentals_report": "",
+        "investment_debate_state": {"bull_history": "bull " + _key(), "bear_history": "",
+                                    "history": "", "current_response": ""},
+        "risk_debate_state": {"aggressive_history": "", "conservative_history": "",
+                              "neutral_history": "", "history": ""},
+        "trader_investment_plan": "", "investment_plan": "",
+    }
+
+
+@pytest.mark.unit
+def test_secret_cannot_reach_report(tmp_path):
+    """SEC-001: a secret in run state is redacted in report output."""
+    from tradingagents.reporting import write_report_tree
+    out = write_report_tree(_state_with_secret(), "AAPL", tmp_path, settings=None, html=True)
+    md = out.read_text(encoding="utf-8")
+    html = (tmp_path / "complete_report.html").read_text(encoding="utf-8")
+    for text in (md, html):
+        assert _key() not in text
+        assert "AAPL" in text  # ordinary content preserved
+
+
+@pytest.mark.unit
+def test_secret_cannot_reach_full_state_log(tmp_path):
+    """SEC-001: agent text fields are redacted in the full-state log."""
+    from tradingagents.graph.trading_graph import _redact_state_log_text
+    entry = {"market_report": "x " + _key(), "investment_debate_state": {"bull_history": _key()},
+             "run_settings": {"token_budget": 100, "analysts": ["market"]}}
+    out = _redact_state_log_text(entry)
+    assert _key() not in str(out["market_report"])
+    assert _key() not in str(out["investment_debate_state"]["bull_history"])
+    # structure/keys + non-secret settings preserved
+    assert out["run_settings"]["token_budget"] == 100
+
+
+@pytest.mark.unit
+def test_run_record_has_no_agent_text_or_secret(tmp_path):
+    """SEC-001: run records carry only allowlisted settings (no agent text/secrets)."""
+    from tradingagents import run_record as record
+    rec = record.build_run_record(
+        replayable_settings={"llm_provider": "deepseek", "analysts": ["market", "news"]},
+        version="0.7.1",
+    ).to_dict()
+    text = str(rec)
+    assert _key() not in text
+    # replayable_settings never carries agent report text
+    assert "market_report" not in rec["replayable_settings"]

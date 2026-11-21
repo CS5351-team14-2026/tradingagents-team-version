@@ -691,3 +691,27 @@ entries:
       or FR-008 schemas; INV-006 stays frozen/unclaimed; branch from main and target
       main for the eventual PR.
     verification: "reported in the SEC-001 implementation session (focused SEC-001, QR-004, FR-008, QR-001, FR-002 sets; full offline suite; ruff; schema; AI-use; detect-secrets; controlled scanner test)."
+  - id: AI-2026-11-21-Alex-05
+    date: "2026-11-21"
+    task: "REQ-TA-SEC-001 review fixes: ADR-006, report + full-state-log serialization redaction, reports/state-log/run-record proof tests, input_tokens/output_tokens safe keys, and a secret-baseline-approved gate against baseline bypass."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "SEC-001 review-response instructions (must-fix items 1-5)"
+    files:
+      - docs/architecture/adr/006-secret-redaction.md
+      - src/tradingagents/redaction.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/graph/trading_graph.py
+      - .github/workflows/ci.yml
+      - test/offline/test_sec001_redaction.py
+      - docs/architecture/SEC-001-trace.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Alex accepted the reviewer's four must-fix items plus P2-1: add ADR-006; redact
+      reports and full-state-log serialization; add proof tests for reports,
+      full_state_log, and run records; add input_tokens/output_tokens to safe token
+      keys; prevent baseline bypass by requiring a 'secret-baseline-approved' label
+      and comparing against the base-branch baseline. No QR-004/FR-008 schema change,
+      no logging redesign, no custom-secret detection, no redact_exception redesign,
+      no branch rename.
+    verification: "reported in the SEC-001 review-fix session (SEC-001 focused, regression sets, full offline suite, ruff, schema, AI-use, detect-secrets)."

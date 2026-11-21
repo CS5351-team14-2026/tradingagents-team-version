@@ -37,6 +37,42 @@ from .setup import GraphSetup
 logger = logging.getLogger(__name__)
 
 
+# The state-log fields that carry agent-generated free text (reports, debate
+# histories, plans, decisions). SEC-001 sanitizes exactly these at write time.
+_STATE_LOG_TEXT_KEYS = (
+    "market_report", "sentiment_report", "news_report", "fundamentals_report",
+    "trader_investment_plan", "investment_plan", "final_trade_decision",
+)
+_STATE_LOG_TEXT_NESTED = {
+    "investment_debate_state": ("bull_history", "bear_history", "history", "current_response"),
+    "risk_debate_state": ("aggressive_history", "conservative_history",
+                          "neutral_history", "history"),
+}
+
+
+def _redact_state_log_text(entry: dict) -> dict:
+    """Return a copy of a state-log entry with agent-text fields redacted (SEC-001).
+
+    Keys and structure are preserved; only the report-bearing string values are
+    sanitized via the shared :func:`redact_text`, so ordinary content stays
+    readable. Never mutates the input entry.
+    """
+    out = dict(entry)
+    for key in _STATE_LOG_TEXT_KEYS:
+        value = out.get(key)
+        if isinstance(value, str):
+            out[key] = redact_text(value)
+    for key, fields in _STATE_LOG_TEXT_NESTED.items():
+        nested = out.get(key)
+        if isinstance(nested, dict):
+            scrubbed = dict(nested)
+            for field in fields:
+                if isinstance(scrubbed.get(field), str):
+                    scrubbed[field] = redact_text(scrubbed[field])
+            out[key] = scrubbed
+    return out
+
+
 def _bind_budget_context(tracker) -> None:
     """Bind ``tracker`` as the current run's budget context inside a copied Context.
 
@@ -1028,6 +1064,11 @@ class TradingAgentsGraph:
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{trade_date}.json"
+        # SEC-001: the state log serializes agent-generated report/history text;
+        # sanitize those free-text fields at this write boundary so a secret a
+        # model or tool echoed cannot reach the log. Keys and structure are
+        # unchanged; only the report-bearing string values are redacted.
+        entry = _redact_state_log_text(entry)
         with open(log_path, "w", encoding="utf-8") as f:
             # Reports can be in any language and this file is read by a person.
             json.dump(entry, f, indent=4, ensure_ascii=False)
