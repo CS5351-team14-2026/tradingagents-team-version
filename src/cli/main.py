@@ -13,6 +13,7 @@ from tradingagents.backtest import iter_grid, run_backtest, summarize
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.openai_client import SIGNED_IN_PROVIDERS
 from tradingagents.portfolio import load_portfolio
+from tradingagents.redaction import redact_text
 
 # prompt_toolkit's win32 output module is importable only on Windows (it asserts
 # the platform at import time), so gate on the platform rather than catching the
@@ -106,7 +107,7 @@ def analyze(
         try:
             portfolio_context = load_portfolio(portfolio)
         except ValueError as exc:
-            console.print(f"[red]{exc}[/red]")
+            console.print(f"[red]{redact_text(str(exc))}[/red]")
             raise typer.Exit(code=1) from None
 
     try:
@@ -176,7 +177,7 @@ def backtest(
         chosen = (parse_analysts(analysts, kind) if analysts
                   else filter_analysts_for_asset_type(list(AnalystType), kind))
     except ValueError as exc:
-        console.print(f"[red]{exc}[/red]")
+        console.print(f"[red]{redact_text(str(exc))}[/red]")
         raise typer.Exit(code=1) from None
 
     names = [t.strip() for t in tickers.split(",") if t.strip()]
@@ -193,7 +194,7 @@ def backtest(
     try:
         result = run_backtest(names, dates, DEFAULT_CONFIG, **kwargs)
     except Exception as exc:  # a missing key or an unknown analyst is a setup error
-        console.print(f"[red]{exc}[/red]")
+        console.print(f"[red]{redact_text(str(exc))}[/red]")
         raise typer.Exit(code=1) from None
     console.print(summarize(result).render())
     console.print(f"\nRan {result.cells_run} cells, skipped {result.skipped}. Log: {result.log_path}")

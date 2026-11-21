@@ -18,6 +18,7 @@ from tradingagents.default_config import DEFAULT_CONFIG, _coerce, resolve_profil
 from tradingagents.llm_clients import create_tier_client, tier_provider
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
+from tradingagents.redaction import redact_text
 from tradingagents.reporting import (
     audit_material_claims,
     evaluate_claim_acceptance,
@@ -759,13 +760,13 @@ class TradingAgentsGraph:
                 note = (f"{len(done.failed)} past decision(s) could not be settled this run "
                         "and stay pending.")
         except Exception as exc:
-            logger.warning("Settling past decisions failed: %s", exc)
+            logger.warning("Settling past decisions failed: %s", redact_text(str(exc)))
             note = f"Past decisions could not be settled this run ({type(exc).__name__}); they stay pending."
         try:
             past_context = self.memory_log.get_past_context(
                 state["company_of_interest"], as_of=self._memory_as_of(state["trade_date"]))
         except Exception as exc:
-            logger.warning("Reading the memory log failed: %s", exc)
+            logger.warning("Reading the memory log failed: %s", redact_text(str(exc)))
             past_context = ""
             note = note or f"The memory log could not be read this run ({type(exc).__name__})."
         return {"past_context": past_context, "memory_note": note}
