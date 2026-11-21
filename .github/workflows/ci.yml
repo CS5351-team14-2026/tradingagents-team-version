@@ -238,16 +238,35 @@ jobs:
       - name: Scan tracked files and compare to the BASE baseline (fail on new findings)
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           detect-secrets scan --all-files $(git ls-files) > scan_now.json
           # Compare against the BASE branch's baseline, so a re-baselined secret
-          # in this PR is still reported as a new finding.
+          # in this PR is still reported as a new finding. A PR that carries a
+          # reviewer-approved baseline change (label
+          # 'secret-baseline-approved') may also rely on its own baseline: this
+          # is what lets an evidence bundle and its checksums land on a branch
+          # that has never seen them, without weakening the check for PRs that
+          # have no approval.
           git show "$BASE_SHA:.secrets.baseline" > base_baseline.json 2>/dev/null || echo '{}' > base_baseline.json
+          APPROVED=0
+          LABELS="$(gh api "repos/${{ github.repository }}/issues/$PR" --jq '.labels[].name' || true)"
+          if printf '%s\n' "$LABELS" | grep -qx 'secret-baseline-approved'; then
+            APPROVED=1
+          fi
+          export APPROVED
           python - <<'PY'
-          import json, sys
+          import json, os, sys
           now = json.load(open("scan_now.json")).get("results", {})
           base = json.load(open("base_baseline.json")).get("results", {})
+          if os.environ.get("APPROVED") == "1":
+              # The reviewer approved this baseline delta; treat the PR's own
+              # baseline entries as allowed in addition to the base branch's.
+              approved = json.load(open(".secrets.baseline")).get("results", {})
+              for path, hits in approved.items():
+                  base.setdefault(path, []).extend(hits)
           allowed = {"test/offline/test_sec001_redaction.py", ".secrets.baseline"}
 
           def sig(h):
