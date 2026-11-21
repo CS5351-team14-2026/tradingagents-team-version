@@ -8,7 +8,7 @@ entries:
     agent: OpenCode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e2c5c6316ffeMQol8wdW1QhJXV
-    prompt_ref: "transcripts/FR-001-opencode.md#第-4-轮"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-4-轮"
     files:
       - docs/ai-use-log.yaml
       - docs/architecture/ADR-002-analysis-profiles.md
@@ -39,7 +39,7 @@ entries:
       For S5, WuYu required the metadata to distinguish explicit overrides
       from automatically selected analysts and approved the code after review.
       The final round aligned the ADR and traceability record with the implementation.
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-15-a5ynchr0ny-01
     date: "2026-11-15"
     task: "FR-005 / QR-002 / INV-005 local vertical slice: ADR-001, material-claim schema, claim ledger in Markdown and HTML, disclaimer, offline traceability tests"
@@ -72,17 +72,17 @@ entries:
       - test/offline/test_layering.py
       - test/offline/test_graph_end_to_end.py
       - docs/architecture/trace-matrix.md
-      - transcripts/qr-003-implementation.md
+      - transcripts/60704848-WuYu.md
       - docs/ai-use-log.yaml
     human_decision: "Approved Stage 1 (component-boundary test) and Stage 2 (LLM-double assertion) after iterative review rounds; Windows ruff and full offline suite (1483 passed) confirmed green before acceptance."
-    transcript: transcripts/qr-003-implementation.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-16-wuyu200501-02
     date: "2026-11-16"
     task: "FR-001 delivery: merge origin/integration (f64d0ea) into feat/fr-001-analysis-profiles; resolve report_html.py and ai-use-log.yaml conflicts; keep legacy checkpoint signatures with the reserved claim_enforcement config; renumber the FR-001 ADR to ADR-002 alongside the merged ADR-001."
     agent: opencode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e1b6b37dcffeiyykKwCwMLmeot
-    prompt_ref: "transcripts/FR-001-opencode.md#第-16-轮--合并-originintegrationf64d0ea"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-16-轮--合并-originintegrationf64d0ea"
     files:
       - docs/ai-use-log.yaml
       - docs/architecture/ADR-002-analysis-profiles.md
@@ -91,7 +91,7 @@ entries:
       - src/tradingagents/graph/trading_graph.py
       - src/tradingagents/report_html.py
       - test/offline/test_profiles_graph.py
-      - transcripts/FR-001-opencode.md
+      - transcripts/60704848-WuYu.md
     human_decision: >-
       WuYu approved the two-conflict resolution (report_html keeps both imports;
       ai-use-log keeps both entries in one list), directed that legacy checkpoint
@@ -102,7 +102,7 @@ entries:
       claim_enforcement is a placeholder excluded from the signature for
       compatibility. Approved targeted HTML/checkpoint/ai-use-log checks before
       review. Not committed.
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-16-a5ynchr0ny-01
     date: "2026-11-16"
     task: "FR-005 PM confidence field: schema/prompt/render, tests, and real AAPL validation"
@@ -190,13 +190,13 @@ entries:
     agent: opencode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e1785cf59ffeHHJS3UbI6eMjBH
-    prompt_ref: "transcripts/FR-001-opencode.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
     files:
       - src/tradingagents/graph/trading_graph.py
       - test/offline/test_profiles_graph.py
       - test/offline/test_checkpoint_lifecycle.py
       - docs/ai-use-log.yaml
-      - transcripts/FR-001-opencode.md
+      - transcripts/60704848-WuYu.md
     human_decision: >-
       WuYu approved the three review fixes with tests: a tool-round cap below 1
       rejected before model-client creation (0 and negative); resume preserved
@@ -212,21 +212,21 @@ entries:
       clear-on-success, and merged rounds 17-18 into one log entry. Run related
       and full offline tests, Ruff, the AI-use log validation and git diff
       --check; stop before any commit, push or merge.
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-17-wuyu200501-02
     date: "2026-11-17"
     task: "FR-001 delivery wrap-up in the follow-up workspace (new session, recorded separately from the rounds 17-18 session): port the tool-round-cap and legacy-checkpoint fixes from the prior workspace onto the current integration base (9565a96) while keeping teammates' Evidence Linkage and the merged QR-003 work; adapt the completed-run checkpoint-clear test to the dual (default + post-PR#27) signature clear; correct the session id of the old FR-001 delivery entry AI-2026-11-16-wuyu200501-02 to the PR #27 merge-conflict session; and reword the tool-round-cap comment so it states that a cap of 0 or any negative value lets the first tool call exceed the limit and only then reaches the wrap-up check."
     agent: opencode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e16ace1bdffeUswJq4i4O8jwCJ
-    prompt_ref: "transcripts/FR-001-opencode.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
     files:
       - src/tradingagents/graph/trading_graph.py
       - test/offline/test_profiles_graph.py
       - test/offline/test_checkpoint_lifecycle.py
       - test/offline/test_portfolio_context.py
       - docs/ai-use-log.yaml
-      - transcripts/FR-001-opencode.md
+      - transcripts/60704848-WuYu.md
     human_decision: >-
       WuYu asked to wrap up the FR-001 delivery record while keeping the existing
       tool-round validation and checkpoint implementation: correct only the
@@ -240,7 +240,7 @@ entries:
       environment, record the final count, and run Ruff, the AI-use log validation
       and git diff --check. Stop before any commit, push or merge.
     verification: "related tests: test_checkpoint_lifecycle.py, test_checkpoint_resume.py, test_profiles_graph.py, test_profiles.py, test_cli_profile.py, test_portfolio_context.py -> 109 passed; full offline suite (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1, isolated venv /tmp/opencode/venv-fr001): 1593 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration), 100 subtests passed; ruff check . clean; AI-use log gate PASSED; git diff --check clean."
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-17-Alex-01
     date: "2026-11-17"
     task: "REQ-TA-QR-004: implement the canonical versioned structured run record (replayable_settings + run_metadata, completed/failed status, timestamps, token totals), failure-path metadata persistence, report-header status/token rendering, and offline tests."
