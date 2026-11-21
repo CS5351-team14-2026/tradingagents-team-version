@@ -192,3 +192,79 @@ jobs:
           pip install pip-audit
       - name: Audit dependencies (advisory)
         run: pip-audit --skip-editable
+
+  # SEC-001: PR-blocking secret scan (docs/architecture/trace-matrix.md SEC-001).
+  # Scans the tracked repository, comparing against a reviewed baseline so only
+  # NEW findings block a PR (pre-existing synthetic/test fixtures are frozen, not
+  # hidden). Fails closed: a scanner error or a new finding returns nonzero.
+  # The SEC-001 redaction test builds synthetic secret-like values in code; that
+  # one file is exempted narrowly and documented in docs/architecture/SEC-001-trace.md.
+  secret-scan:
+    name: "SEC-001: secret scan (detect-secrets)"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install pinned detect-secrets
+        run: |
+          python -m pip install --upgrade pip
+          pip install detect-secrets==1.5.0
+      - name: Reject unreviewed baseline changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          # A PR must not add a secret and re-baseline it in the same change.
+          # Changing .secrets.baseline requires the 'secret-baseline-approved'
+          # label, applied by a reviewer. Otherwise the job fails.
+          if git diff --name-only "$BASE_SHA" "${{ github.sha }}" | grep -qx '.secrets.baseline'; then
+            LABELS="$(gh api "repos/${{ github.repository }}/issues/$PR" --jq '.labels[].name')"
+            if ! printf '%s\n' "$LABELS" | grep -qx 'secret-baseline-approved'; then
+              echo "::error::.secrets.baseline changed but the PR lacks the 'secret-baseline-approved' label. Ask a reviewer to add it, or restore the baseline."
+              exit 1
+            fi
+            echo "baseline change approved by label: OK"
+          fi
+      - name: Scan tracked files and compare to the BASE baseline (fail on new findings)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          detect-secrets scan --all-files $(git ls-files) > scan_now.json
+          # Compare against the BASE branch's baseline, so a re-baselined secret
+          # in this PR is still reported as a new finding.
+          git show "$BASE_SHA:.secrets.baseline" > base_baseline.json 2>/dev/null || echo '{}' > base_baseline.json
+          python - <<'PY'
+          import json, sys
+          now = json.load(open("scan_now.json")).get("results", {})
+          base = json.load(open("base_baseline.json")).get("results", {})
+          allowed = {"test/offline/test_sec001_redaction.py", ".secrets.baseline"}
+
+          def sig(h):
+              return (h.get("type"), h.get("hashed_secret"))
+
+          new = {}
+          for path, hits in now.items():
+              if path in allowed:
+                  continue
+              base_sigs = {sig(h) for h in base.get(path, [])}
+              extra = [h for h in hits if sig(h) not in base_sigs]
+              if extra:
+                  new[path] = extra
+          if new:
+              for path, hits in new.items():
+                  for h in hits:
+                      print(f"::error file={path},line={h.get('line_number')}::unbaselined possible secret ({h.get('type')})")
+              sys.exit(1)
+          print("secret scan: no new findings beyond the reviewed base baseline")
+          PY

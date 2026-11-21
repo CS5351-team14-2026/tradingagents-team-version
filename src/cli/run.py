@@ -35,6 +35,7 @@ from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.redaction import redact_text
 from tradingagents.reporting import decision_display_text
 from tradingagents.run_budget import RunBudgetContext, RunBudgetTracker
 from tradingagents.run_record import build_usage_summary
@@ -355,6 +356,9 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             func(*args, **kwargs)
             timestamp, message_type, content = obj.messages[-1]
             content = content.replace("\n", " ")  # Replace newlines with spaces
+            # SEC-001: sanitize at the write boundary; ordinary prompt text is
+            # preserved, only high-confidence secrets/paths are redacted.
+            content = redact_text(content)
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"{timestamp} [{message_type}] {content}\n")
         return wrapper
@@ -367,6 +371,8 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             func(*args, **kwargs)
             timestamp, tool_name, args = obj.tool_calls[-1]
             args_str = ", ".join(f"{k}={v}" for k, v in args.items())
+            # SEC-001: sanitize tool args at the write boundary.
+            args_str = redact_text(args_str)
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"{timestamp} [Tool Call] {tool_name}({args_str})\n")
         return wrapper

@@ -106,3 +106,15 @@ Approved test plan: Issue #32. Evidence: `docs/evidence/qr005_offline_evidence.t
 | REQ-TA-QR-005 / QR005-04 (default vs seed 42/5351: same set, order differs, seed reproducible) | `tools/ci/pytest_seeded_order.py` (`-p ... --order-seed N`); `tools/ci/compare_orders.py` (junitxml order) | `test/offline/test_seeded_order_plugin.py` (11); `test/offline/test_compare_orders.py` (5, synthetic junitxml) | Final controlled run, `unshare -Urn`, full suite as separate processes: default/42/5351/42-repeat each 1865 passed 1 skipped (exit 0); `compare_orders.py` PASSED (identical sets, default!=42, default!=5351, 42==42-repeat) — see evidence file |
 
 Scope: QR-005 is cross-cutting verification. This slice adds only test tooling under `test/offline/` and `tools/ci/`; it does not change runtime behaviour. The pytest guard is the always-on in-suite layer; the network-namespace egress block (`unshare -Urn`, loopback only) is the independent environment layer. Both the container-style containment and the full-suite random-order run are verified locally in that isolated namespace (see `docs/evidence/qr005_offline_evidence.txt`); the CI `qr005-isolation` job was withdrawn.
+
+## SEC-001 — secret redaction and leakage prevention
+
+| Requirement | Component | Test | Monitor / CI |
+|---|---|---|---|
+| REQ-TA-SEC-001 (no configured secret appears unredacted in logs, reports, prompts, fixtures, commits, transcripts) | `redaction.py` (`redact_text`, `redact`, `redact_exception`, `REDACTED`); `cli/main.py` (sanitized error render); `cli/run.py` (two `message_tool.log` write points); `graph/trading_graph.py` (sanitized warning logs); `.github/workflows/ci.yml` `secret-scan` + `.secrets.baseline` | `test/offline/test_sec001_redaction.py` (37 tests: key/token/header/url/env/pem/path shapes, nested/non-string/unicode/malformed, idempotency, false-positive resistance, message_tool.log boundary, CLI error sanitization, gate logic) | CI job `secret-scan` (pinned detect-secrets 1.5.0, baseline-compared); see `docs/architecture/SEC-001-trace.md` |
+
+Scope: high-confidence secret shapes only; the shared sanitizer copies rather than
+mutates, is safe on malformed input, and does not read environment variables or
+record which value triggered redaction. QR-004 and FR-008 schemas are unchanged;
+their existing secret/path exclusions are regression-tested. The detect-secrets
+gate pages against a reviewed baseline so only NEW findings block a PR.
