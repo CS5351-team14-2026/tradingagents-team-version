@@ -1,7 +1,8 @@
-# Trace matrix — FR-005 / QR-002 / INV-005
+# Trace matrix — requirement → component → test/evidence → monitor
 
-Only the requirements this slice implements are listed. The authoritative
-registry is `docs/req/requirements.yaml`; the claim contract is ADR-001.
+The authoritative registry is `docs/req/requirements.yaml`. Sections appear in
+the order the work was integrated; the restate invariants and FR-001 are in the
+closing section.
 
 | Requirement | Component | Test | Monitor |
 |---|---|---|---|
@@ -120,3 +121,20 @@ mutates, is safe on malformed input, and does not read environment variables or
 record which value triggered redaction. QR-004 and FR-008 schemas are unchanged;
 their existing secret/path exclusions are regression-tested. The detect-secrets
 gate pages against a reviewed baseline so only NEW findings block a PR.
+
+## FR-001 — analysis profiles
+
+| Requirement | Component | Test | Monitor |
+|---|---|---|---|
+| REQ-TA-FR-001 (quick/standard/deep profiles resolve analyst set + round budgets; invalid rejected before any LLM call; unset reproduces v0.7.1; report records requested/overrides/resolved) | `default_config.py` (`PROFILE_NAMES`, `PROFILE_MAPPING`, `resolve_profile`); `graph/trading_graph.py` (profile resolution before client creation); `reporting.py` / `report_html.py` (requested/overrides/resolved) | `test_profiles.py`; `test_profiles_graph.py`; `test_profiles_report.py`; `test_cli_profile.py`; `test_cli_profile_e2e.py` (71 profile tests in total) | `run_settings.profile_requested` / `profile_overrides` / `profile_resolved`; state log; report header |
+
+Detailed per-clause mapping: `docs/architecture/FR-001-trace.md`. ADR-002.
+
+## Restate invariants (baseline behaviour kept, negative tests retained)
+
+| Requirement | Component | Test | Monitor |
+|---|---|---|---|
+| REQ-TA-INV-001 (invalid/contradictory rating never tradeable) | `agents/rating.py` (`parse_rating`, `RATING_REVIEW`, `is_review`, `validate_final_decision`) | `test/offline/test_rating_integrity.py` | `final_rating == REVIEW` in the state log and report header |
+| REQ-TA-INV-002 (a run dated d never receives data after d) | `dataflows/date_window.py` (`as_of`, `as_of_window`, `withhold_*`); `agents/tools.py` (tool-layer clamp); `graph/trading_graph.py` (`_validate_trade_date`); `memory/log.py` (`get_past_context` resolved-date filter) | `test/offline/test_date_boundaries.py`; `test_tool_date_enforcement.py`; `test_memory_pointintime.py` | Point-in-time notices in tool output; withheld-data labels |
+| REQ-TA-INV-003 (tool-call rounds ≤ configured cap) | `graph/setup.py` (`_analyst_graph`, `more_or_wrap_up`, `wrap_up`); construction-time `2*max_tool_rounds+2 < max_recur_limit` check | `test/offline/test_analyst_execution.py`; `test_graph_end_to_end.py`; `test_profiles_graph.py` | Per-analyst wrap-up turn; recursion-limit guard |
+| REQ-TA-INV-007 (deterministic ticker resolution) | `dataflows/symbols.py`; `agents/context.py` (`resolve_instrument_identity`, `build_instrument_context`) | `test/offline/test_symbols.py`; `test_symbol_normalization_paths.py` | Resolved instrument identity in the instrument context; unresolvable ticker rejected before the run |

@@ -1,7 +1,7 @@
 # REQ-TA-FR-002 — traceability record
 
 - Requirement: `docs/req/requirements.yaml` → REQ-TA-FR-002 (must, implement)
-- ADR: `docs/architecture/ADR-004-token-budget.md`
+- ADR: `docs/architecture/adr/004-token-budget.md`
 - Related: QR-001, QR-003, QR-004, QR-005; INV-002, INV-003, INV-005, INV-007
 - Baseline before this slice: `65c45a5` on `feat/FR002-OpenCode`.
 - Status: S1–S3 implemented on `feat/FR002-OpenCode`; verified with `ruff check .`
