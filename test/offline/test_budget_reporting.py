@@ -48,14 +48,21 @@ def test_no_ledger_means_no_budget_block():
 
 
 @pytest.mark.unit
-def test_budget_block_is_under_run_metadata_not_replayable():
-    """REQ-TA-FR-002: the budget result is observational, never replayable settings."""
+def test_budget_block_and_token_budget_are_observational_not_replayable():
+    """REQ-TA-FR-002 / FR-008: budget result and token_budget are observational.
+
+    ``token_budget`` is an execution-time safety control: it is recorded under
+    ``run_metadata`` (flat + ``run_metadata.token_budget``), never in
+    ``replayable_settings``, so a QR-004 record stays replayable by FR-008.
+    """
     graph = _bare_graph(token_budget=1000)
     graph._run_budget_tracker = RunBudgetTracker(1000)
     settings = graph.run_settings()
     assert "budget" in settings["run_metadata"]
     assert "budget" not in settings["replayable_settings"]
-    assert settings["replayable_settings"]["token_budget"] == 1000
+    assert "token_budget" not in settings["replayable_settings"]
+    assert settings["run_metadata"]["token_budget"] == 1000
+    assert settings["token_budget"] == 1000  # flat legacy observational key
 
 
 @pytest.mark.unit

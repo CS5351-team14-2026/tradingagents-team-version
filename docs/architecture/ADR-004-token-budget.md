@@ -179,3 +179,21 @@ calibration, including the reserve percentage, remains **TBD**.
 - Recovery cannot preserve identity and cumulative history.
 - A metadata consumer requires a different schema migration.
 - The phase-token-share experiment supports a proposed reserve policy.
+
+## Amendment (2026-11-19) — FR-008 reconciliation: token_budget is execution-time, not replayable
+
+REQ-TA-FR-008 (merged to `integration`) reads only a prior QR-004 record's
+`replayable_settings` + `schema_version`, with a strict v1 allowlist that does
+**not** include `token_budget`. To keep a post-FR-002 run record replayable,
+FR-002's `token_budget` is recorded **observationally** under `run_metadata`
+(`run_metadata.token_budget` and the flat legacy `token_budget` key), and the
+`run_metadata.budget` block still carries `limit`. It is **not** written to
+`replayable_settings` and is **not** replayed: a replayed run's budget comes only
+from the new invocation (`--token-budget` / env), flowing through the same single
+`RunBudgetTracker`/`StatsCallbackHandler` construction (no duplicate accounting).
+
+This supersedes the earlier statement in "Observation and record compatibility"
+that `token_budget` is recorded in `replayable_settings`. It does not change any
+budget policy (D1–D6), the `run_metadata.budget` block, the checkpoint signature
+logic (budget still enters resume identity via `config`, not the record), or the
+QR-004 `completed`/`failed` lifecycle.

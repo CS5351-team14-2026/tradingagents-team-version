@@ -277,6 +277,13 @@ def _run_details(final_state: dict, settings: dict | None) -> list[tuple[str, st
             if budget.get("usage_state"):
                 values.append(f"usage {budget['usage_state']}")
             details.append(("Budget", _fields(values)))
+        # Controlled failure (REQ-TA-QR-001; ADR-005): code + phase, safe text.
+        failure = (s("run_metadata") or {}).get("failure") or s("failure")
+        if isinstance(failure, dict) and failure.get("code"):
+            values = [failure["code"]]
+            if failure.get("phase"):
+                values.append(f"phase {failure['phase']}")
+            details.append(("Failure", _fields(values)))
     if final_state.get("memory_note"):
         details.append(("Memory log", escape(final_state["memory_note"])))
     if final_state.get("material_claims"):

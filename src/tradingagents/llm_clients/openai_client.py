@@ -381,11 +381,12 @@ class OpenAIClient(BaseLLMClient):
             elif spec.key_optional:
                 llm_kwargs["api_key"] = spec.placeholder_key
             elif api_key_env:
-                raise ValueError(
-                    f"API key for provider '{self.provider}' is not set. "
-                    f"Please set the {api_key_env} environment variable "
-                    f"(e.g. add {api_key_env}=your_key to your .env file)."
-                )
+                # A typed, catchable error so the CLI can record a controlled
+                # failure (REQ-TA-QR-001; ADR-005 D-B). Still a ValueError. The
+                # key value is never included; only the env-var name.
+                from tradingagents.failure import MissingApiKeyError
+
+                raise MissingApiKeyError(api_key_env, provider=self.provider)
 
             # The Responses API only exists on native OpenAI; if the user points
             # the openai provider at a custom base_url (proxy/gateway/local), it

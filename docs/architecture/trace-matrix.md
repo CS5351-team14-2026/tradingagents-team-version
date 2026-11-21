@@ -72,6 +72,19 @@ new invocation (`--token-budget`/env), and it flows through the same FR-002
 `StatsCallbackHandler`/`RunBudgetTracker` construction so there is one ledger
 and no duplicate accounting.
 
+## QR-001 — controlled failure scenarios
+
+| Requirement | Component | Test | Monitor / CI |
+|---|---|---|---|
+| REQ-TA-QR-001 (five controlled failure scenarios end with a defined status + safe diagnostic + zero uncaught exceptions) | `failure.py` (`FailureCode`, `build_failure`, `classify_exception`, `MissingApiKeyError`); `graph/trading_graph.py` (`_run_graph` classify → controlled `(state, REVIEW)`, budget-exhausted REVIEW mirror, missing-key at construction); `agents/structured.py` (parse/fallback no escape); `cli/run.py` (missing-key catch + record); `run_record.py` (`run_metadata.failure` allowlist); `reporting.py` / `report_html.py` (Failure line) | `test_qr001_provider_timeout.py`, `test_qr001_invalid_json.py`, `test_qr001_missing_api_key.py`, `test_qr001_stock_data_unavailable.py`, `test_qr001_budget_exhausted.py`, `test_qr001_fr008_reconcile.py` | `run_metadata.failure{code,phase,diagnostic,exception_type?}`; report `Failure:` line; CI gate 5 full offline suite |
+
+Scope: `run_metadata.failure` is a separate, observational, allowlisted block
+(`completed`/`failed` lifecycle unchanged, QR-004). It is never in
+`replayable_settings`, so a record stays replayable by FR-008. Only *classified*
+failures (timeout/transport, parse) are controlled into `(state, REVIEW)`; an
+unclassified exception is still re-raised (a genuine bug stays visible). The
+budget-exhausted code is a mirror of FR-002's `BUDGET_*` status on the REVIEW
+path; FR-002 logic is unchanged.
 ## FR-004 / INV-001 — final-decision validation
 
 Contract: ADR-003. Approved test plan: Issue #32.
