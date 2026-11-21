@@ -60,3 +60,14 @@ Format for every memo (append below, newest last):
 - Security & efficiency: no secrets; no new dependencies; CI unchanged.
 - Verdict: APPROVE pending human reviewer confirmation of the GOV statements
   and priorities (pre-draft, S1 will finalize).
+
+---
+
+## MEMO-0003 — PR #61 "batch: FR-002 + FR-004 + FR-007 + FR-008 + QR-001 + QR-004 + QR-005 (2026-11-21)"
+
+- Spec alignment: FR-007/PERF-001 eval comparison (#34, plan #39); QR-004 structured run record (#38, plan #37); FR-002 token budget with optional-call enforcement (#48, plan #46); FR-008 settings replay (#49, plan #44); FR-004 final-decision price validation + review enforcement (#52/#54/#57, plan #32); QR-005 offline isolation + seeded order (#53, plan #32); QR-001 controlled failure codes + run-record failure block (#60, plan #58); SEC-001 unfreeze/claim docs-only (#51). All plans test-approved before merge (gate 1).
+- Architecture alignment: ADR-004 (token budget) lands with FR-002; components map to existing trace-matrix rows; QR-003 layering/structural tests pass unchanged; the evaluation layer reads the public profile resolver instead of duplicating settings.
+- Code & test quality: full offline suite green on integration at 306c996 (run 44864318356, py3.11–3.14 + tz, clean-install, ruff, gates 1/3/6); negative tests in place for budget refusal at N, invented statuses/limits, untraceable claims, invalid structured output, and controlled failure paths; duplicate-delivery and concurrency covered for the budget ledger.
+- Ops metadata: ai-use-log updated in every feature PR (gate 6); trace rows in docs/architecture/trace-matrix.md; PERF-001/COST-001 thresholds remain TBD pending the live comparison — tracked in issue #62.
+- Security & efficiency: no credentials or local paths in any recorded artifact (QR-004 allowlist + FR-008 rejection tests); FR-002 caps optional LLM calls at the budget; the 18-run live comparison cost is acknowledged and deferred to #62.
+- Verdict: APPROVE (Kwok-Kwok248, 2026-11-21)
