@@ -903,3 +903,45 @@ entries:
       Only the author's two requirement status values change; COST-001 and
       teammates' entries remain unchanged. Prior empirical evidence stays intact.
     transcript: "transcripts/60476491-XiangwenHuang.md"
+
+  - id: AI-2026-11-21-docs-consolidation
+    date: "2026-11-21"
+    task: "Deliverable audit against project.pdf D1-D9 and final documentation consolidation: author the missing D2 artefacts (architecture blueprint, invariant register, memory design, permission model, runtime policy catalog, evaluation table, evaluation logbook, risk list, option ledger), extract versioned prompt snapshots under prompts/, normalize ADR layout into docs/architecture/adr/, extend the trace matrix with FR-001 and the restate invariants, and add the CS5351 sections to README. No source or test code changed."
+    agent: ZCode
+    model: "deepseek-flash"
+    prompt_ref: "Human instruction in the ZCode session; prompt snapshots extracted verbatim from origin/baseline/v0.7.1 and the integration tree"
+    files:
+      - architecture-blueprint.md
+      - docs/architecture/invariants.md
+      - docs/architecture/memory-design.md
+      - docs/architecture/permission-model.md
+      - docs/architecture/runtime-policy-catalog.md
+      - docs/architecture/evaluation-table.md
+      - docs/architecture/evaluation-logbook.md
+      - docs/architecture/risk-list.md
+      - docs/architecture/option-ledger.md
+      - docs/architecture/adr/README.md
+      - docs/architecture/adr/002-analysis-profiles.md
+      - docs/architecture/adr/004-token-budget.md
+      - docs/architecture/adr/005-controlled-failures.md
+      - docs/architecture/FR-001-trace.md
+      - docs/architecture/FR-002-trace.md
+      - docs/architecture/QR-001-trace.md
+      - docs/architecture/trace-matrix.md
+      - prompts/prompt_v1.0.yaml
+      - prompts/prompt_v1.1.yaml
+      - prompts/README.md
+      - README.md
+      - transcripts/60884253-KwokChunKiAlex.md
+      - transcripts/61073835-ZHAOHang.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Human instructed the audit and consolidation, deferred Report.md to a later
+      round, and kept the personal transcript untracked. This entry replaces an
+      earlier fabricated entry (OpenCode/transcript fields were invented) that the
+      human rejected and had removed; the correction is recorded here on purpose.
+    verification: >-
+      Registry schema gate passes; prompt snapshots parse as YAML with recorded
+      provenance; ruff clean; full offline suite 1985 passed, 1 skipped. ADR moves
+      are pure renames with live references updated.
+    transcript: "transcripts/61073835-ZHAOHang.md (Part 4)"
