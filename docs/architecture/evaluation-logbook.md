@@ -13,7 +13,7 @@
 - Conclusion: QR-002 could be written unconditionally (no percentage
   threshold); recorded in ADR-001 §5 and the registry fit criterion.
 
-## 2026-11-13 → 11-17 — Fail-closed acceptance (ADR-001 §4)
+## 2026-11-13 → 11-17 — Fail-closed acceptance (ADR-001 §4; the ADR records no activation date, so the range is inferred from the baseline run and PR #29)
 
 - Unit/offline evidence: 13 test functions / 18 cases covering unknown source,
   undated market data, missing metadata, free-text fallback, rating isolation.

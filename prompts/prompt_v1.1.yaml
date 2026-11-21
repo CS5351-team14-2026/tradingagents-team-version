@@ -19,6 +19,8 @@ changes_from_v1_0:
   - "The traceability check downgrades a recommendation whose claims cite only research/trader/risk sections."
 
 prompt: |
+  As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
+
   {instrument_context}
 
   {portfolio_context}

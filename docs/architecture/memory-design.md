@@ -60,7 +60,7 @@ ADR-007).
 The repository owns the schema and the code paths; the machine user owns the
 data files. Schema changes are additive and versioned (`BUDGET_STATE_VERSION`,
 schema-versioned run records); readers tolerate older records. The memory log
-format is stable across versions (`[date | ticker | rating | status]` +
+format is stable across versions (`[date | ticker | rating | raw% | alpha% | holding_days | resolved:<date>]` (fields accumulate as the entry settles) +
 `DECISION:` / `REFLECTION:` bodies, entries delimited by an HTML comment).
 
 ## 5. Retention

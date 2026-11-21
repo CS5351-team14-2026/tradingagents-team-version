@@ -14,6 +14,14 @@ agent: "Portfolio Manager"
 requirements: []
 
 prompt: |
+  As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
+
+  {instrument_context}
+
+  {portfolio_context}
+
+  ---
+
   **Rating Scale** (use exactly one):
   - **Buy**: Strong conviction to enter or add to position
   - **Overweight**: Favorable outlook, gradually increase exposure
