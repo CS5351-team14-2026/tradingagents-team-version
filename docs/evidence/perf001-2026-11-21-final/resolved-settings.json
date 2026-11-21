@@ -1,0 +1,66 @@
+{
+  "baseline": {
+    "analysts": [
+      "market",
+      "social",
+      "news",
+      "fundamentals"
+    ],
+    "anthropic_effort": null,
+    "data_vendors": {
+      "core_stock_apis": "yfinance",
+      "fundamental_data": "sec_edgar,yfinance",
+      "macro_data": "fred",
+      "news_data": "yfinance",
+      "prediction_markets": "polymarket",
+      "technical_indicators": "yfinance"
+    },
+    "deep_think_llm": "deepseek-flash",
+    "deep_think_provider": "deepseek",
+    "google_thinking_level": null,
+    "llm_max_retries": null,
+    "llm_provider": "deepseek",
+    "max_debate_rounds": 1,
+    "max_risk_discuss_rounds": 1,
+    "max_tokens": 8192,
+    "max_tool_rounds": 20,
+    "openai_reasoning_effort": null,
+    "output_language": "English",
+    "profile": null,
+    "quick_think_llm": "deepseek-flash",
+    "quick_think_provider": "deepseek",
+    "temperature": 0,
+    "tool_vendors": {}
+  },
+  "enhanced": {
+    "analysts": [
+      "market",
+      "news"
+    ],
+    "anthropic_effort": null,
+    "data_vendors": {
+      "core_stock_apis": "yfinance",
+      "fundamental_data": "sec_edgar,yfinance",
+      "macro_data": "fred",
+      "news_data": "yfinance",
+      "prediction_markets": "polymarket",
+      "technical_indicators": "yfinance"
+    },
+    "deep_think_llm": "deepseek-flash",
+    "deep_think_provider": "deepseek",
+    "google_thinking_level": null,
+    "llm_max_retries": null,
+    "llm_provider": "deepseek",
+    "max_debate_rounds": 1,
+    "max_risk_discuss_rounds": 1,
+    "max_tokens": 8192,
+    "max_tool_rounds": 3,
+    "openai_reasoning_effort": null,
+    "output_language": "English",
+    "profile": "quick",
+    "quick_think_llm": "deepseek-flash",
+    "quick_think_provider": "deepseek",
+    "temperature": 0,
+    "tool_vendors": {}
+  }
+}

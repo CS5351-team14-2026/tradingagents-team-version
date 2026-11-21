@@ -283,7 +283,7 @@ entries:
       - test/offline/test_evaluation.py
     human_decision: "xiangwen Huang approved the plan before implementation; required local-only detailed logs, manual Git operations and review at submission checkpoints."
     verification: "42 evaluation tests; full offline suite: 1454 passed, 1 skipped, 1 deselected; ruff and requirements schema passed. No real AI performance experiment."
-    transcript: "Detailed session notes retained locally by xiangwen Huang; not uploaded."
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
 
   - id: AI-2026-11-17-xiangwen-huang-01
     date: "2026-11-17"
@@ -300,7 +300,7 @@ entries:
       - docs/architecture/trace-matrix.md
     human_decision: "xiangwen Huang authorized completing the remaining approved scope in one round against updated teammate code; retained manual Git submission and local detailed logs."
     verification: "Full offline suite: 1542 passed, 1 skipped, 1 deselected; ruff and requirements schema passed. Real Quick-profile experiment and performance target approval remain pending; no measured speedup claimed."
-    transcript: "Detailed session notes retained locally by xiangwen Huang; not uploaded."
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
 
   - id: AI-2026-11-17-xiangwen-huang-02
     date: "2026-11-17"
@@ -312,7 +312,7 @@ entries:
       - docs/ai-use-log.yaml
     human_decision: "xiangwen Huang authorized adding minimal AI-use summaries to the repository; detailed logs remain local and Git operations remain manual."
     verification: "AI-use log validator passed; prior team entries preserved. This update does not resolve the separate test-plan approval gate."
-    transcript: "Current Codex chat; detailed session notes retained locally, not uploaded."
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
 
   - id: AI-2026-11-17-xiangwen-huang-03
     date: "2026-11-17"
@@ -327,7 +327,7 @@ entries:
       - docs/ai-use-log.yaml
     human_decision: "Authorized Quick integration and trial; peer test-plan approval remains pending, not backdated. Git remains manual."
     verification: "Quick real-graph/scripted-provider integration trial passed; no real provider call or measured production speedup claimed. See local validation report for full regression."
-    transcript: "Detailed records and PR/issue drafts retained locally by xiangwen Huang."
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
 
   - id: AI-2026-11-18-xiaokewei001-fr002
     date: "2026-11-18"
@@ -638,6 +638,107 @@ entries:
       graph e2e). ruff check . clean. Full offline suite result recorded with this
       round's report.
     transcript: "Supervised OpenCode session on branch feat/fr004-closeout; retained locally."
+
+  - id: AI-2026-11-20-xiangwen-evaluation-smoke-01
+    date: "2026-11-20"
+    task: "REQ-TA-FR-007 / PERF-001: diagnose the interrupted real trial, distinguish execution from claim acceptance, use shared usage normalization, add per-call safe diagnostics and one-pair smoke mode."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "Human-directed local session; docs/evaluation.md; ADR-002; ADR-004"
+    files:
+      - src/tradingagents/evaluation.py
+      - src/tradingagents/evaluation_runner.py
+      - src/cli/main.py
+      - test/offline/test_evaluation_runner.py
+      - docs/evaluation.md
+      - docs/evidence/perf001-2026-11-20/
+      - docs/evidence/perf001-2026-11-20-smoke-8192/
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      User authorized real provider calls, stopping the uncapped trial and using
+      the same 8192 output-token cap on both configurations. Then requested fixes
+      grounded in trial feedback and smoke checks instead of restarting 18 runs.
+      Git commit/push/PR remain manual. Detailed logs stay outside this repository.
+    verification: >-
+      ruff check . passed. Full offline regression: 1892 passed, 1 optional AWS
+      dependency test skipped, 1 live test deselected, 100 subtests passed.
+      Real capped smoke: baseline 301.27 s / 18 calls / 242809 tokens; Quick
+      270.36 s / 15 calls / 179953 tokens. Both claim audits ACCEPTED, usage
+      complete, no observed call errors or length truncation. Persisted canonical
+      metadata still lacks usage; captured as an integration follow-up. Diagnostic
+      only, not formal PERF-001 acceptance. No thresholds changed.
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
+
+  - id: AI-2026-11-21-xiangwen-pm-json-formal-01
+    date: "2026-11-21"
+    task: "REQ-TA-FR-004 / FR-007 / PERF-001: human-approved minimal PM JSON retry instruction/schema fix, HTTP-contract regression, and formal repeated real measurements."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "Prompt.md; ADR-003; approved evaluation test plan #39; explicit 2026-11-21 scope approval"
+    files:
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - test/offline/test_pm_json_contract.py
+      - docs/ai-use-log.yaml
+      - docs/evaluation.md
+    human_decision: >-
+      User explicitly permitted the proposed one-file PM JSON retry fix plus
+      regression tests and requested completion of formal testing and submission
+      materials. Shared price/strict-decoding/evidence/budget rules stay unchanged.
+      Previously authorized real DeepSeek calls and the common 8192 output cap.
+      Detailed logs remain outside Git; commit, push and PR remain manual.
+    verification: >-
+      Full offline regression after the fix: 1894 passed, 1 optional AWS test
+      skipped, 1 live test deselected, 100 subtests passed; ruff check . passed.
+      Initial fixed-revision trial stopped after four records: AAPL accepted,
+      NVDA claim-limit rejection and a baseline connection failure. Records are
+      retained outside Git; subsequent integration fixes and the final cohort are
+      documented in AI-2026-11-21-xiangwen-final-qa-02. No thresholds invented.
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
+
+  - id: AI-2026-11-21-xiangwen-final-qa-02
+    date: "2026-11-21"
+    task: "FR-007 / PERF-001 final preflight against Issue #62 and teacher D1/D2.4/D4: claim bound, canonical usage persistence, typed confidence and durable experiment recovery."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "Issue #62; test-plan #39; ADR-001/003/004; teacher project PDF pp5-6,10; explicit human request to fix all known issues before a final real run"
+    files:
+      - src/tradingagents/evaluation_checkpoint.py
+      - src/tradingagents/evaluation_runner.py
+      - src/cli/main.py
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/graph/trading_graph.py
+      - test/offline/test_evaluation_recovery.py
+      - test/offline/test_evaluation_integration_contracts.py
+      - docs/evaluation.md
+      - docs/bug-diary.md
+      - docs/review-memo.md
+      - docs/architecture/adr/007-evaluation-protocol.md
+      - docs/architecture/trace-matrix.md
+      - docs/req/requirements.yaml
+      - docs/req/requirement-candidates.md
+      - docs/ai-use-log.yaml
+      - docs/evidence/perf001-2026-11-21-final/
+    human_decision: >-
+      Human requested the task satisfy teammate/course requirements, explicitly
+      chose offline fixes first followed by one final real experiment with reuse
+      only of protocol-compatible data, and retained manual Git/PR control.
+      Prior minimal PM JSON fix was explicitly approved. The agent did not inspect
+      or echo secret contents or touch human-only rules; authorized requests used
+      the application's existing credential loader. Detailed logs stay outside Git.
+    verification: >-
+      Known failure cases were reproduced and covered with negative regressions.
+      Final preflight: 1905 passed, 1 optional AWS test skipped, 1 live test
+      deselected, 100 subtests passed; full ruff passed. Resume never repeats a
+      completed report, rejects changed source/settings before calls, and keeps
+      failed attempts. Final real cohort: 18/18 completed, 15/18 claim audits
+      ACCEPTED; 0 failed attempts retained. Runtime medians
+      417.79s -> 323.48s (22.57%); token medians
+      250148 -> 121032 (51.62%). Independent
+      statistics/CSV/source/canonical-usage checks passed. Common-cap protocol and
+      proposed target require human review; no remote CI success is claimed.
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
   - id: AI-2026-11-19-xiaokewei001-qr001
     date: "2026-11-19"
     task: "REQ-TA-QR-001 Q1-Q2: controlled failure codes and run-record failure block; sync with FR-008 (origin/integration) and reconcile FR-002 token_budget placement."
@@ -720,3 +821,85 @@ entries:
       no logging redesign, no custom-secret detection, no redact_exception redesign,
       no branch rename.
     verification: "reported in the SEC-001 review-fix session (SEC-001 focused, regression sets, full offline suite, ruff, schema, AI-use, detect-secrets)."
+
+  - id: AI-2026-11-21-xiangwen-integration-merge-03
+    date: "2026-11-21"
+    task: "Resolve manual integration merge conflicts; preserve QR-001 controlled failures and QR-004 usage persistence; exclude failure returns from FR-007/PERF-001 speedups."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "User's manual merge conflict report; approved integration completion scope; ADR-004/005/006; proposed ADR-007"
+    files:
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/evaluation_runner.py
+      - test/offline/test_evaluation_controlled_failures.py
+      - docs/review-memo.md
+      - docs/architecture/adr/007-evaluation-protocol.md
+      - docs/architecture/trace-matrix.md
+      - docs/evaluation.md
+      - docs/bug-diary.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      User manually committed evidence and merged origin/integration, then
+      supplied the conflicts for resolution under the earlier approved task.
+      Keep both sides' work; Git completion/push/PR remain manual. No new real
+      provider calls; original paid experiment source cohort stays immutable.
+    verification: >-
+      Text conflicts resolved by retaining both review memos and combining
+      usage attachment with all QR-001 terminal paths. Fifteen negative cases
+      reproduced the missing failure-return bridge before its fix. Initial full
+      offline checks exposed sandbox socket restrictions; outside the sandbox,
+      the loopback test encountered a proxy HTTP502. With localhost-only proxy
+      bypass, final offline regression passed: 1985 passed, 1 optional AWS
+      skipped, 1 live deselected, 100 subtests. Full ruff, registry schema and
+      AI-use log validation passed. Other teammates' registry/log entries and
+      the original evidence checksums are preserved. No paid rerun occurred.
+      No secret contents were inspected or echoed; human-only rules were not modified.
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
+
+  - id: AI-2026-11-21-xiangwen-secret-triage-04
+    date: "2026-11-21"
+    task: "Investigate PR #71 SEC-001 scan failure; verify checksum false positives and narrowly annotate the HTTP mock fixture."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "User request to investigate and resolve false positives; PR #71 job 136809477667; ADR-006; SEC-001 trace"
+    files:
+      - test/offline/test_pm_json_contract.py
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      User requested the cause and safe resolution of the secret-scan error.
+      Git operations remain manual. Preserve original empirical evidence and
+      keep scanning enabled. Reviewer adoption of baseline changes is pending;
+      no baseline or workflow changes were applied by the agent.
+    verification: >-
+      Pinned detect-secrets 1.5.0 reproduced the CI's 355 findings on 366 tracked
+      files without Git commands or network verification. All 354 entropy
+      findings match SHA-256 provenance/integrity strings; original evidence
+      checksums pass. One keyword finding is the fixed MockTransport credential
+      fixture, now annotated on that line only. A precise proposed baseline
+      patch is retained outside the repository for independent teammate review.
+    transcript: "transcripts/60476491-XiangwenHuang.md#conversation"
+
+  - id: AI-2026-11-21-xiangwen-transcript-closeout-05
+    date: "2026-11-21"
+    task: "Consolidate Xiangwen Huang 60476491 annotated original-language transcript; mark FR-007/PERF-001 implemented at the author's request, pending team PR review."
+    agent: Codex
+    model: "GPT-6 (exact historical deployment identifiers unavailable)"
+    prompt_ref: "Explicit author request to complete transcript and implemented fields; original conversation and final measured evidence"
+    files:
+      - transcripts/60476491-XiangwenHuang.md
+      - docs/req/requirements.yaml
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Author supplied name and student ID, authorized the individual transcript
+      and implemented status updates for subsequent teammate review, and asked
+      for a Chinese review copy retained locally only. Existing manual Git
+      control remains in force. The author subsequently requested a clean submission document and an
+      original-language raw user/assistant appendix at the end of the file. Protocol/target adoption is not fabricated.
+    verification: >-
+      All history pages were retrieved. The transcript preserves 389 available
+      user/assistant text messages from 89 turns, with the raw source appendix and engineering annotations
+      in separate sections. Credentials/private paths and UI transport IDs are removed;
+      internal reasoning, tool payloads and binary attachments are not exported.
+      Only the author's two requirement status values change; COST-001 and
+      teammates' entries remain unchanged. Prior empirical evidence stays intact.
+    transcript: "transcripts/60476491-XiangwenHuang.md"

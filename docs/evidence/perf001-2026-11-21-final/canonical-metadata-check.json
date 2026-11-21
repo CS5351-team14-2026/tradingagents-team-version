@@ -1,0 +1,174 @@
+[
+  {
+    "ticker": "AAPL",
+    "repetition": 1,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "REJECTED",
+    "claim_reasons": [
+      "UNDATED_MARKET_DATA",
+      "NO_DATED_OBSERVATION"
+    ]
+  },
+  {
+    "ticker": "AAPL",
+    "repetition": 1,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "AAPL",
+    "repetition": 2,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "AAPL",
+    "repetition": 2,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "AAPL",
+    "repetition": 3,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "AAPL",
+    "repetition": 3,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "NVDA",
+    "repetition": 1,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "NVDA",
+    "repetition": 1,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "NVDA",
+    "repetition": 2,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "NVDA",
+    "repetition": 2,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "NVDA",
+    "repetition": 3,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "REJECTED",
+    "claim_reasons": [
+      "UNDATED_MARKET_DATA",
+      "NO_DATED_OBSERVATION"
+    ]
+  },
+  {
+    "ticker": "NVDA",
+    "repetition": 3,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "MSFT",
+    "repetition": 1,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "MSFT",
+    "repetition": 1,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "MSFT",
+    "repetition": 2,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "MSFT",
+    "repetition": 2,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "MSFT",
+    "repetition": 3,
+    "variant": "baseline",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "ACCEPTED",
+    "claim_reasons": []
+  },
+  {
+    "ticker": "MSFT",
+    "repetition": 3,
+    "variant": "enhanced",
+    "usage_matches": true,
+    "confidence_matches": true,
+    "claim_acceptance": "REJECTED",
+    "claim_reasons": [
+      "UNDATED_MARKET_DATA",
+      "NO_ANALYST_REFERENCE",
+      "NO_DATED_OBSERVATION"
+    ]
+  }
+]

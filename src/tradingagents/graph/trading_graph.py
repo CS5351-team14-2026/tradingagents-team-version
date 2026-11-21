@@ -16,6 +16,7 @@ from tradingagents.dataflows.date_window import get_current_date, is_historical
 from tradingagents.dataflows.symbols import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG, _coerce, resolve_profile
 from tradingagents.llm_clients import create_tier_client, tier_provider
+from tradingagents.llm_clients.usage import UsageCallbackHandler
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
 from tradingagents.redaction import redact_text
@@ -175,7 +176,19 @@ class TradingAgentsGraph:
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
-        self.callbacks = callbacks or []
+        self.callbacks = list(callbacks or [])
+        # ADR-004 / QR-004: direct graph callers need the same observation
+        # path as the CLI. Reuse a caller-owned ledger instead of counting its
+        # tool callbacks twice; otherwise bind our own handler per execution.
+        self._external_usage_tracker = next((
+            cb.tracker for cb in self.callbacks
+            if isinstance(getattr(cb, "tracker", None), RunBudgetTracker)
+            and cb.tracker.limit == self.config.get("token_budget")
+        ), None)
+        self._usage_callback = None
+        if self._external_usage_tracker is None:
+            self._usage_callback = UsageCallbackHandler()
+            self.callbacks.append(self._usage_callback)
 
         # Resolve the profile before any model client is built: an unknown
         # profile must fail here, naming the legal values, rather than after a
@@ -439,10 +452,14 @@ class TradingAgentsGraph:
         limit = self.config.get("token_budget")
         if active is not None and active.tracker.limit == limit:
             self._run_budget_tracker = active.tracker
+            if getattr(self, "_usage_callback", None) is not None:
+                self._usage_callback.set_tracker(active.tracker)
             yield active.tracker
             return
-        tracker = RunBudgetTracker(limit)
+        tracker = getattr(self, "_external_usage_tracker", None) or RunBudgetTracker(limit)
         self._run_budget_tracker = tracker
+        if getattr(self, "_usage_callback", None) is not None:
+            self._usage_callback.set_tracker(tracker)
         with RunBudgetContext(tracker).activate():
             yield tracker
 
@@ -474,7 +491,6 @@ class TradingAgentsGraph:
                 company_name, trade_date, asset_type=asset_type,
                 checkpoint_thread_id=thread_id_value, portfolio=portfolio,
             )
-            self._attach_budget_observation()
             return result
 
     def begin_checkpoint(self, company_name, trade_date, asset_type: str = "stock", portfolio=None) -> str | None:
@@ -864,6 +880,8 @@ class TradingAgentsGraph:
         data_signal.bind()
         init_agent_state = self.create_run_state(company_name, trade_date, asset_type, portfolio)
         args = self.propagator.get_graph_args()
+        if getattr(self, "callbacks", None):
+            args.setdefault("config", {}).setdefault("callbacks", self.callbacks)
 
         # Inject the checkpoint thread_id (from checkpoint_scope) so the same
         # ticker+date+graph-shape resumes; a different one starts fresh (#1089).
@@ -888,6 +906,7 @@ class TradingAgentsGraph:
             else:
                 final_state = self.graph.invoke(graph_input, **args)
         except BaseException as exc:
+            self._attach_budget_observation()
             # REQ-TA-QR-001 (ADR-005 D-A): a provider timeout or an exhausted
             # structured path is a *controlled* failure. Record it and return a
             # non-tradeable REVIEW result rather than letting the exception
@@ -940,6 +959,7 @@ class TradingAgentsGraph:
         # REQ-TA-QR-004: stamp completed status and timestamps before the state
         # log is written, so the persisted record carries the final observations
         # rather than the pre-observation defaults.
+        self._attach_budget_observation()
         # REQ-TA-QR-001 (ADR-005; D-D1): a run whose CORE market data was
         # unavailable must not present a confident tradeable call. Record
         # STOCK_DATA_UNAVAILABLE and force the result to REVIEW (status stays
@@ -992,14 +1012,18 @@ class TradingAgentsGraph:
         # The graph's own config serves every tool call, as in propagate(), even
         # when the process-wide config has changed since. Each step runs in the
         # run's context, so the caller keeps its own between steps.
+        if getattr(self, "callbacks", None):
+            args.setdefault("config", {}).setdefault("callbacks", self.callbacks)
         context = run_config_context(self.config)
         # Bind this run's budget ledger into the same step context so callbacks
         # raised while streaming attribute usage to this run (ADR-004; FR-002).
         # A caller-supplied StatsCallbackHandler tracker is reused when present.
         tracker = getattr(self, "_run_budget_tracker", None)
         if tracker is None:
-            tracker = RunBudgetTracker(self.config.get("token_budget"))
+            tracker = getattr(self, "_external_usage_tracker", None) or RunBudgetTracker(self.config.get("token_budget"))
             self._run_budget_tracker = tracker
+        if getattr(self, "_usage_callback", None) is not None:
+            self._usage_callback.set_tracker(tracker)
         context.run(_bind_budget_context, tracker)
         stream = context.run(self.graph.stream, graph_input, subgraphs=True, **args)
         try:
@@ -1043,6 +1067,7 @@ class TradingAgentsGraph:
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
             "final_rating": run_rating(final_state),
+            "pm_confidence": final_state.get("pm_confidence"),
             # REQ-TA-FR-004: the reasons a decoded decision was not actionable
             # (empty when accepted). Persisted beside the rating so the state log
             # records why a REVIEW run was not a tradeable call.

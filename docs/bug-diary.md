@@ -55,3 +55,49 @@ during implementation rounds.
   only enforced on the header/state, not on the decision region the reader sees.
   The lesson: test at the real boundary (raw HTTP / parsed instance) and assert
   the rendered surface, not just persisted state.
+
+## 2026-11-21 — FR-007 live evaluation exposed integration defects
+
+- **PM JSON retry HTTP400 (FR-004/FR-007; ADR-003).** A real Quick run reached
+  free-text fallback and was REJECTED. A two-request real probe isolated the
+  endpoint precondition: the PM JSON-mode retry lacked an explicit JSON prompt
+  instruction; tool-mode schema binding does not supply that instruction for
+  JSON mode. Fix: append JSON output instruction and the existing PortfolioDecision
+  schema only to that retry. Negative HTTP-contract test and strict NaN control:
+  `test_pm_json_contract.py`. The human explicitly approved this scope expansion.
+- **Four supporting claims (FR-005/INV-005; ADR-001).** A later NVDA report
+  contained 4 supporting and 3 opposing claims and was correctly REJECTED with
+  CLAIM_LIMIT_EXCEEDED. The producer schema described three but imposed no bound.
+  Fix: max_length=3 on each list, causing malformed outputs to follow the existing
+  structured retry/fallback path. No slicing, fake acceptance, or audit relaxation.
+  Negative schema tests: `test_evaluation_integration_contracts.py`.
+- **Persisted usage missing (QR-004/FR-002/FR-007; ADR-004).** Comparison callbacks
+  saw complete tokens while direct graph full-state metadata was null. The graph
+  had no shared usage handler for direct callers, and attached its ledger after
+  persistence. Fix: per-run shared handler or compatible caller ledger, callback
+  propagation, and attachment before terminal persistence (including failures).
+  Real-graph mocked-provider tests cover both direct and CLI-style callers.
+- **Interruption repeats completed work (FR-007/PERF-001).** Pair-level checkpoints
+  did not preserve an independently finished side. Fix: atomic per-run journal,
+  strict source/input fingerprint, directory ownership and explicit failed-run
+  retry. Recovery tests demonstrate no re-billing of completed work and retention
+  of failed attempts. Network connection failures remain external failure modes;
+  recovery mitigates them without claiming they can never occur.
+
+Detailed diagnosis, source revisions and raw private reports stay in the sibling
+local log directories per human instruction. Published evidence includes safe
+measurements and limitations, not credentials or private full reports.
+
+## 2026-11-21 — returned controlled failures looked like fast successful runs
+
+- Requirements: REQ-TA-FR-007 / PERF-001; integration REQ-TA-QR-001 / QR-004.
+- Trigger: merge the QR-001 contract, where a provider timeout or structured parse
+  failure returns REVIEW and a safe failure block instead of raising.
+- Gap: the evaluator initially only caught exceptions, so it marked this return
+  as completed. Fifteen new negative cases reproduced the mistake before repair.
+- Fix: inspect public run metadata and returned run_failure; failure-marked runs
+  stay in raw measurements but cannot enter successful-pair speedups. Preserve
+  partial observed tokens and keep ordinary claim rejection separate.
+- Verification: test_evaluation_controlled_failures.py covers all five codes via
+  state/metadata/lifecycle, review-only completion, and real graph timeout usage
+  persistence. Full post-merge regression recorded in the review memo.

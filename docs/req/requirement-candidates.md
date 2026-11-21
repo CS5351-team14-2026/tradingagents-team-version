@@ -798,8 +798,8 @@ precede it.
 
 | Threshold | What must be measured | Controlled variables | Expected output | Live/paid calls? |
 | --- | --- | --- | --- | --- |
-| CAND-NFR-01 token reduction % | Total tokens (in+out) per run, baseline vs quick, 3–5 fixed cases | Same provider, models, temperature, analysts, vendors, dates | Per case: tokens_in/out, total; median % reduction | **Yes** (real usage); mock harness first |
-| CAND-NFR-02 runtime reduction % | Wall-clock per run, baseline vs quick, >=3 repeats | Same provider/network, models, temperature; note time of day | Per case/repeat: seconds; median and spread | **Yes**; timing testable offline |
+| CAND-NFR-01 token reduction %  — recorded 2026-11-21 | Total tokens (in+out) per run, baseline vs quick, 3–5 fixed cases | Same provider, models, temperature, analysts, vendors, dates | Per case: tokens_in/out, total; median % reduction  Recorded: tokens 250148 -> 121032, 51.62%; [raw evidence](../evidence/perf001-2026-11-21-final/README.md), 9 pairs; target proposal awaits human adoption. | **Yes** (real usage); mock harness first |
+| CAND-NFR-02 runtime reduction %  — recorded 2026-11-21 | Wall-clock per run, baseline vs quick, >=3 repeats | Same provider/network, models, temperature; note time of day | Per case/repeat: seconds; median and spread  Recorded: seconds 417.79 -> 323.48, 22.57%; [raw evidence](../evidence/perf001-2026-11-21-final/README.md), 9 pairs; target proposal awaits human adoption. | **Yes**; timing testable offline |
 | CAND-NFR-04 traceability fraction | Attributable fraction of material claims in sampled reports | Fixed sample of N reports from defined cases | Per report: claims, # attributable, fraction | Partial: fixtures offline; real runs live |
 | Token-budget policy constants (CAND-FR-02) | Token share of final-report phase vs earlier phases (reserve sizing) | Same provider/model; several tickers | Distribution by phase; chosen reserve % | **Yes** to characterise |
 | "Strong analyst disagreement" definition (CAND-FR-06) | Distribution of agreement/disagreement signals over sample runs | Fixed ticker/date set | Histogram; chosen deterministic threshold | **Yes** to calibrate |

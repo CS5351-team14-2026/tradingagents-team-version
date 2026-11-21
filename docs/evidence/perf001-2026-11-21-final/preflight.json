@@ -1,0 +1,10 @@
+{
+  "offline_passed": 1905,
+  "offline_skipped": 1,
+  "skip_reason": "optional langchain_aws not installed",
+  "live_deselected": 1,
+  "subtests_passed": 100,
+  "ruff": "passed",
+  "python": "3.13.9",
+  "remote_ci": "not claimed; runs after manual PR"
+}

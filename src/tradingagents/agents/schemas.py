@@ -303,6 +303,7 @@ class PortfolioDecision(BaseModel):
     )
     supporting_factors: list[MaterialClaim] = Field(
         default_factory=list,
+        max_length=3,
         description=(
             "Exactly three material claims that support the rating, each linked to "
             "the report artifact it came from (ADR-001)."
@@ -310,6 +311,7 @@ class PortfolioDecision(BaseModel):
     )
     opposing_factors: list[MaterialClaim] = Field(
         default_factory=list,
+        max_length=3,
         description=(
             "Exactly three material claims that argue against the rating, each "
             "linked to the report artifact it came from (ADR-001)."

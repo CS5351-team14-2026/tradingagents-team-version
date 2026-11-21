@@ -76,6 +76,7 @@ class AgentState(MessagesState):
     ]
     final_trade_decision: Annotated[str, "Final decision from the Portfolio Manager"]
     final_rating: Annotated[str, "The Portfolio Manager's 5-tier rating, or REVIEW when it has none"]
+    pm_confidence: Annotated[str | None, "REQ-TA-FR-007: confidence from the typed PM decision; unavailable for prose fallback"]
     decision_review_reasons: Annotated[
         list,
         "Why a decoded final decision is not actionable (REQ-TA-FR-004): stable "

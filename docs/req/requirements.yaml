@@ -118,10 +118,10 @@ requirements:
     type: functional
     statement: "The system shall provide an evaluation command that runs or compares the baseline and enhanced configurations on the same ticker/analysis date and reports execution time, LLM calls, tokens, estimated cost (when pricing is configured), debate rounds, recommendation, confidence, and completion status, exported to JSON/CSV with percentage reductions."
     fit_criterion: "given the same ticker and cutoff date the command runs both configurations with pinned model/provider/temperature, exports per-run metrics to JSON or CSV, computes percentage reductions in runtime and tokens, and reports unavailable provider usage as 'unavailable' (no undisclosed estimates); demonstrable on >=3 stock/date cases."
-    enforcing_component: "cli/main.py, backtest.py, graph/trading_graph.py, cli/stats_handler.py"
+    enforcing_component: "src/cli/main.py::compare; src/tradingagents/evaluation.py; src/tradingagents/evaluation_runner.py; src/tradingagents/evaluation_checkpoint.py"
     priority: must
-    status: implement #xiangwen Huang
-    source: "requirement-candidates.md CAND-FR-07; baseline: backtest.py scores decisions over a date grid; no baseline-vs-enhanced comparison command"
+    status: implemented #Xiangwen Huang; author closeout, team PR review pending
+    source: "requirement-candidates.md CAND-FR-07; baseline: backtest.py scores decisions over a date grid; no baseline-vs-enhanced comparison command; real 3-case/3-repeat evidence: docs/evidence/perf001-2026-11-21-final/README.md"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-002]
       cost: [REQ-TA-COST-001]
@@ -146,22 +146,22 @@ requirements:
   - id: REQ-TA-COST-001
     type: cost
     statement: "The system shall demonstrate a measured reduction in total LLM tokens per run (input + output) for the quick profile relative to the baseline configuration, with the numeric threshold adopted only after the baseline experiment is recorded."
-    fit_criterion: "metric: total tokens per run, quick profile vs unmodified default configuration, 3-5 fixed ticker/date cases; controlled variables: same provider, model IDs, temperature, analysts, vendors, dates; threshold: TBD until the baseline experiment (requirement-candidates.md §8 row 1) is recorded and a median reduction is computed; verification: automated comparison over the fixed case set via REQ-TA-FR-007 with logged token totals as evidence."
+    fit_criterion: "metric: median provider-reported total tokens per run, baseline vs Quick; 3 fixed cases x 3 repetitions/configuration on the same provider/models/temperature/vendors, with the approved profile mapping as treatment and no whole-run token budget; measured complete paired token medians baseline=250148, Quick=121032, observed reduction=51.615843%; post-measurement threshold proposal: strict positive reduction (>0%), pending human adoption; ownership/status unchanged; verification: raw comparison JSON/CSV, complete paired usage, failure retention and independent median calculation; common max_tokens=8192 explicit; evidence: docs/evidence/perf001-2026-11-21-final/README.md"
     enforcing_component: "measurement harness: cli/main.py + backtest.py (REQ-TA-FR-007); lever: REQ-TA-FR-001 quick profile + REQ-TA-FR-002 budget"
     priority: wont  # unclaimed at S1 scope freeze
     status: candidate
-    source: "requirement-candidates.md CAND-NFR-01 (paired with FR-02 per §7 Package A); threshold TBD rule §8"
+    source: "requirement-candidates.md CAND-NFR-01 (paired with FR-02 per §7 Package A); threshold TBD rule §8; recorded token medians (not billing): docs/evidence/perf001-2026-11-21-final/README.md"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-002, REQ-TA-FR-007]
 
   - id: REQ-TA-PERF-001
     type: performance
     statement: "The system shall demonstrate a measured reduction in median end-to-end wall-clock time per run for the quick profile relative to the baseline configuration, with the numeric threshold adopted only after latency is measured."
-    fit_criterion: "metric: median end-to-end wall-clock seconds per run, quick profile vs baseline; >=3 repeated cases per configuration on the same provider/network; threshold: TBD until timing is measured (requirement-candidates.md §8 row 2); no absolute target (e.g. 'under 30 s') before API/network latency data exists; verification: timestamp capture around each run via REQ-TA-FR-007; report median and spread."
-    enforcing_component: "measurement harness: cli/main.py + backtest.py (REQ-TA-FR-007); lever: REQ-TA-FR-001"
+    fit_criterion: "metric: paired median end-to-end wall-clock seconds, Quick vs capped no-profile baseline; 3 fixed cases x 3 repetitions/configuration, same provider/models/temperature/vendors/network; recorded medians baseline=417.792521s, Quick=323.477143s, observed reduction=22.574693%; post-measurement threshold proposal: strictly positive reduction (>0%), pending team PR adoption; verify timestamp captures, min/max/N and all failures via FR-007; common max_tokens=8192 is explicit, no whole-run token budget; evidence: docs/evidence/perf001-2026-11-21-final/README.md"
+    enforcing_component: "src/tradingagents/evaluation_runner.py::run_comparison; src/tradingagents/evaluation.py::ComparisonResult.summary; lever src/tradingagents/default_config.py::resolve_profile"
     priority: should
-    status: implement #xiangwen Huang
-    source: "requirement-candidates.md CAND-NFR-02; threshold TBD rule §8"
+    status: implemented #Xiangwen Huang; author closeout, team PR review pending
+    source: "requirement-candidates.md CAND-NFR-02; threshold TBD rule §8; measured baseline and proposal: docs/evidence/perf001-2026-11-21-final/README.md"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-007]
 

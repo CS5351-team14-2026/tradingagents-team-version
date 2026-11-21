@@ -95,6 +95,9 @@ class RunMetrics:
     pricing: TokenPricing | None = None
     settings: dict = field(default_factory=dict)
     failure_reason: str | None = None
+    acceptance_status: str = "NOT_ASSESSED"
+    acceptance_reasons: tuple[str, ...] = ()
+    diagnostics: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # REQ-TA-FR-007: keep bad telemetry out of exported comparisons.
@@ -169,6 +172,9 @@ def _run_row(run: RunMetrics) -> dict:
         "variant": run.variant,
         "status": run.status,
         "failure_reason": _present(run.failure_reason),
+        "acceptance_status": run.acceptance_status,
+        "acceptance_reasons": json.dumps(run.acceptance_reasons),
+        "diagnostics": json.dumps(run.diagnostics, sort_keys=True),
         "elapsed_seconds": run.elapsed_seconds,
         "llm_calls": _present(run.llm_calls),
         "tokens_in": _present(run.tokens_in),
@@ -222,6 +228,8 @@ class ComparisonResult:
                 "analysis_date": case.analysis_date,
                 "repetition": repetition,
                 "comparison_status": "completed" if comparable else "failed_pair",
+                "report_pair_accepted": comparable and baseline.acceptance_status == enhanced.acceptance_status == "ACCEPTED",
+                "comparison_scope": "execution_time_only_not_quality_acceptance",
                 "runtime_reduction_percent": _present(runtime),
                 "token_reduction_percent": _present(tokens),
             })
@@ -233,6 +241,7 @@ class ComparisonResult:
         valid = {(r['ticker'], r['analysis_date'], r['repetition'])
                  for r in rows if r['comparison_status'] == 'completed'}
         result = {'successful_pairs': len(valid), 'failed_pairs': len(rows) - len(valid),
+                  'accepted_report_pairs': sum(r['report_pair_accepted'] for r in rows),
                   'target': 'TBD', 'target_verdict': 'not_assessed'}
         medians = {}
         for variant in ('baseline', 'enhanced'):
