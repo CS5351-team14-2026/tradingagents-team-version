@@ -855,3 +855,26 @@ entries:
       the original evidence checksums are preserved. No paid rerun occurred.
       No secret contents were inspected or echoed; human-only rules were not modified.
     transcript: "Sibling xiangwen-local-logs/2026-11-21-merge-integration; detailed records remain local."
+
+  - id: AI-2026-11-21-xiangwen-secret-triage-04
+    date: "2026-11-21"
+    task: "Investigate PR #71 SEC-001 scan failure; verify checksum false positives and narrowly annotate the HTTP mock fixture."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "User request to investigate and resolve false positives; PR #71 job 136809477667; ADR-006; SEC-001 trace"
+    files:
+      - test/offline/test_pm_json_contract.py
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      User requested the cause and safe resolution of the secret-scan error.
+      Git operations remain manual. Preserve original empirical evidence and
+      keep scanning enabled. Reviewer adoption of baseline changes is pending;
+      no baseline or workflow changes were applied by the agent.
+    verification: >-
+      Pinned detect-secrets 1.5.0 reproduced the CI's 355 findings on 366 tracked
+      files without Git commands or network verification. All 354 entropy
+      findings match SHA-256 provenance/integrity strings; original evidence
+      checksums pass. One keyword finding is the fixed MockTransport credential
+      fixture, now annotated on that line only. A precise proposed baseline
+      patch is retained outside the repository for independent teammate review.
+    transcript: "Sibling xiangwen-local-logs/2026-11-21-secret-scan; no credential contents copied."

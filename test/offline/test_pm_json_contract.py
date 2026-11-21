@@ -49,7 +49,7 @@ def test_json_retry_obeys_endpoint_contract_and_preserves_strict_decode(nonfinit
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         model = OpenAIClient(
             "deepseek-flash", base_url="https://example.invalid", provider="deepseek",
-            api_key="fixture-only", max_retries=0, http_client=client,
+            api_key="fixture-only", max_retries=0, http_client=client,  # pragma: allowlist secret -- MockTransport fixture, not a credential
         ).get_llm()
         result = _invoke_json_mode(model, "Weigh these reports and deliver the final decision.")
 
