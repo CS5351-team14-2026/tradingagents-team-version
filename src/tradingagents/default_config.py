@@ -27,6 +27,9 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_TEMPERATURE":          "temperature",
     "TRADINGAGENTS_LLM_MAX_RETRIES":      "llm_max_retries",
     "TRADINGAGENTS_MAX_TOKENS":           "max_tokens",
+    # Per-run token budget (REQ-TA-FR-002): blocks subsequent optional LLM calls
+    # once recorded usage reaches it. Unset disables enforcement (baseline).
+    "TRADINGAGENTS_TOKEN_BUDGET":         "token_budget",
     # Provider-specific reasoning/thinking knobs (None = each provider's own
     # default). Settable here for non-interactive runs; the CLI also offers an
     # interactive choice, which is skipped when the matching var is set.
@@ -70,10 +73,32 @@ def _apply_env_overrides(config: dict) -> dict:
         if raw is None or raw == "":
             continue
         try:
-            config[key] = _coerce(raw, config.get(key))
+            # A None-default key has no reference type; a key with a declared
+            # type is coerced to it even from None, so e.g. a non-integer token
+            # budget fails loudly at startup instead of passing as a string.
+            if key in _ENV_TYPED_INT_KEYS:
+                config[key] = _coerce_nonneg_int(raw)
+            else:
+                config[key] = _coerce(raw, config.get(key))
         except ValueError as exc:
             raise ValueError(f"Invalid value for {env_var}: {exc}") from exc
     return config
+
+
+# Config keys whose env value must be a (non-negative) integer even though the
+# built-in default is None, so ``_coerce`` has no reference type to consult.
+_ENV_TYPED_INT_KEYS = frozenset({"token_budget"})
+
+
+def _coerce_nonneg_int(raw: str) -> int:
+    """A non-negative integer from an env string; anything else raises (FR-002 D6)."""
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"expected a non-negative integer, got {raw!r}") from exc
+    if value < 0:
+        raise ValueError(f"expected a non-negative integer, got {value}")
+    return value
 
 
 def build_default_config() -> dict:
@@ -125,6 +150,13 @@ def build_default_config() -> dict:
         # unbounded reasoning/output and hangs or trips a gateway idle timeout
         # (e.g. some deepseek-v4-flash deployments, #1204).
         "max_tokens": None,
+        # Per-run token budget for REQ-TA-FR-002 (ADR-004). A non-negative int
+        # caps *subsequent optional* LLM calls once recorded usage reaches it;
+        # None disables enforcement and reproduces the v0.7.1 baseline. This is
+        # not ``max_tokens`` (a per-call output cap). Interacts with checkpoint
+        # resume identity only when set. The final-report reserve percentage
+        # remains TBD until the phase-token-share experiment (ADR-004).
+        "token_budget": None,
         # Checkpoint/resume: when True, LangGraph saves state after each node
         # so a crashed run can resume from the last successful step.
         "checkpoint_enabled": False,

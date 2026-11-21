@@ -13,6 +13,7 @@ free-text generation and the rating is read from that text.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 
 from tradingagents.agents.context import (
     get_instrument_context_from_state,
@@ -20,13 +21,22 @@ from tradingagents.agents.context import (
     get_portfolio_context_from_state,
     report_or_absent,
 )
-from tradingagents.agents.rating import parse_rating
+from tradingagents.agents.rating import (
+    parse_rating,
+    validate_final_decision,
+)
 from tradingagents.agents.schemas import (
     CLAIM_SOURCE_IDS,
     PortfolioDecision,
+    StrictJSONDecodeError,
+    build_decision,
+    decision_raw_mapping,
+    decode_strict_json,
+    raw_model_text,
     render_pm_decision,
 )
-from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
+from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured
+from tradingagents.llm_clients.invocation import admit_optional
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +67,62 @@ def primary_analyst_evidence(state) -> str:
     )
 
 
-def _invoke_json_mode(llm, prompt) -> PortfolioDecision | None:
+def _structured_with_raw(structured_llm, prompt, agent_name):
+    """Run the structured call keeping the raw payload, retrying once; ``None`` on a miss.
+
+    Mirrors :func:`tradingagents.agents.structured.invoke_structured` — the same
+    one retry, the same budget gate on the retry — but returns the raw mapping the
+    model produced alongside the decision, so the final-decision validator can
+    read ``entry_price``/``stop_loss`` as written rather than as coerced
+    (Implements: REQ-TA-FR-004). An unparsable body is a miss, exactly as before.
+    """
+    if structured_llm is None:
+        return None
+    for attempt in range(2):
+        if attempt and not admit_optional("retry").allowed:
+            logger.warning("%s: budget refused the structured retry; not retrying", agent_name)
+            return None
+        try:
+            result = structured_llm.invoke(prompt)
+            if result is None:
+                raise ValueError("structured output returned no parsed result")
+            raw = decision_raw_mapping(result)
+            if raw is None:
+                raise ValueError("structured output was not a decision")
+            decision = result if isinstance(result, PortfolioDecision) else build_decision(raw)
+            return decision, raw
+        except Exception as exc:
+            if attempt == 0:
+                logger.warning(
+                    "%s: structured-output invocation failed (%s); retrying the "
+                    "structured call once", agent_name, exc)
+                continue
+            logger.warning(
+                "%s: structured-output invocation failed (%s); retrying once as free text",
+                agent_name, exc)
+            return None
+    return None
+
+
+def _invoke_json_mode(llm, prompt) -> tuple[PortfolioDecision, dict] | None:
     """Retry the decision as JSON before free text (deepseek-flash misses tool calls).
 
-    A json_mode result is still a structured decision, so the claims/rating path
-    is unchanged and ``claim_fallback`` stays ``None`` (ADR-001).
+    Returns the decision plus the raw mapping it decoded from, so the same price
+    validation runs on a JSON-mode answer as on a schema answer
+    (Implements: REQ-TA-FR-004). A bare ``NaN``/``Infinity`` token is a strict
+    decode failure and becomes a miss, following the existing fallback path.
+
+    The bare-token check happens at the *raw-response* layer: the binding is made
+    with ``include_raw=True`` so the untouched ``AIMessage`` is available. The
+    provider's own parser (``json.loads``) would turn a bare ``NaN`` into a
+    ``PortfolioDecision`` with ``float('nan')`` and hide the decode failure, so the
+    raw text is strict-decoded first (ADR-003 §6). A body that *does* decode — even
+    one carrying a rejected price — is not re-decoded here; its prices go to the
+    normal validator, which returns ``invalid_*`` and does not retry (ADR-003 §5).
     """
     try:
-        structured_json = llm.with_structured_output(PortfolioDecision, method="json_mode")
+        structured_json = llm.with_structured_output(
+            PortfolioDecision, method="json_mode", include_raw=True)
     except (NotImplementedError, AttributeError) as exc:
         logger.warning("PM: json_mode retry failed (binding: %s)", exc)
         return None
@@ -72,12 +130,54 @@ def _invoke_json_mode(llm, prompt) -> PortfolioDecision | None:
         result = structured_json.invoke(prompt)
         if result is None:
             raise ValueError("json_mode returned no result")
-        if isinstance(result, PortfolioDecision):
-            return result
-        return PortfolioDecision.model_validate_json(result)
+        result, raw = _json_mode_payload(result)
+        if result is None:
+            raise ValueError("json_mode returned no decision")
+        return result, raw
+    except StrictJSONDecodeError as exc:
+        logger.warning("PM: json_mode retry failed (strict decode: %s)", exc)
+        return None
     except Exception as exc:
         logger.warning("PM: json_mode retry failed (%s)", exc)
         return None
+
+
+def _json_mode_payload(result) -> tuple[PortfolioDecision | None, dict]:
+    """Normalise a JSON-mode result to ``(decision, raw_mapping)``; miss on failure.
+
+    Two shapes reach here. The real binding (``include_raw=True``) returns a dict
+    of ``raw`` / ``parsed`` / ``parsing_error``; the raw text is strict-decoded so a
+    bare non-finite token is a decode miss before the parser's value is trusted.
+    A test double (or an older binding) returns the decision directly; that is the
+    already-decoded case, validated on its own prices (a decoded non-finite float
+    is an ``invalid_*`` price, not a decode miss).
+    """
+    if isinstance(result, dict) and ("raw" in result or "parsed" in result):
+        parsed = result.get("parsed")
+        parsing_error = result.get("parsing_error")
+        raw_text = raw_model_text(result.get("raw"))
+        if raw_text is not None:
+            # Judge the raw body first: a bare NaN/Infinity/-Infinity (or any
+            # non-strict body) is a decode miss, not a supplied price.
+            decoded = decode_strict_json(raw_text)
+            if parsed is None or parsing_error is not None:
+                raise StrictJSONDecodeError(str(parsing_error or "unparsable body"))
+            if not isinstance(decoded, Mapping):
+                raise StrictJSONDecodeError("a decision body must be a JSON object")
+            return build_decision(decoded), dict(decoded)
+        # No raw body to judge (empty content): defer to the parser's result.
+        if parsed is None:
+            return None, {}
+        raw = decision_raw_mapping(parsed)
+        if raw is None:
+            raise ValueError("json_mode returned no decision")
+        return (parsed if isinstance(parsed, PortfolioDecision) else build_decision(raw)), raw
+
+    raw = decision_raw_mapping(result)
+    if raw is None:
+        raise ValueError("json_mode returned no decision")
+    decision = result if isinstance(result, PortfolioDecision) else build_decision(raw)
+    return decision, raw
 
 
 def create_portfolio_manager(llm):
@@ -162,13 +262,29 @@ traceability check.
 
         # The typed rating is the decision; the rendered text only carries it.
         # Read back from text, a rating the thesis quotes could replace it.
-        decision = invoke_structured(structured_llm, prompt, "Portfolio Manager")
-        if decision is None:
-            decision = _invoke_json_mode(llm, prompt)
+        # The structured call (with its own gated retry) is the required
+        # synthesis; the JSON-mode retry and free-text fallback are optional and
+        # stop once the budget refuses (Implements: ADR-004; REQ-TA-FR-002).
+        # Each answer keeps the raw payload it came from, so the final-decision
+        # validator reads the prices as written (Implements: REQ-TA-FR-004).
+        result = _structured_with_raw(structured_llm, prompt, "Portfolio Manager")
+        if result is None and admit_optional("pm_json_retry").allowed:
+            result = _invoke_json_mode(llm, prompt)
+
+        decision = None
+        raw_prices: dict = {}
+        decision_review_reasons: list[str] = []
         claims = []
-        if decision is not None:
+        if result is not None:
+            decision, raw = result
+            # A decoded decision is validated as a whole (REQ-TA-FR-004): its
+            # rating must resolve, and every supplied price must be a finite,
+            # strictly positive number (both required for Buy/Overweight). An
+            # invalid price is terminal REVIEW — never a retry that borrows a
+            # price from somewhere else.
+            final_rating, decision_review_reasons, raw_prices = validate_final_decision(
+                decision.rating.value, raw)
             final_trade_decision = render_pm_decision(decision)
-            final_rating = decision.rating.value
             # ADR-001: a material claim is exactly an item in these two lists.
             claims = [
                 {
@@ -184,8 +300,25 @@ traceability check.
                 for claim in factors
             ]
         else:
-            final_trade_decision = llm.invoke(prompt).content
-            final_rating = parse_rating(final_trade_decision)
+            # The free-text fallback is optional; if the budget refuses it, the
+            # run still ends with a controlled, non-tradeable REVIEW rather than
+            # an uncaught error or a fabricated recommendation (ADR-004 D4).
+            if admit_optional("pm_fallback").allowed:
+                final_trade_decision = llm.invoke(prompt).content
+            else:
+                final_trade_decision = (
+                    "No recommendation could be produced within the token budget; "
+                    "the run ended with REVIEW for human review."
+                )
+            # The prose carries no price levels, so its rating is run through the
+            # same price policy the decoded paths use: a free-text Buy/Overweight
+            # (which requires prices) becomes REVIEW with the two missing-price
+            # reasons; Hold/Underweight/Sell need none and pass unchanged. This
+            # reuses the validator rather than inventing a second rule
+            # (REQ-TA-FR-004; ADR-003 §6).
+            prose_rating = parse_rating(final_trade_decision)
+            final_rating, decision_review_reasons, _ = validate_final_decision(
+                prose_rating, {})
 
         new_risk_debate_state = {
             "history": risk_debate_state["history"],
@@ -199,10 +332,21 @@ traceability check.
             "count": risk_debate_state["count"],
         }
 
+        # REQ-TA-FR-004 (FR004-01): the validated price levels, published for the
+        # run-state log. Only an accepted (non-REVIEW) decision carries prices;
+        # a REVIEW publishes {} so no half-validated level is read as a call.
+        final_prices = raw_prices if not decision_review_reasons else {}
+
         return {
             "risk_debate_state": new_risk_debate_state,
             "final_trade_decision": final_trade_decision,
             "final_rating": final_rating,
+            # REQ-TA-FR-004: why a decoded decision was not actionable; empty
+            # when it was accepted. At least one reason means final_rating=REVIEW.
+            "decision_review_reasons": decision_review_reasons,
+            # REQ-TA-FR-004 (FR004-01): {"entry_price": <float>, "stop_loss":
+            # <float>} when accepted, {} on REVIEW.
+            "final_prices": final_prices,
             "material_claims": claims,
             # ADR-001: makes a structured-output miss visible to the audit,
             # which otherwise cannot tell it from a model that emitted no claims.

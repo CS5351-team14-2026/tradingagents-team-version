@@ -9,12 +9,63 @@ run produces the same on-disk report tree a CLI run does.
 from datetime import datetime
 from pathlib import Path
 
-from tradingagents.agents.rating import run_rating
+from tradingagents.agents.rating import RATING_REVIEW, run_rating
 
 
 def analyst_names(keys) -> list[str]:
     """The analysts as users select them: the sentiment analyst's key is "social"."""
     return ["sentiment" if key == "social" else key for key in keys or []]
+
+
+# Human-readable phrasing for the machine-readable review reasons (REQ-TA-FR-004).
+_REVIEW_REASON_TEXT = {
+    "unresolved_rating": "the rating could not be resolved to a single tier",
+    "missing_entry_price": "the entry price required for this rating is missing",
+    "missing_stop_loss": "the stop-loss required for this rating is missing",
+    "invalid_entry_price": "the entry price supplied is not a usable price",
+    "invalid_stop_loss": "the stop-loss supplied is not a usable price",
+}
+
+
+def review_summary_text(final_state: dict) -> str:
+    """The single REVIEW summary shown wherever the final decision is presented.
+
+    Implements REQ-TA-FR-004 / REQ-TA-INV-001 and ADR-003 §7. When the run's
+    rating is REVIEW the model's own decision text (its ``Rating:`` line and entry
+    instructions) must not be shown as an executable call, so every surface — CLI
+    panel, Markdown §V, HTML body — renders this one summary instead. It names the
+    recorded reasons. A verdict that was not a REVIEW returns the empty string.
+    """
+    if run_rating(final_state) != RATING_REVIEW:
+        return ""
+    reasons = list(final_state.get("decision_review_reasons") or [])
+    lines = [
+        "**Rating**: REVIEW",
+        "",
+        "**Status**: Recorded for review rather than as a tradeable position; "
+        "no entry, exit or sizing instruction is presented.",
+    ]
+    if reasons:
+        lines.extend(["", "**Review reasons**:"])
+        for reason in reasons:
+            text = _REVIEW_REASON_TEXT.get(reason)
+            lines.append(f"- `{reason}`" + (f" — {text}" if text else ""))
+    return "\n".join(lines)
+
+
+def decision_display_text(final_state: dict) -> str:
+    """The text shown in the final-decision region, REVIEW-aware for any state.
+
+    For an accepted decision this is the stored ``final_trade_decision`` unchanged.
+    For a REVIEW it is :func:`review_summary_text`, so a state whose decision text
+    still carries the model's original Buy/Hold rating (a fresh REVIEW, or a run
+    saved by an older version before the summary existed) is reconciled on read
+    and never presents the superseded rating as the call (ADR-003 §7).
+    """
+    summary = review_summary_text(final_state)
+    if summary:
+        return summary
+    return final_state.get("final_trade_decision") or ""
 
 
 def _override_value(value):
@@ -28,6 +79,64 @@ def _override_value(value):
     return value
 
 
+def _token_usage_line(meta: dict, get) -> str | None:
+    """The report's token-usage line (Implements: REQ-TA-QR-004).
+
+    Renders complete usage as in/out/total counts; incomplete usage is shown as
+    ``Tokens: unavailable`` so a partial total is never mistaken for a complete
+    one. Presentation text only — the record keeps null values with
+    ``usage_complete=false``.
+    """
+    complete = meta.get("usage_complete", get("usage_complete"))
+    if complete:
+        tokens_in = meta.get("tokens_in", get("tokens_in"))
+        tokens_out = meta.get("tokens_out", get("tokens_out"))
+        total = meta.get("total_tokens", get("total_tokens"))
+        if isinstance(total, int) and total >= 0:
+            return (f"- Tokens: {tokens_in} in, {tokens_out} out, {total} total")
+    return "- Tokens: unavailable"
+
+
+def _budget_line(budget: dict) -> str | None:
+    """The run's budget result as one report line (Implements: REQ-TA-FR-002).
+
+    Status and the aggregate usage state, plus a reason code. Unavailable
+    totals are not printed; the token line already renders "unavailable".
+    """
+    status = budget.get("status")
+    if not status:
+        return None
+    limit = budget.get("limit")
+    state = budget.get("usage_state")
+    reasons = budget.get("reason_codes") or []
+    parts = [status]
+    if limit is not None:
+        parts.append(f"limit {limit}")
+    if state:
+        parts.append(f"usage {state}")
+    if reasons:
+        parts.append("reasons: " + ", ".join(reasons))
+    return "- Budget: " + "; ".join(parts)
+
+
+def _failure_line(failure: dict) -> str | None:
+    """The controlled-failure line: code, phase and safe diagnostic (REQ-TA-QR-001).
+
+    The diagnostic is produced from a fixed per-code message (ADR-005 D-E), so
+    the line never carries a secret, endpoint, URL or raw exception text.
+    """
+    code = failure.get("code")
+    if not code:
+        return None
+    parts = [str(code)]
+    if failure.get("phase"):
+        parts.append(f"phase {failure['phase']}")
+    line = "- Failure: " + "; ".join(parts)
+    if failure.get("diagnostic"):
+        line += f" — {failure['diagnostic']}"
+    return line
+
+
 def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
     """The report's title and what produced it: analysis date, version, models, analysts, vendors."""
     lines = [f"# Trading Analysis Report: {ticker}", ""]
@@ -35,6 +144,10 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         lines.append(f"- Analysis date: {final_state['trade_date']}")
     if final_state.get("final_trade_decision"):
         lines.append(f"- Rating: {run_rating(final_state)}")
+        # REQ-TA-FR-004: a REVIEW decision says why it was not actionable.
+        review_reasons = final_state.get("decision_review_reasons") or []
+        if review_reasons:
+            lines.append("- Review reasons: " + ", ".join(review_reasons))
     traceability = _traceability_header(final_state)
     if traceability:
         lines.append(traceability)
@@ -66,6 +179,33 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             lines.append("- Data vendors: " + ", ".join(f"{k} {v}" for k, v in vendors.items()))
+        # Observational run metadata (Implements: REQ-TA-QR-004): completion
+        # status and token totals. The canonical fields live in run_metadata;
+        # the flat run_settings() view carries them too, so read whichever is
+        # present. Unavailable usage is shown as "unavailable", never as 0.
+        meta = s("run_metadata") or {}
+        status = meta.get("status") or s("status")
+        if status:
+            lines.append(f"- Run status: {status}")
+        usage_complete = meta.get("usage_complete", s("usage_complete"))
+        if usage_complete is not None:
+            token_line = _token_usage_line(meta, s)
+            if token_line:
+                lines.append(token_line)
+        # The run's budget result, a dimension separate from lifecycle status
+        # (REQ-TA-FR-002; ADR-004). Shown only when a budget block was recorded.
+        budget = meta.get("budget") or s("budget")
+        if isinstance(budget, dict) and budget.get("status"):
+            budget_line = _budget_line(budget)
+            if budget_line:
+                lines.append(budget_line)
+        # A controlled failure (REQ-TA-QR-001; ADR-005): code + phase + safe
+        # diagnostic, additive to the lifecycle status. Never carries a secret.
+        failure = meta.get("failure") or s("failure")
+        if isinstance(failure, dict) and failure.get("code"):
+            failure_line = _failure_line(failure)
+            if failure_line:
+                lines.append(failure_line)
     if final_state.get("memory_note"):
         lines.append(f"- Memory log: {final_state['memory_note']}")
     return "\n".join(lines) + "\n\n"
@@ -405,7 +545,13 @@ _SECTIONS = (
 
 
 def _report_parts(final_state: dict) -> list[tuple[str, str, list[tuple[str, str, str]]]]:
-    """The sections with something to say: (heading, folder, [(agent, file, text)])."""
+    """The sections with something to say: (heading, folder, [(agent, file, text)]).
+
+    The final-decision section shows :func:`decision_display_text`, so a REVIEW —
+    fresh or from an older saved run — renders the REVIEW summary here and in the
+    HTML body built from these same parts, never the superseded model rating
+    (ADR-003 §7).
+    """
     parts = []
     for heading, folder, agents in _SECTIONS:
         written = []
@@ -413,6 +559,8 @@ def _report_parts(final_state: dict) -> list[tuple[str, str, list[tuple[str, str
             value = final_state
             for key in path:
                 value = (value or {}).get(key)
+            if value and path == ("final_trade_decision",):
+                value = decision_display_text(final_state) or value
             if value:
                 written.append((agent, filename, value))
         if written:

@@ -59,6 +59,10 @@ tradingagents = ["assets/*.svg"]
 [tool.pytest.ini_options]
 testpaths = ["test/offline", "test/live"]
 addopts = "-ra --strict-markers -m \"not integration\""
+# Put the repository root on sys.path so tests can import the tools/ci helpers
+# (e.g. `from tools.ci import pytest_seeded_order`) under the bare `pytest`
+# console entry point CI uses; `python -m pytest` already adds the CWD.
+pythonpath = ["."]
 markers = [
     "unit: fast isolated unit tests",
     "integration: tests requiring external services; run only when asked for, with -m integration",

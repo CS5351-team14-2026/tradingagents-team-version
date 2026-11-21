@@ -58,7 +58,14 @@ def pytest_configure(config):
 
 @pytest.fixture(autouse=True)
 def _no_network(request, monkeypatch):
-    """Tests do not reach the network; one that must is marked integration."""
+    """Tests do not reach the network; one that must is marked integration.
+
+    The exact loopback callback test keeps its narrow 127.0.0.1 exception by
+    re-patching on top of this guard (Issue #32 §41); the fixture itself refuses
+    every connection so an ordinary test never reaches a real resolver or socket.
+    ``requests`` and ``urllib.request`` ride the guarded ``socket``/DNS layer, and
+    ``curl_cffi`` (libcurl, which bypasses Python sockets) is patched directly.
+    """
     if request.node.get_closest_marker("integration"):
         return
 

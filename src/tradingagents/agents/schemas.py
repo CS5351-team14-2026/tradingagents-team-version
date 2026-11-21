@@ -18,8 +18,10 @@ so that:
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -321,6 +323,26 @@ class PortfolioDecision(BaseModel):
         default=None,
         description="Optional recommended holding period, e.g. '3-6 months'.",
     )
+    # The two price levels the final decision is validated on (REQ-TA-FR-004).
+    # Declared ``Any`` on purpose: a value the model wrote must reach the
+    # validator *as written* ("15%", "1e2", a number) so an invalid price can be
+    # told apart from an omitted one. Validation and normalisation happen in
+    # ``agents.rating.validate_final_decision``, never in this model.
+    entry_price: Any = Field(
+        default=None,
+        description=(
+            "Entry price as an absolute number in the instrument's quote currency "
+            "(e.g. 189.5), never a percentage or a range. Required for Buy and "
+            "Overweight; omit it only when the position is not being entered."
+        ),
+    )
+    stop_loss: Any = Field(
+        default=None,
+        description=(
+            "Stop-loss as an absolute price in the instrument's quote currency "
+            "(e.g. 172.0), never a percentage. Required for Buy and Overweight."
+        ),
+    )
 
     @field_validator("price_target", mode="before")
     @classmethod
@@ -454,3 +476,95 @@ def render_sentiment_report(report: SentimentReport) -> str:
         "",
         report.narrative,
     ])
+
+
+# ---------------------------------------------------------------------------
+# Strict JSON decoding for a structured decision (Implements: REQ-TA-FR-004).
+#
+# A JSON-mode payload is decoded *before* the price fields are validated. Python's
+# ``json`` accepts the bare ``NaN``/``Infinity``/``-Infinity`` tokens by default;
+# the approved contract treats them as a decoding failure (a body the model could
+# not serialise as JSON), so they follow the existing retry/fallback path rather
+# than being read as a price. This decoder refuses them outright.
+# ---------------------------------------------------------------------------
+
+
+class StrictJSONDecodeError(ValueError):
+    """A JSON-mode body that is not strict JSON (Implements: REQ-TA-FR-004)."""
+
+
+def _reject_constant(token: str):
+    raise StrictJSONDecodeError(f"non-standard JSON constant: {token}")
+
+
+def decode_strict_json(text: str) -> Any:
+    """Decode JSON text, refusing the bare non-finite tokens (REQ-TA-FR-004).
+
+    Raises :class:`StrictJSONDecodeError` (a ``ValueError``) on ``NaN``,
+    ``Infinity`` or ``-Infinity`` and on any other JSON decode error, so a caller
+    can treat an undecodable body exactly like a structured-output miss.
+    """
+    try:
+        return json.loads(text, parse_constant=_reject_constant)
+    except StrictJSONDecodeError:
+        raise
+    except (TypeError, ValueError) as exc:
+        raise StrictJSONDecodeError(str(exc)) from exc
+
+
+def raw_model_text(raw_message: Any) -> str | None:
+    """The JSON text a JSON-mode response actually carried, or ``None`` if unknown.
+
+    A provider's ``with_structured_output(method="json_mode", include_raw=True)``
+    returns the untouched ``AIMessage``; its ``content`` is the raw body the model
+    wrote. This is the *raw-response layer* where a bare ``NaN``/``Infinity`` must
+    be judged (REQ-TA-FR-004; ADR-003 §6): LangChain's own parser accepts those
+    tokens via ``json.loads`` and would otherwise hand back an already-parsed
+    decision, hiding the decode failure. The content may be a string or a list of
+    typed blocks (normalised to text), as elsewhere in the client layer.
+
+    Returns ``None`` when there is no text to judge (no raw message, empty
+    content); the caller then falls back to the parsed result unchanged.
+    """
+    content = getattr(raw_message, "content", raw_message)
+    if isinstance(content, str):
+        return content if content.strip() else None
+    if isinstance(content, list):
+        texts = [
+            item.get("text", "") if isinstance(item, dict) and item.get("type") == "text"
+            else item if isinstance(item, str) else ""
+            for item in content
+        ]
+        joined = "\n".join(t for t in texts if t)
+        return joined or None
+    return None
+
+
+def build_decision(raw: Mapping[str, Any]) -> PortfolioDecision:
+    """Build a ``PortfolioDecision`` from a decoded mapping, keeping the raw prices.
+
+    Structural fields are validated normally; ``entry_price`` and ``stop_loss``
+    are declared ``Any`` and so pass through unvalidated. Prices are normalised
+    later by :func:`tradingagents.agents.rating.validate_final_decision` against
+    the raw mapping, which is why this helper never coerces them.
+    """
+    return PortfolioDecision.model_validate(dict(raw))
+
+
+def decision_raw_mapping(result: Any) -> dict | None:
+    """The mapping a structured result carries, or ``None`` when it is not one.
+
+    Accepts an already-decoded mapping or a ``PortfolioDecision`` (its fields as
+    they were set). A string body is decoded strictly. Anything else is not a
+    decision and returns ``None``.
+    """
+    if isinstance(result, PortfolioDecision):
+        return {name: getattr(result, name) for name in result.model_fields}
+    if isinstance(result, Mapping):
+        return dict(result)
+    if isinstance(result, str):
+        decoded = decode_strict_json(result)
+        if isinstance(decoded, Mapping):
+            return dict(decoded)
+        raise StrictJSONDecodeError("a decision body must be a JSON object")
+    return None
