@@ -1,0 +1,41 @@
+{
+  "cohort": "final frozen revision after offline preflight",
+  "status": "completed",
+  "started_utc": "2026-11-21T07:23:12.475706+00:00",
+  "planned_runs": 18,
+  "cases": [
+    {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    }
+  ],
+  "repetitions_per_case": 3,
+  "real_provider": true,
+  "provider": "deepseek",
+  "deep_model": "deepseek-flash",
+  "quick_model": "deepseek-flash",
+  "temperature": 0,
+  "max_tokens": 8192,
+  "token_budget": null,
+  "order": "case-major, alternate baseline-first/Quick-first by case and repetition",
+  "baseline": "no profile with human-approved common output cap; not entirely unmodified defaults",
+  "enhanced": "public Quick profile with identical output cap",
+  "timing": "graph construction + propagate + normal persistence; checkpoint/export IO excluded",
+  "isolation": "fresh memory/cache/results each attempt, model checkpoints disabled",
+  "old_source_samples_reused": false,
+  "resume": "same input and source digests only; completed runs never repeated",
+  "retry_policy": "at most one whole-run retry of a transient execution failure; all attempts retained; never retry a completed rejected report",
+  "python": "3.13.9",
+  "platform": "Darwin",
+  "performance_target": "TBD pending measured evidence and human adoption",
+  "recorded_final_runs": 18,
+  "attempts": 18
+}

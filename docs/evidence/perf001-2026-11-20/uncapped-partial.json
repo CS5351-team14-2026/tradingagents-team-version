@@ -1,0 +1,73 @@
+{
+  "format_version": 1,
+  "performance_target": "TBD",
+  "summary": {
+    "successful_pairs": 1,
+    "failed_pairs": 0,
+    "target": "TBD",
+    "target_verdict": "not_assessed",
+    "baseline": {
+      "samples": 1,
+      "median_seconds": 723.5096586660002,
+      "min_seconds": 723.5096586660002,
+      "max_seconds": 723.5096586660002
+    },
+    "enhanced": {
+      "samples": 1,
+      "median_seconds": 310.6960764589967,
+      "min_seconds": 310.6960764589967,
+      "max_seconds": 310.6960764589967
+    },
+    "median_runtime_reduction_percent": 57.057093469649736
+  },
+  "runs": [
+    {
+      "settings": "{\"analysts\": [\"market\", \"social\", \"news\", \"fundamentals\"], \"anthropic_effort\": null, \"data_vendors\": {\"core_stock_apis\": \"yfinance\", \"fundamental_data\": \"sec_edgar,yfinance\", \"macro_data\": \"fred\", \"news_data\": \"yfinance\", \"prediction_markets\": \"polymarket\", \"technical_indicators\": \"yfinance\"}, \"deep_think_llm\": \"deepseek-flash\", \"deep_think_provider\": \"deepseek\", \"google_thinking_level\": null, \"llm_max_retries\": null, \"llm_provider\": \"deepseek\", \"max_debate_rounds\": 1, \"max_risk_discuss_rounds\": 1, \"max_tokens\": null, \"max_tool_rounds\": 20, \"openai_reasoning_effort\": null, \"output_language\": \"English\", \"profile\": null, \"quick_think_llm\": \"deepseek-flash\", \"quick_think_provider\": \"deepseek\", \"temperature\": 0, \"tool_vendors\": {}}",
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13",
+      "repetition": 1,
+      "variant": "baseline",
+      "status": "completed",
+      "failure_reason": "unavailable",
+      "elapsed_seconds": 723.5096586660002,
+      "llm_calls": 24,
+      "tokens_in": 248817,
+      "tokens_out": 84190,
+      "total_tokens": "unavailable",
+      "usage_status": "partial",
+      "estimated_cost_usd": "unavailable",
+      "debate_rounds": 1,
+      "recommendation": "REVIEW",
+      "confidence": "unavailable"
+    },
+    {
+      "settings": "{\"analysts\": [\"market\", \"news\"], \"anthropic_effort\": null, \"data_vendors\": {\"core_stock_apis\": \"yfinance\", \"fundamental_data\": \"sec_edgar,yfinance\", \"macro_data\": \"fred\", \"news_data\": \"yfinance\", \"prediction_markets\": \"polymarket\", \"technical_indicators\": \"yfinance\"}, \"deep_think_llm\": \"deepseek-flash\", \"deep_think_provider\": \"deepseek\", \"google_thinking_level\": null, \"llm_max_retries\": null, \"llm_provider\": \"deepseek\", \"max_debate_rounds\": 1, \"max_risk_discuss_rounds\": 1, \"max_tokens\": null, \"max_tool_rounds\": 3, \"openai_reasoning_effort\": null, \"output_language\": \"English\", \"profile\": \"quick\", \"quick_think_llm\": \"deepseek-flash\", \"quick_think_provider\": \"deepseek\", \"temperature\": 0, \"tool_vendors\": {}}",
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13",
+      "repetition": 1,
+      "variant": "enhanced",
+      "status": "completed",
+      "failure_reason": "unavailable",
+      "elapsed_seconds": 310.6960764589967,
+      "llm_calls": 18,
+      "tokens_in": 138860,
+      "tokens_out": 56378,
+      "total_tokens": "unavailable",
+      "usage_status": "partial",
+      "estimated_cost_usd": "unavailable",
+      "debate_rounds": 1,
+      "recommendation": "Hold",
+      "confidence": "unavailable"
+    }
+  ],
+  "comparisons": [
+    {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13",
+      "repetition": 1,
+      "comparison_status": "completed",
+      "runtime_reduction_percent": 57.057093469649736,
+      "token_reduction_percent": "unavailable"
+    }
+  ]
+}

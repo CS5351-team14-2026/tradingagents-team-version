@@ -1,0 +1,23 @@
+{
+  "README.md": "c4381b2e869e9162a6f30c43821243077d061c31448a16dc0eb48edbd54a8653",
+  "accepted-pairs-sensitivity.json": "cf217d9fd8864ac684d1f2f368ad6f012888aef76a08ceb1557af6c5feb2f2cb",
+  "attempt-history.csv": "2f5117b4bcc5bd2aab0e21459508c91a07c599072f34196e926559a01fb88146",
+  "attempt-history.json": "e4e7d2dfbbf9536d3f178126fb01a98be5706873133572e03b8a38ac4c347d81",
+  "canonical-metadata-check.json": "d4a02ed0fabb2a16b74221faf59ec92f9c85670540eb60b1eaba8462aaf3ee7e",
+  "cli-resume-verification.json": "f1403ad2ba31d052143cf44acd5f25adf5918ae6d83ccb8a325f65179b8cdd19",
+  "comparison.csv": "b33e4999422e155bfcc9c0692e4e506b29a5b6efd7a98d92fdb072f6c8bccb1f",
+  "comparison.json": "0ff140f7466f075650ef9696a3cf41049989561d74e6bcb08bd06d67f50fdea9",
+  "excluded-trials.json": "9d0ea523eed301532d01bfa8336d30fa6ad2dfa6e01d6a94889415c8c611dc39",
+  "execution-order.json": "6676883fce64f92ab94bfac7d3201de286a2562d84aaa22eea35640c6f17561b",
+  "inputs/baseline.json": "3f344f53334e8cfe3e9bb6953390fb7f6cad0d48291fa912437b0afdc5c17439",
+  "inputs/cases.json": "b1d6420b5ab8565b7fd3b760b30a2da4f4f057b27d90448fbfe4a1242a3eac97",
+  "inputs/quick.json": "43b052ea3eb41b305e29e8382516fd66fac1a9b27c4281e84588e2058f59853b",
+  "manifest.json": "cbfc2a5c53b6bcc1ece1ed89bc7d08bb19edf1bb0ab3196b830dc2e20f732ab1",
+  "preflight.json": "e9c51e0655f07d3d133386777ec83b5d80361d71fe7a04b0d623e8d41c1afa1b",
+  "protocol.json": "11dbc871c3fdd92d824a37b18e2692bc44cc41131c119fbb615fe8d77d64583f",
+  "resolved-settings.json": "1419ec5c62f53c92d02473cc8211829f5604063911e9ad091d0d28d4fc8172fd",
+  "source-sha256.json": "46af5394bbe2f6223330534b4af8cd8986b8511a6e6104ac2691ee9923c51c8a",
+  "threshold-proposal.json": "78288344403cc0339a3216d732b0767ae9bb315fe8c925cf7da109f91c36f586",
+  "verification.json": "2bec74fdadc5ec4f20af8cdbd53d9308a827604cd0e22e0a2de6e30c94cb489c",
+  "versions.json": "9d41dc6dd59b21b44b0f6daa528565543fc179cf058ebd9ed125d287735695e2"
+}

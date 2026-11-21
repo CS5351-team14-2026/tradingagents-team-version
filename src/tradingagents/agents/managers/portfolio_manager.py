@@ -12,6 +12,7 @@ free-text generation and the rating is read from that text.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping
 
@@ -127,7 +128,15 @@ def _invoke_json_mode(llm, prompt) -> tuple[PortfolioDecision, dict] | None:
         logger.warning("PM: json_mode retry failed (binding: %s)", exc)
         return None
     try:
-        result = structured_json.invoke(prompt)
+        # REQ-TA-FR-004: JSON mode requires an explicit JSON instruction; unlike
+        # tool binding it does not send the decision schema as an output tool.
+        json_prompt = (
+            f"{prompt}\n\nFor this retry, return only a JSON object matching this "
+            "schema; use its field names, preserve evidence citations and price "
+            "rules, and do not wrap the answer in Markdown:\n"
+            + json.dumps(PortfolioDecision.model_json_schema())
+        )
+        result = structured_json.invoke(json_prompt)
         if result is None:
             raise ValueError("json_mode returned no result")
         result, raw = _json_mode_payload(result)
@@ -341,6 +350,8 @@ traceability check.
             "risk_debate_state": new_risk_debate_state,
             "final_trade_decision": final_trade_decision,
             "final_rating": final_rating,
+            # REQ-TA-FR-007: expose the reported value, never infer it from prose.
+            "pm_confidence": decision.confidence if decision is not None else None,
             # REQ-TA-FR-004: why a decoded decision was not actionable; empty
             # when it was accepted. At least one reason means final_rating=REVIEW.
             "decision_review_reasons": decision_review_reasons,

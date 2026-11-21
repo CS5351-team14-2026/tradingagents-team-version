@@ -46,7 +46,7 @@ requirements:
     fit_criterion: "profile in {quick, standard, deep}; a valid profile applies the approved profile->settings mapping (analyst set, max_debate_rounds, max_risk_discuss_rounds, max_tool_rounds) exactly; an invalid profile is rejected BEFORE any LLM call with an error naming the legal values; unset profile reproduces v0.7.1 defaults exactly; explicit settings override the profile per key only (precedence rule fixed by ADR and tested); report metadata records requested AND resolved settings."
     enforcing_component: "default_config.py (profile key + TRADINGAGENTS_* env) / graph/setup.py (analyst registry, round caps) / graph/trading_graph.py run_settings() / cli/main.py"
     priority: must
-    status: implement #WuYu
+    status: implemented #WuYu
     source: "requirement-candidates.md CAND-FR-01; introduction p20 'slow and token-burning'; baseline: default_config.py max_debate_rounds/max_risk_discuss_rounds/max_tool_rounds, setup.py analyst map, no profile key in cli/main.py"
     cross_refs:
       cost: [REQ-TA-COST-001]
@@ -59,7 +59,7 @@ requirements:
     fit_criterion: "with budget N configured, accumulated recorded usage >= N blocks every SUBSEQUENT optional call (no new optional debate/risk round); run terminates with status in {BUDGET_OK, BUDGET_WARNING, BUDGET_EXHAUSTED} plus a machine-readable reason; a single in-flight call may push recorded usage past N (no exact hard cap claimed); provider does not report usage -> run records usage as unavailable instead of estimating; final-report reserve percentage: TBD until the phase-token-share experiment (requirement-candidates.md §8) is recorded."
     enforcing_component: "cli/stats_handler.py (extend into shared budget tracker visible to graph callers) / graph/conditional_logic.py + graph/setup.py (stop condition) / default_config.py / cli/main.py"
     priority: must
-    status: implement #xiaokewei001
+    status: implemented #xiaokewei001
     source: "requirement-candidates.md CAND-FR-02; baseline: token accounting exists only in cli/stats_handler.py, no per-run budget, no --token-budget flag; assignee: xiaokewei001"
     cross_refs:
       cost: [REQ-TA-COST-001]
@@ -84,7 +84,7 @@ requirements:
     fit_criterion: "a final decision is accepted only if its rating resolves to exactly one of {Buy, Overweight, Hold, Underweight, Sell} AND every supplied entry/stop price normalises to a finite, strictly positive float; Buy and Overweight require both prices, Hold, Underweight and Sell accept absent or null; otherwise the run records final_rating=REVIEW with decision_review_reasons drawn from {unresolved_rating, missing_entry_price, missing_stop_loss, invalid_entry_price, invalid_stop_loss} and presents no tradeable call."
     enforcing_component: "agents/rating.py (validate_final_decision, normalise_price), agents/schemas.py (raw price fields, strict JSON decode), agents/managers/portfolio_manager.py, agents/structured.py, graph/trading_graph.py (_log_state)"
     priority: must  # deterministic safety boundary required by project.pdf p3
-    status: implement #Zelin Zhou
+    status: implemented #Zelin Zhou
     source: "requirement-candidates.md CAND-FR-04; baseline: structured output + rating parsing exist; no end-to-end validation gate (free-text fallback path unvalidated)"
     cross_refs:
       inv: [REQ-TA-INV-001]
@@ -95,7 +95,7 @@ requirements:
     fit_criterion: "in a sample report every principal reason carries a source identifier traceable to an analyst/agent output or a dated data observation; reported market data includes its observation date; unsupported claims are labelled as unsupported; the report contains the disclaimer."
     enforcing_component: "reporting.py, report_html.py, agents/state.py, graph/trading_graph.py"
     priority: must
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-FR-05; baseline: reporting.py/report_html.py render sections without per-claim linkage; no disclaimer in src/"
     cross_refs:
       fr: [REQ-TA-FR-003]
@@ -118,10 +118,10 @@ requirements:
     type: functional
     statement: "The system shall provide an evaluation command that runs or compares the baseline and enhanced configurations on the same ticker/analysis date and reports execution time, LLM calls, tokens, estimated cost (when pricing is configured), debate rounds, recommendation, confidence, and completion status, exported to JSON/CSV with percentage reductions."
     fit_criterion: "given the same ticker and cutoff date the command runs both configurations with pinned model/provider/temperature, exports per-run metrics to JSON or CSV, computes percentage reductions in runtime and tokens, and reports unavailable provider usage as 'unavailable' (no undisclosed estimates); demonstrable on >=3 stock/date cases."
-    enforcing_component: "cli/main.py, backtest.py, graph/trading_graph.py, cli/stats_handler.py"
+    enforcing_component: "src/cli/main.py::compare; src/tradingagents/evaluation.py; src/tradingagents/evaluation_runner.py; src/tradingagents/evaluation_checkpoint.py"
     priority: must
-    status: implement #xiangwen Huang
-    source: "requirement-candidates.md CAND-FR-07; baseline: backtest.py scores decisions over a date grid; no baseline-vs-enhanced comparison command"
+    status: implemented #Xiangwen Huang; author closeout, team PR review pending
+    source: "requirement-candidates.md CAND-FR-07; baseline: backtest.py scores decisions over a date grid; no baseline-vs-enhanced comparison command; real 3-case/3-repeat evidence: docs/evidence/perf001-2026-11-21-final/README.md"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-002]
       cost: [REQ-TA-COST-001]
@@ -133,7 +133,7 @@ requirements:
     fit_criterion: "given a recorded settings block from a prior run, a new run starts with those settings applied and the new report's run_settings equals the source block for all allowlisted keys; two runs launched from the same recorded settings share identical run_settings; the allowlist never contains secrets or paths; reproducibility is of configuration, not of sampled LLM output."
     enforcing_component: "graph/trading_graph.py run_settings(), default_config.py, cli/main.py"
     priority: should
-    status: implement #Alex
+    status: implemented #Alex
     source: "requirement-candidates.md CAND-FR-008; baseline: run_settings() records an allowlist but there is no reload-into-new-run command"
     cross_refs:
       qr: [REQ-TA-QR-004]
@@ -146,22 +146,22 @@ requirements:
   - id: REQ-TA-COST-001
     type: cost
     statement: "The system shall demonstrate a measured reduction in total LLM tokens per run (input + output) for the quick profile relative to the baseline configuration, with the numeric threshold adopted only after the baseline experiment is recorded."
-    fit_criterion: "metric: total tokens per run, quick profile vs unmodified default configuration, 3-5 fixed ticker/date cases; controlled variables: same provider, model IDs, temperature, analysts, vendors, dates; threshold: TBD until the baseline experiment (requirement-candidates.md §8 row 1) is recorded and a median reduction is computed; verification: automated comparison over the fixed case set via REQ-TA-FR-007 with logged token totals as evidence."
+    fit_criterion: "metric: median provider-reported total tokens per run, baseline vs Quick; 3 fixed cases x 3 repetitions/configuration on the same provider/models/temperature/vendors, with the approved profile mapping as treatment and no whole-run token budget; measured complete paired token medians baseline=250148, Quick=121032, observed reduction=51.615843%; post-measurement threshold proposal: strict positive reduction (>0%), pending human adoption; ownership/status unchanged; verification: raw comparison JSON/CSV, complete paired usage, failure retention and independent median calculation; common max_tokens=8192 explicit; evidence: docs/evidence/perf001-2026-11-21-final/README.md"
     enforcing_component: "measurement harness: cli/main.py + backtest.py (REQ-TA-FR-007); lever: REQ-TA-FR-001 quick profile + REQ-TA-FR-002 budget"
     priority: wont  # unclaimed at S1 scope freeze
     status: candidate
-    source: "requirement-candidates.md CAND-NFR-01 (paired with FR-02 per §7 Package A); threshold TBD rule §8"
+    source: "requirement-candidates.md CAND-NFR-01 (paired with FR-02 per §7 Package A); threshold TBD rule §8; recorded token medians (not billing): docs/evidence/perf001-2026-11-21-final/README.md"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-002, REQ-TA-FR-007]
 
   - id: REQ-TA-PERF-001
     type: performance
     statement: "The system shall demonstrate a measured reduction in median end-to-end wall-clock time per run for the quick profile relative to the baseline configuration, with the numeric threshold adopted only after latency is measured."
-    fit_criterion: "metric: median end-to-end wall-clock seconds per run, quick profile vs baseline; >=3 repeated cases per configuration on the same provider/network; threshold: TBD until timing is measured (requirement-candidates.md §8 row 2); no absolute target (e.g. 'under 30 s') before API/network latency data exists; verification: timestamp capture around each run via REQ-TA-FR-007; report median and spread."
-    enforcing_component: "measurement harness: cli/main.py + backtest.py (REQ-TA-FR-007); lever: REQ-TA-FR-001"
+    fit_criterion: "metric: paired median end-to-end wall-clock seconds, Quick vs capped no-profile baseline; 3 fixed cases x 3 repetitions/configuration, same provider/models/temperature/vendors/network; recorded medians baseline=417.792521s, Quick=323.477143s, observed reduction=22.574693%; post-measurement threshold proposal: strictly positive reduction (>0%), pending team PR adoption; verify timestamp captures, min/max/N and all failures via FR-007; common max_tokens=8192 is explicit, no whole-run token budget; evidence: docs/evidence/perf001-2026-11-21-final/README.md"
+    enforcing_component: "src/tradingagents/evaluation_runner.py::run_comparison; src/tradingagents/evaluation.py::ComparisonResult.summary; lever src/tradingagents/default_config.py::resolve_profile"
     priority: should
-    status: implement #xiangwen Huang
-    source: "requirement-candidates.md CAND-NFR-02; threshold TBD rule §8"
+    status: implemented #Xiangwen Huang; author closeout, team PR review pending
+    source: "requirement-candidates.md CAND-NFR-02; threshold TBD rule §8; measured baseline and proposal: docs/evidence/perf001-2026-11-21-final/README.md"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-007]
 
@@ -174,7 +174,7 @@ requirements:
     fit_criterion: "all five scenarios have one offline test each using test doubles for the provider/data layer; each asserts the status code, the diagnostic message, and the absence of an uncaught exception; threshold is scenario coverage (all five), not a percentage."
     enforcing_component: "dataflows/errors.py, agents/structured.py (fallback), graph/conditional_logic.py, test/offline/* (one negative test per scenario)"
     priority: must
-    status: implement #xiaokewei001
+    status: implemented #xiaokewei001
     source: "requirement-candidates.md CAND-NFR-03 (paired with FR-03 per §7 Package A); baseline PARTIAL: graceful degradation exists in places, no uniform per-run completion status; assignee: xiaokewei001"
     cross_refs:
       fr: [REQ-TA-FR-002, REQ-TA-FR-006]
@@ -185,7 +185,7 @@ requirements:
     fit_criterion: "every formally defined material claim in an accepted report resolves to a report artifact and a derivable producing agent; any untraceable claim makes the report not accepted (REQ-TA-INV-005); verification: structural audit_material_claims on the fixed sample plus a sampled human checklist."
     enforcing_component: "reporting.py (audit_material_claims), graph/trading_graph.py (claim_audit), human claim-audit step"
     priority: should
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-NFR-04 (paired with FR-05); material-claim definition fixed by ADR-001; baseline sample recorded in ADR-001 §5"
     cross_refs:
       fr: [REQ-TA-FR-005]
@@ -198,7 +198,7 @@ requirements:
     fit_criterion: "zero boundary violations among new components (import-layering assertions/structural tests); 'ruff check .' passes; offline suite passes; LLM/data dependencies replaceable by test doubles in unit tests."
     enforcing_component: "structural tests over src/tradingagents/{agents,graph,dataflows,memory,llm_clients} boundaries; ruff (CI); offline pytest suite (CI)"
     priority: should
-    status: implement #WuYu
+    status: implemented #WuYu
     source: "requirement-candidates.md CAND-NFR-05 (cross-cutting, applies to every chosen candidate)"
     cross_refs: {}
 
@@ -208,7 +208,7 @@ requirements:
     fit_criterion: "all required fields present and correctly typed in every completed run; absent/unavailable values labelled (e.g. 'unavailable'), never omitted; verification: offline test asserting the metadata schema on a completed mocked run; run_settings() and report header extended accordingly."
     enforcing_component: "graph/trading_graph.py run_settings(), reporting.py report header, test/offline metadata schema test"
     priority: should
-    status: implement #Alex
+    status: implemented #Alex
     source: "requirement-candidates.md CAND-NFR-07; baseline PARTIAL: run_settings() records a subset (models, analysts, rounds, vendors)"
     cross_refs:
       fr: [REQ-TA-FR-001, REQ-TA-FR-002, REQ-TA-FR-006]
@@ -219,7 +219,7 @@ requirements:
     fit_criterion: "offline suite runs with no network access and passes under the repo's default selection in isolation and in random order; any network use in an offline test fails a dedicated guard; verification: run offline suite isolated + randomized; network guard (e.g. socket-disabling test hook)."
     enforcing_component: "test/offline/* (suite-wide), pyproject.toml pytest selection, planned network guard fixture"
     priority: should
-    status: implement #Zelin Zhou
+    status: implemented #Zelin Zhou
     source: "requirement-candidates.md CAND-NFR-08 (cross-cutting); baseline: offline/live separation and 'not integration' default exist, no order-independence guarantee for new work"
     cross_refs: {}
 
@@ -232,7 +232,7 @@ requirements:
     fit_criterion: "zero occurrences (zero-tolerance); an offline test asserts logs redact a known configured API key; a secret scan runs on every PR and blocks merge on failure; .env is git-ignored; verification: offline redaction test around dataflows/net.py get_scrubbed extended to log/report rendering + CI secret-scan gate (tooling choice per requirement-candidates.md §8 row 6)."
     enforcing_component: "dataflows/net.py get_scrubbed, report/log renderers, CI secret-scan job (to be added)"
     priority: should  # reopened for Alex (was wont: unclaimed at S1 scope freeze)
-    status: implement #Alex
+    status: implemented #Alex
     source: "requirement-candidates.md CAND-NFR-06; baseline PARTIAL: get_scrubbed exists and is tested; no repo-wide secret-scan CI gate; scope change: team approved reopening the S1-frozen SEC-001 for Alex (see test-plan Issue #50); implement only after FR-008 PR #49 merges"
     cross_refs:
       inv: [REQ-TA-INV-006]
@@ -291,7 +291,7 @@ requirements:
     fit_criterion: "zero-tolerance: in every accepted result, each material claim carries a resolvable source reference; an untraceable material claim prevents acceptance (downgrades the status); negative test: an accepted result containing a claim with no source is rejected/downgraded by the checker; fallback: downgrade to warning/review status and label the claim unsupported; depends on the agreed 'material claim' definition (see QR-002)."
     enforcing_component: "reporting.py, graph/trading_graph.py"
     priority: should
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-INV-05; baseline NEW/CLAIMED-ONLY — depends on FR-005"
     cross_refs:
       fr: [REQ-TA-FR-005]

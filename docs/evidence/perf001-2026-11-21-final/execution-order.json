@@ -1,0 +1,308 @@
+[
+  {
+    "event": "run_start",
+    "ticker": "AAPL",
+    "variant": "baseline",
+    "repetition": 1,
+    "elapsed_seconds": 0.63
+  },
+  {
+    "event": "run_end",
+    "ticker": "AAPL",
+    "variant": "baseline",
+    "repetition": 1,
+    "seconds": 459.6191397079965,
+    "status": "completed",
+    "acceptance": "REJECTED",
+    "elapsed_seconds": 460.25
+  },
+  {
+    "event": "run_start",
+    "ticker": "AAPL",
+    "variant": "enhanced",
+    "repetition": 1,
+    "elapsed_seconds": 460.25
+  },
+  {
+    "event": "run_end",
+    "ticker": "AAPL",
+    "variant": "enhanced",
+    "repetition": 1,
+    "seconds": 350.87345845800155,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 811.12
+  },
+  {
+    "event": "run_start",
+    "ticker": "AAPL",
+    "variant": "enhanced",
+    "repetition": 2,
+    "elapsed_seconds": 811.12
+  },
+  {
+    "event": "run_end",
+    "ticker": "AAPL",
+    "variant": "enhanced",
+    "repetition": 2,
+    "seconds": 310.6079877910015,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 1121.73
+  },
+  {
+    "event": "run_start",
+    "ticker": "AAPL",
+    "variant": "baseline",
+    "repetition": 2,
+    "elapsed_seconds": 1121.73
+  },
+  {
+    "event": "run_end",
+    "ticker": "AAPL",
+    "variant": "baseline",
+    "repetition": 2,
+    "seconds": 395.27768604200537,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 1517.01
+  },
+  {
+    "event": "run_start",
+    "ticker": "AAPL",
+    "variant": "baseline",
+    "repetition": 3,
+    "elapsed_seconds": 1517.01
+  },
+  {
+    "event": "run_end",
+    "ticker": "AAPL",
+    "variant": "baseline",
+    "repetition": 3,
+    "seconds": 396.8558774999983,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 1913.87
+  },
+  {
+    "event": "run_start",
+    "ticker": "AAPL",
+    "variant": "enhanced",
+    "repetition": 3,
+    "elapsed_seconds": 1913.87
+  },
+  {
+    "event": "run_end",
+    "ticker": "AAPL",
+    "variant": "enhanced",
+    "repetition": 3,
+    "seconds": 300.5377562079957,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 2214.41
+  },
+  {
+    "event": "run_start",
+    "ticker": "NVDA",
+    "variant": "enhanced",
+    "repetition": 1,
+    "elapsed_seconds": 2214.41
+  },
+  {
+    "event": "run_end",
+    "ticker": "NVDA",
+    "variant": "enhanced",
+    "repetition": 1,
+    "seconds": 321.2947374590003,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 2535.71
+  },
+  {
+    "event": "run_start",
+    "ticker": "NVDA",
+    "variant": "baseline",
+    "repetition": 1,
+    "elapsed_seconds": 2535.71
+  },
+  {
+    "event": "run_end",
+    "ticker": "NVDA",
+    "variant": "baseline",
+    "repetition": 1,
+    "seconds": 444.12983091699425,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 2979.84
+  },
+  {
+    "event": "run_start",
+    "ticker": "NVDA",
+    "variant": "baseline",
+    "repetition": 2,
+    "elapsed_seconds": 2979.85
+  },
+  {
+    "event": "run_end",
+    "ticker": "NVDA",
+    "variant": "baseline",
+    "repetition": 2,
+    "seconds": 383.22823412499565,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 3363.08
+  },
+  {
+    "event": "run_start",
+    "ticker": "NVDA",
+    "variant": "enhanced",
+    "repetition": 2,
+    "elapsed_seconds": 3363.08
+  },
+  {
+    "event": "run_end",
+    "ticker": "NVDA",
+    "variant": "enhanced",
+    "repetition": 2,
+    "seconds": 337.13006983300147,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 3700.21
+  },
+  {
+    "event": "run_start",
+    "ticker": "NVDA",
+    "variant": "enhanced",
+    "repetition": 3,
+    "elapsed_seconds": 3700.21
+  },
+  {
+    "event": "run_end",
+    "ticker": "NVDA",
+    "variant": "enhanced",
+    "repetition": 3,
+    "seconds": 323.47714324999833,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 4023.69
+  },
+  {
+    "event": "run_start",
+    "ticker": "NVDA",
+    "variant": "baseline",
+    "repetition": 3,
+    "elapsed_seconds": 4023.69
+  },
+  {
+    "event": "run_end",
+    "ticker": "NVDA",
+    "variant": "baseline",
+    "repetition": 3,
+    "seconds": 417.79252054200333,
+    "status": "completed",
+    "acceptance": "REJECTED",
+    "elapsed_seconds": 4441.49
+  },
+  {
+    "event": "run_start",
+    "ticker": "MSFT",
+    "variant": "baseline",
+    "repetition": 1,
+    "elapsed_seconds": 4441.49
+  },
+  {
+    "event": "run_end",
+    "ticker": "MSFT",
+    "variant": "baseline",
+    "repetition": 1,
+    "seconds": 452.29071445800946,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 4893.78
+  },
+  {
+    "event": "run_start",
+    "ticker": "MSFT",
+    "variant": "enhanced",
+    "repetition": 1,
+    "elapsed_seconds": 4893.78
+  },
+  {
+    "event": "run_end",
+    "ticker": "MSFT",
+    "variant": "enhanced",
+    "repetition": 1,
+    "seconds": 334.1377244999894,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 5227.92
+  },
+  {
+    "event": "run_start",
+    "ticker": "MSFT",
+    "variant": "enhanced",
+    "repetition": 2,
+    "elapsed_seconds": 5227.92
+  },
+  {
+    "event": "run_end",
+    "ticker": "MSFT",
+    "variant": "enhanced",
+    "repetition": 2,
+    "seconds": 302.58841729200503,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 5530.51
+  },
+  {
+    "event": "run_start",
+    "ticker": "MSFT",
+    "variant": "baseline",
+    "repetition": 2,
+    "elapsed_seconds": 5530.52
+  },
+  {
+    "event": "run_end",
+    "ticker": "MSFT",
+    "variant": "baseline",
+    "repetition": 2,
+    "seconds": 435.81241337499523,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 5966.33
+  },
+  {
+    "event": "run_start",
+    "ticker": "MSFT",
+    "variant": "baseline",
+    "repetition": 3,
+    "elapsed_seconds": 5966.34
+  },
+  {
+    "event": "run_end",
+    "ticker": "MSFT",
+    "variant": "baseline",
+    "repetition": 3,
+    "seconds": 367.92230525000195,
+    "status": "completed",
+    "acceptance": "ACCEPTED",
+    "elapsed_seconds": 6334.26
+  },
+  {
+    "event": "run_start",
+    "ticker": "MSFT",
+    "variant": "enhanced",
+    "repetition": 3,
+    "elapsed_seconds": 6334.26
+  },
+  {
+    "event": "run_end",
+    "ticker": "MSFT",
+    "variant": "enhanced",
+    "repetition": 3,
+    "seconds": 377.3507839170052,
+    "status": "completed",
+    "acceptance": "REJECTED",
+    "elapsed_seconds": 6711.61
+  }
+]

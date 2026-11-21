@@ -26,6 +26,101 @@ After so many requests from the community, Trading-R1 has officially launched!
 
 <h3 align="center"><a href="https://github.com/TauricResearch/Trading-R1" target="_blank">Register for early access ↗</a></h3>
 
+---
+
+# CS5351 team-app — governed enhancement of TradingAgents
+
+> This repository is the CS5351 (CityU, 2026-27) team project: the upstream
+> TradingAgents v0.7.1 framework enhanced under a governed, agentic software
+> engineering process. Team: `CS5351-team14-2026`.
+
+## What this project is
+
+The application is an LLM-driven stock-analysis pipeline (analyst team →
+bull/bear debate → research manager → trader → risk debate → portfolio
+manager) hardened with a measured, auditable, and deterministic-decision
+layer. Requirement set: 14 delivered requirements and 4 retained invariants
+in `docs/req/requirements.yaml` — quick/standard/deep **analysis profiles**, a
+**per-run token budget** that stops optional calls, **validated final
+decisions**, **material-claim traceability with fail-closed acceptance**,
+**paired baseline-vs-enhanced evaluation** with committed evidence, settings
+replay, structured run metadata, offline testability, and secret redaction
+with a PR-blocking secret scan.
+
+Architecture in one paragraph: the LangGraph pipeline keeps the upstream agent
+topology; every loop is bounded (tool rounds, debate rounds, recursion limit,
+optional-call budget); deterministic Python code outranks model text at four
+boundaries — point-in-time clamping before data reaches an agent, budget
+admission before optional LLM calls, claim audit plus rating validation before
+a decision is accepted, and redaction at every output boundary. See
+`architecture-blueprint.md` and `docs/architecture/adr/**`.
+
+## Repository organization
+
+| Path | Contents |
+| --- | --- |
+| `src/tradingagents/`, `src/cli/` | application source (agents, graph, dataflows, llm_clients, memory, reporting, evaluation, CLI) |
+| `test/offline/` | deterministic, network-free tests (the blocking suite) |
+| `test/live/` | tests requiring real API access (marked `integration`) |
+| `docs/req/` | requirements registry + JSON schema + the candidate catalogue |
+| `docs/architecture/` | blueprint inputs: ADRs, invariants, trace matrix, memory design, permission model, runtime policy catalog, evaluation table, option ledger, risk list, evaluation logbook |
+| `docs/code-governance/` | structural constraints, verification constraints, tool manifest |
+| `docs/evidence/` | committed measurement evidence bundles |
+| `prompts/` | versioned runtime prompt snapshots |
+| `transcripts/` | supervised agent-session records with intervention indices |
+| `AGENTS.md`, `Prompt.md`, `.opencode/`, `.agent/` | coding-agent governance and permissions |
+
+## How to run the tests
+
+```bash
+pip install -e ".[dev]"
+
+# Offline suite (deterministic, no network; this is what CI blocks on)
+pytest -q                       # defaults to test/offline + test/live with -m "not integration"
+
+# Offline only, explicitly
+pytest test/offline -q
+
+# Live tests (need provider/data credentials; costs tokens)
+pytest -m integration test/live -q
+
+# Everything, including integration-marked tests
+pytest -m "" -q
+```
+
+CI runs the offline suite on Python 3.11–3.14 plus a non-UTC run, `ruff check .`,
+a clean-install smoke test, the requirements schema gate, the AI-use log gate,
+the test-approval gate, the advisory dependency audit, and the SEC-001 secret
+scan.
+
+## Blocking gates (D7)
+
+The CI pipeline implements the course blocking gates; the job names in
+`.github/workflows/ci.yml` are:
+
+| Gate | Implementation | Where |
+| --- | --- | --- |
+| 1. Test approval | A PR touching `src/**` or `test/**` must reference `test-plan: #<issue>` and that issue must carry the `test-approved` label, added by a reviewer | `test-approval-gate` job |
+| 2. Static analysis | `ruff check .` on every commit; dependency audit advisory until triage (DEBT-002) | `lint`, `advisory-deps-audit` |
+| 3. Schema | `docs/req/requirements.yaml` validated against `docs/req/req-schema.json` | `schema-gate` |
+| 4. Semantic evaluation | Planned; trigger paths recorded (DEBT-003), not yet built | — |
+| 5. Regression | Full offline suite matrix (py3.11–3.14 + non-UTC), zero regressions | `test` |
+| 6. AI-use log | A PR touching `src/**` or `prompts/**` must update `docs/ai-use-log.yaml` | `ai-use-log-gate` |
+| SEC-001 scan | `detect-secrets==1.5.0`; new findings block; `.secrets.baseline` changes need the `secret-baseline-approved` label and are compared against the base branch | `secret-scan` |
+
+Branch protection on `main`: CI must pass, one human approval, last-push
+approval, resolved conversations. Merges into `main` come from batch PRs from
+`integration` and from direct fixes pulled back immediately (branch model in
+`AGENTS.md` §9).
+
+## Repository
+
+Real GitHub repository: <https://github.com/CS5351-team14-2026/tradingagents-team-version>
+
+---
+
+## Upstream documentation (TradingAgents)
+
 ## News
 
 <!-- news:start -->

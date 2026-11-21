@@ -1,7 +1,7 @@
 # REQ-TA-QR-001 — traceability record
 
 - Requirement: `docs/req/requirements.yaml` → REQ-TA-QR-001 (must, implement #xiaokewei001)
-- ADR: `docs/architecture/ADR-005-controlled-failures.md`
+- ADR: `docs/architecture/adr/005-controlled-failures.md`
 - Related preserved: REQ-TA-FR-002 (ADR-004 budget), REQ-TA-QR-004 (run record),
   REQ-TA-INV-001 (REVIEW), REQ-TA-FR-006 (candidate — not implemented)
 - Baseline: `8704e06` on `feat/QR001-OpenCode` (includes completed FR-002).
@@ -48,7 +48,7 @@ local path is recorded (D-E; REQ-TA-SEC-001 intent).
 
 ## Files
 
-- New: `src/tradingagents/failure.py`; `docs/architecture/ADR-005-controlled-failures.md`,
+- New: `src/tradingagents/failure.py`; `docs/architecture/adr/005-controlled-failures.md`,
   this trace; `test/offline/test_qr001_*.py` (seven files: five scenarios + FR-008 reconcile + CLI timeout).
 - Modified: `graph/trading_graph.py`, `agents/structured.py`, `run_record.py`,
   `reporting.py`, `report_html.py`, `cli/run.py`, `llm_clients/openai_client.py`

@@ -1,0 +1,10 @@
+{
+  "cli_exit": 0,
+  "network_disabled_during_proof": true,
+  "resumed_real_measurements": 18,
+  "new_provider_runs": 0,
+  "measurement_files_unchanged": true,
+  "json_matches_public_runner": true,
+  "csv_matches_public_runner": true,
+  "note": "18 analyses were executed once through the same public runner; CLI reused and exported them without paid re-execution."
+}
