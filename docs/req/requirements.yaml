@@ -84,7 +84,7 @@ requirements:
     fit_criterion: "a final decision is accepted only if its rating resolves to exactly one of {Buy, Overweight, Hold, Underweight, Sell} AND every supplied entry/stop price normalises to a finite, strictly positive float; Buy and Overweight require both prices, Hold, Underweight and Sell accept absent or null; otherwise the run records final_rating=REVIEW with decision_review_reasons drawn from {unresolved_rating, missing_entry_price, missing_stop_loss, invalid_entry_price, invalid_stop_loss} and presents no tradeable call."
     enforcing_component: "agents/rating.py (validate_final_decision, normalise_price), agents/schemas.py (raw price fields, strict JSON decode), agents/managers/portfolio_manager.py, agents/structured.py, graph/trading_graph.py (_log_state)"
     priority: must  # deterministic safety boundary required by project.pdf p3
-    status: implement #Zelin Zhou
+    status: implemented #Zelin Zhou
     source: "requirement-candidates.md CAND-FR-04; baseline: structured output + rating parsing exist; no end-to-end validation gate (free-text fallback path unvalidated)"
     cross_refs:
       inv: [REQ-TA-INV-001]
@@ -219,7 +219,7 @@ requirements:
     fit_criterion: "offline suite runs with no network access and passes under the repo's default selection in isolation and in random order; any network use in an offline test fails a dedicated guard; verification: run offline suite isolated + randomized; network guard (e.g. socket-disabling test hook)."
     enforcing_component: "test/offline/* (suite-wide), pyproject.toml pytest selection, planned network guard fixture"
     priority: should
-    status: implement #Zelin Zhou
+    status: implemented #Zelin Zhou
     source: "requirement-candidates.md CAND-NFR-08 (cross-cutting); baseline: offline/live separation and 'not integration' default exist, no order-independence guarantee for new work"
     cross_refs: {}
 
