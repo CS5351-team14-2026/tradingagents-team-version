@@ -26,8 +26,9 @@ as enhanced.json, and `{"temperature": 0}` as baseline.json. The public
 present in your JSON override that mapping. The graph receives `profile` and the
 original explicit overrides, not an analyst list that would silently override Quick.
 Unset TRADINGAGENTS_PROFILE when measuring a no-profile baseline (otherwise the
-command rejects the ambiguous experiment). This local integration trial does not
-replace the formal comparison after the FR-001 follow-up fix merges.
+command rejects the ambiguous experiment). The final frozen-source formal comparison is now
+[recorded here](evidence/perf001-2026-11-21-final/README.md); previous smoke and
+interrupted source cohorts are excluded from its statistics.
 
 ```bash
 tradingagents compare --cases cases.json --baseline baseline.json --enhanced enhanced.json --output comparison-run-01 --repetitions 3 --live
@@ -64,3 +65,71 @@ Implementation uses public graph construction/propagate and callback APIs.
 `evaluation.py` owns pure records, comparison, aggregation and export;
 `evaluation_runner.py` owns evaluation execution and observation. CLI adds one
 subcommand. No original backtest or analysis behavior is replaced.
+
+## Smoke before a repeated experiment
+
+For a live diagnostic, give `cases.json` exactly one stock/date and add `--smoke`:
+
+```bash
+tradingagents compare --cases cases.json --baseline baseline.json --enhanced enhanced.json --output smoke-01 --smoke --live
+```
+
+This always runs **two analyses** (one baseline, one Quick), regardless of
+`--repetitions`. It still calls every agent selected by each configuration;
+“smoke” does not mean one API call or an instant result. Progress events identify
+run starts/ends and model starts/ends/errors. Each call's elapsed time,
+usage status, safe error type/HTTP status and termination reason (when reported)
+are exported under `diagnostics`. Parallel call durations must not be summed
+as end-to-end wall time. Raw exception text and model content are excluded.
+
+For the human-approved diagnostic protocol, use `{"temperature":0,"max_tokens":8192}`
+for baseline and `{"temperature":0,"max_tokens":8192,"profile":"quick"}` for Quick.
+The cap applies per model output, not to the whole graph; it does not bound
+network time. This is a **common capped configuration comparison**, not the
+unmodified default. Never combine these samples with uncapped samples.
+
+`experiment.json` identifies smoke versus repeated comparison. A smoke cannot
+establish PERF-001's repeatability or a performance threshold. Inspect
+`acceptance_status` / `acceptance_reasons` separately from execution `status`:
+a completed graph may return a REJECTED report or a REVIEW decision. Pair timings
+remain descriptive execution measurements, and `accepted_report_pairs` counts
+only completed pairs whose two claim audits returned ACCEPTED. It does not
+certify the investment recommendation. Missing, contradictory, failed or partial
+usage remains incomplete, using the team's public `normalize_usage` contract.
+
+## Durable progress and explicit recovery (FR-007)
+
+Every terminal run is atomically stored under `measurements/` before the next
+run starts. `protocol.json` contains only source/input digests: paths and endpoint
+URLs are not exposed. The original comparison and claim audit semantics remain
+unchanged. The CLI now supports:
+
+```bash
+tradingagents compare --cases cases.json --baseline baseline.json --enhanced enhanced.json --output comparison-run-01 --repetitions 3 --live --resume
+```
+
+Resume requires identical source, full configuration, cases, repetitions,
+provider/models, pricing and factory identity. Mismatches fail before provider
+calls. Completed runs, including completed REJECTED reports, are never re-run to
+obtain a more favorable result. A known execution failure is returned as a failure
+unless the human also supplies `--retry-failed`; that flag retries only failed
+runs, with fresh private state. Every previous attempt remains in `measurements/`,
+and earlier exports move to `export-history/`. Interrupted runs whose measurement
+was not committed must be completed again; no elapsed time is reconstructed or
+invented. A directory lock prevents simultaneous paid resumes.
+
+When publishing a resumed experiment, retain **all attempt records**, failure
+counts, and the final paired JSON/CSV. Never present a recovered dataset as if
+no attempts failed. Do not pool measurements from changed source/protocols.
+
+Integration fixes grounded in the real trial: JSON-mode PM retry explicitly
+requests JSON with the existing decision schema; supporting/opposing output
+schemas cap each list at the already-approved three claims (ADR-001), without
+trimming claims or relaxing audit/price/strict-NaN rules. Direct graph calls now
+use the shared usage handler and attach its observation before state persistence;
+CLI-owned ledgers are reused. Typed PM confidence is exposed directly to the
+comparison; free-text fallback confidence remains unavailable.
+
+## Recorded final experiment
+
+See [18-run raw evidence](evidence/perf001-2026-11-21-final/README.md). Across 9 completed paired runs/configuration: median runtime 417.79s -> 323.48s (22.57% reduction); median complete paired tokens 250148 -> 121032 (51.62%). Report claim acceptance 15/18; failed execution attempts 0. The common 8192 cap, prior failed trials, every attempt, spread and human target/protocol adoption are explicitly documented.

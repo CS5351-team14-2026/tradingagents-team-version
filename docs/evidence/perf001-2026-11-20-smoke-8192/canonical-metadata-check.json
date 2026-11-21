@@ -1,0 +1,40 @@
+[
+  {
+    "variant": "enhanced",
+    "source": "persisted full-state run_settings.run_metadata",
+    "canonical_usage": {
+      "tokens_in": null,
+      "tokens_out": null,
+      "total_tokens": null,
+      "llm_calls": null,
+      "usage_complete": false
+    },
+    "comparison_usage": {
+      "tokens_in": 130569,
+      "tokens_out": 49384,
+      "total_tokens": 179953,
+      "llm_calls": 15,
+      "usage_status": "complete"
+    },
+    "finding": "persisted canonical metadata lacks usage; comparison callback measurements are complete"
+  },
+  {
+    "variant": "baseline",
+    "source": "persisted full-state run_settings.run_metadata",
+    "canonical_usage": {
+      "tokens_in": null,
+      "tokens_out": null,
+      "total_tokens": null,
+      "llm_calls": null,
+      "usage_complete": false
+    },
+    "comparison_usage": {
+      "tokens_in": 177523,
+      "tokens_out": 65286,
+      "total_tokens": 242809,
+      "llm_calls": 18,
+      "usage_status": "complete"
+    },
+    "finding": "persisted canonical metadata lacks usage; comparison callback measurements are complete"
+  }
+]

@@ -1,0 +1,82 @@
+{
+  "format_version": 1,
+  "performance_target": "TBD",
+  "summary": {
+    "successful_pairs": 1,
+    "failed_pairs": 0,
+    "accepted_report_pairs": 1,
+    "target": "TBD",
+    "target_verdict": "not_assessed",
+    "baseline": {
+      "samples": 1,
+      "median_seconds": 301.27279433299555,
+      "min_seconds": 301.27279433299555,
+      "max_seconds": 301.27279433299555
+    },
+    "enhanced": {
+      "samples": 1,
+      "median_seconds": 270.36049762499897,
+      "min_seconds": 270.36049762499897,
+      "max_seconds": 270.36049762499897
+    },
+    "median_runtime_reduction_percent": 10.260566931187734
+  },
+  "runs": [
+    {
+      "settings": "{\"analysts\": [\"market\", \"social\", \"news\", \"fundamentals\"], \"anthropic_effort\": null, \"data_vendors\": {\"core_stock_apis\": \"yfinance\", \"fundamental_data\": \"sec_edgar,yfinance\", \"macro_data\": \"fred\", \"news_data\": \"yfinance\", \"prediction_markets\": \"polymarket\", \"technical_indicators\": \"yfinance\"}, \"deep_think_llm\": \"deepseek-flash\", \"deep_think_provider\": \"deepseek\", \"google_thinking_level\": null, \"llm_max_retries\": null, \"llm_provider\": \"deepseek\", \"max_debate_rounds\": 1, \"max_risk_discuss_rounds\": 1, \"max_tokens\": 8192, \"max_tool_rounds\": 20, \"openai_reasoning_effort\": null, \"output_language\": \"English\", \"profile\": null, \"quick_think_llm\": \"deepseek-flash\", \"quick_think_provider\": \"deepseek\", \"temperature\": 0, \"tool_vendors\": {}}",
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13",
+      "repetition": 1,
+      "variant": "baseline",
+      "status": "completed",
+      "failure_reason": "unavailable",
+      "acceptance_status": "ACCEPTED",
+      "acceptance_reasons": "[]",
+      "diagnostics": "{\"calls\": [{\"finish_reason\": \"tool_calls\", \"seconds\": 2.207441625003412, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 1.922184458002448, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 4.16554629199527, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 4.081208458999754, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 10.971661333998782, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 46.01943329200003, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 2.1886077910021413, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 2.774284915998578, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 61.507912540997495, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 10.585748124998645, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 33.505899957999645, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 40.96263875000295, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 15.405830415998935, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 5.617940666998038, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 29.82851341600326, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 35.23461683300411, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 40.46956325000065, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 29.30624550000357, \"status\": \"completed\", \"usage_status\": \"complete\"}], \"decision_review_reasons\": [], \"run_error_type\": null}",
+      "elapsed_seconds": 301.27279433299555,
+      "llm_calls": 18,
+      "tokens_in": 177523,
+      "tokens_out": 65286,
+      "total_tokens": 242809,
+      "usage_status": "complete",
+      "estimated_cost_usd": "unavailable",
+      "debate_rounds": 1,
+      "recommendation": "Underweight",
+      "confidence": "unavailable"
+    },
+    {
+      "settings": "{\"analysts\": [\"market\", \"news\"], \"anthropic_effort\": null, \"data_vendors\": {\"core_stock_apis\": \"yfinance\", \"fundamental_data\": \"sec_edgar,yfinance\", \"macro_data\": \"fred\", \"news_data\": \"yfinance\", \"prediction_markets\": \"polymarket\", \"technical_indicators\": \"yfinance\"}, \"deep_think_llm\": \"deepseek-flash\", \"deep_think_provider\": \"deepseek\", \"google_thinking_level\": null, \"llm_max_retries\": null, \"llm_provider\": \"deepseek\", \"max_debate_rounds\": 1, \"max_risk_discuss_rounds\": 1, \"max_tokens\": 8192, \"max_tool_rounds\": 3, \"openai_reasoning_effort\": null, \"output_language\": \"English\", \"profile\": \"quick\", \"quick_think_llm\": \"deepseek-flash\", \"quick_think_provider\": \"deepseek\", \"temperature\": 0, \"tool_vendors\": {}}",
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13",
+      "repetition": 1,
+      "variant": "enhanced",
+      "status": "completed",
+      "failure_reason": "unavailable",
+      "acceptance_status": "ACCEPTED",
+      "acceptance_reasons": "[]",
+      "diagnostics": "{\"calls\": [{\"finish_reason\": \"tool_calls\", \"seconds\": 1.3715619169961428, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 2.521767040998384, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 3.850883416002034, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 1.9049097500028438, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 18.874881042000197, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 3.022057499998482, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 38.13379708300636, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 20.335652666006354, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 53.717693667000276, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 20.210120874995482, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 6.024936582994997, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 28.163046207999287, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 32.58357554199756, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"stop\", \"seconds\": 27.297550875002344, \"status\": \"completed\", \"usage_status\": \"complete\"}, {\"finish_reason\": \"tool_calls\", \"seconds\": 35.09626316699723, \"status\": \"completed\", \"usage_status\": \"complete\"}], \"decision_review_reasons\": [], \"run_error_type\": null}",
+      "elapsed_seconds": 270.36049762499897,
+      "llm_calls": 15,
+      "tokens_in": 130569,
+      "tokens_out": 49384,
+      "total_tokens": 179953,
+      "usage_status": "complete",
+      "estimated_cost_usd": "unavailable",
+      "debate_rounds": 1,
+      "recommendation": "Hold",
+      "confidence": "unavailable"
+    }
+  ],
+  "comparisons": [
+    {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13",
+      "repetition": 1,
+      "comparison_status": "completed",
+      "report_pair_accepted": true,
+      "comparison_scope": "execution_time_only_not_quality_acceptance",
+      "runtime_reduction_percent": 10.260566931187734,
+      "token_reduction_percent": 25.88701407278972
+    }
+  ]
+}

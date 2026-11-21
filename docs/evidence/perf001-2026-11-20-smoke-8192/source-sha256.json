@@ -1,0 +1,9 @@
+{
+  "src/tradingagents/evaluation.py": "d1227188bbc23c3c9ec3a55305fc651093797ca42950ec552b1a95740123b406",
+  "src/tradingagents/evaluation_runner.py": "bcaa4dd6e01de241eb4a3e74c7fb952a753f89f26bcd9b03626b47b1bc484618",
+  "src/cli/main.py": "484034ead52c3d50ae9f6aa7446a042bbb4af9cd43f7f1b9f5149185117e33e2",
+  "src/tradingagents/default_config.py": "0f6564af8e2e8018f5e5ed446d50d40efaf5f2da08ebf82cfe7575f4f12bfe16",
+  "src/tradingagents/graph/trading_graph.py": "1a685fddd39eea345be9509b98d964868917e5c8d9279829ced423ff392517d8",
+  "src/tradingagents/llm_clients/usage.py": "70d895765b0dc7b1b6e5a4ee7074b66817a0bde389bff07e3e37fb8875592a91",
+  "src/tradingagents/llm_clients/openai_client.py": "5d4e993ccea48351051d7daeda48ca2756ba12018a65df30c5893afe3b1a2703"
+}

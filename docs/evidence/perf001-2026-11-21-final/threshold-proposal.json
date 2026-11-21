@@ -1,0 +1,14 @@
+{
+  "status": "proposal for human PR adoption, not a fabricated prior approval",
+  "rationale": "strictly positive reduction is the minimum already implied by the registry statements",
+  "proposed_runtime_reduction_threshold_percent": 0,
+  "runtime_comparator": ">",
+  "proposed_token_reduction_threshold_percent": 0,
+  "token_comparator": ">",
+  "observed_runtime_reduction_percent": 22.57469261767765,
+  "observed_token_reduction_percent": 51.61584342069495,
+  "observed_runtime_meets_proposal": true,
+  "observed_token_meets_proposal": true,
+  "human_target_adoption": false,
+  "raw_exports_preserved": "original measurement-time TBD fields are unchanged"
+}

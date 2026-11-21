@@ -1,0 +1,31 @@
+{
+  "mode": "smoke",
+  "planned_runs": 2,
+  "repetitions": 1,
+  "real_provider": true,
+  "started_utc": "2026-11-20T09:10:37.222061+00:00",
+  "python": "3.13.9",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "temperature": 0,
+  "max_tokens": 8192,
+  "case": {
+    "ticker": "AAPL",
+    "analysis_date": "2026-11-13"
+  },
+  "control_note": "common per-output cap, NOT unmodified defaults; never combine with uncapped samples",
+  "timing": "graph construction + propagate + normal persistence; exports excluded",
+  "isolation": "fresh memory/cache/results per run; checkpoints disabled",
+  "performance_acceptance": "not_assessed",
+  "target": "TBD",
+  "status": "completed",
+  "completed_runs": 2,
+  "failed_runs": 0,
+  "execution_order": [
+    "baseline",
+    "enhanced"
+  ],
+  "report_acceptance": "both ACCEPTED",
+  "complete_usage": "both complete",
+  "remaining_integration_issue": "Persisted canonical full-state usage fields are null; see canonical-metadata-check.json"
+}

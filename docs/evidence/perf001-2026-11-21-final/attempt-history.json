@@ -1,0 +1,3222 @@
+[
+  {
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 1,
+    "elapsed_seconds": 459.6191397079965,
+    "status": "completed",
+    "llm_calls": 25,
+    "tokens_in": 186499,
+    "tokens_out": 67017,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "REJECTED",
+    "acceptance_reasons": [
+      "UNDATED_MARKET_DATA",
+      "NO_DATED_OBSERVATION"
+    ],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.1967983750000712,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.7796905830036849,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.8111133749989676,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.8047624159953557,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 56.81760216699331,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.8971309580010711,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 11.039421875000698,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.674391000000469,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.056118874999811,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.7132940420051455,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.8821017090012901,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 9.26998391700181,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 24.912505584004975,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 36.79385883299983,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 42.51521804199729,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.733938333003607,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 31.06582266699843,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 45.419107542002166,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.07114804199955,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 35.18778379199648,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 41.34240479199798,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 23.71359400000074,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.955890457997157,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 22.527940167005,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.995774624992919,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 1,
+    "elapsed_seconds": 350.87345845800155,
+    "status": "completed",
+    "llm_calls": 17,
+    "tokens_in": 97377,
+    "tokens_out": 39036,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 1.85180691700225,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.6348827500041807,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.223558833000425,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.1106789170007687,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0295364580015303,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 10.501425957998435,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.652915582999412,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 36.279868833000364,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 49.995840457995655,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.305506791999505,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.859454874997027,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 28.19653683299839,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 38.30351099999825,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 23.396856124993064,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 16.358755042005214,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.636805125002866,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.67560091699852,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 2,
+    "elapsed_seconds": 395.27768604200537,
+    "status": "completed",
+    "llm_calls": 23,
+    "tokens_in": 189152,
+    "tokens_out": 54936,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 1.960065166997083,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.6815581249975367,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.9311385830005747,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.1932924169959733,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 47.41872920800233,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.089717832997849,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.872181417005777,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.183950207996531,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.5327545830004965,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.315627832998871,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 11.88338270800159,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.8855640000037965,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 26.973944666002353,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 42.12348962500255,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 66.29388695800299,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.71416099999624,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.851197832998878,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 32.477682416996686,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 28.77681712499907,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 29.68927954200626,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 14.985091875001672,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.680524875002448,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.202074041008018,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 2,
+    "elapsed_seconds": 310.6079877910015,
+    "status": "completed",
+    "llm_calls": 17,
+    "tokens_in": 88011,
+    "tokens_out": 33021,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.760614832994179,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.5406525419966783,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.9796178750038962,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.4667542500028503,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0959391669966863,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.447423957994033,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.108987040999637,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 25.777385083005356,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 48.04176979199838,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 16.240054084002622,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.976787374995183,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 25.299728208003216,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 29.24899233400356,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 16.59520041700307,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.065789833002782,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.117223458997614,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.903927332998137,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 3,
+    "elapsed_seconds": 396.8558774999983,
+    "status": "completed",
+    "llm_calls": 21,
+    "tokens_in": 147915,
+    "tokens_out": 61711,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Underweight",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.1604308749956544,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.7034846670139814,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.585042374994373,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.7697567910072394,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 72.18735379099962,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.4167036669969093,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.063722291990416,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.2283389170042938,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.190464041996165,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.8071518750075484,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.347713790994021,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.601773624992347,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.094277917,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 34.826522458010004,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 79.2697382500046,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 32.29023241699906,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.957127458998002,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.450387791992398,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 40.44063795800321,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 33.48680254200008,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 26.980784083003527,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 3,
+    "elapsed_seconds": 300.5377562079957,
+    "status": "completed",
+    "llm_calls": 17,
+    "tokens_in": 79890,
+    "tokens_out": 32355,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 1.6542184999998426,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.071905082993908,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.9307630830007838,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.105775749994791,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0306185000081314,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 11.953271250007674,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.049537917002453,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.09137254099187,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 36.264847750004265,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.003789834008785,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.142025250010192,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.906239624993759,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.107855875001405,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 43.53651395800989,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 27.013588332993095,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.284823458001483,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.360119332995964,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 1,
+    "elapsed_seconds": 444.12983091699425,
+    "status": "completed",
+    "llm_calls": 25,
+    "tokens_in": 192044,
+    "tokens_out": 58104,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "REVIEW",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.0584041670081206,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.045501457992941,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.132455458995537,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.668693917003111,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 48.06285770800605,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.724545083998237,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.814350083004683,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.8412192499963567,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.609258833996137,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.6998981250071665,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.896717957992223,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.443455125001492,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.343659916004981,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.4299073750007665,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 32.29888825000671,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 33.6386088750005,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 42.53520374999789,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.78595024999231,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.6573281250020955,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 36.63493474999268,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 36.9660037499998,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 32.45579487500072,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.08043550000002,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.428539792002994,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.782218041000306,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": [
+        "missing_entry_price",
+        "missing_stop_loss"
+      ]
+    }
+  },
+  {
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 1,
+    "elapsed_seconds": 321.2947374590003,
+    "status": "completed",
+    "llm_calls": 16,
+    "tokens_in": 69348,
+    "tokens_out": 33553,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.368740624995553,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0633333750010934,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.2200200839870377,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.4605331250058953,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.6109481250023236,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.9844041670003207,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 9.058700957990368,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 25.483762374991784,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 33.683842833997915,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 41.26129762499477,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 28.14178620900202,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.8481191669998225,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 31.781883165996987,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.50974654199672,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 38.38677137499326,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 15.256572500002221,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 2,
+    "elapsed_seconds": 383.22823412499565,
+    "status": "completed",
+    "llm_calls": 21,
+    "tokens_in": 170217,
+    "tokens_out": 59934,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "REVIEW",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.3736526249995222,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.103981667009066,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.9140808329975698,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.692581875002361,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 60.11216979099845,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.7882763749948936,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 14.89355158401304,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0367738329950953,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.858832708996488,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.7734985840070294,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 14.430675124996924,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 27.502022832995863,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 32.33225270899129,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 43.147308832994895,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 25.3657716250018,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.40532262501074,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.78541245899396,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 53.14475512500212,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 42.018910834012786,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 24.82580649999727,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 25.870745249994798,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": [
+        "missing_entry_price",
+        "missing_stop_loss"
+      ]
+    }
+  },
+  {
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 2,
+    "elapsed_seconds": 337.13006983300147,
+    "status": "completed",
+    "llm_calls": 18,
+    "tokens_in": 100704,
+    "tokens_out": 35421,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 1.7577438750013243,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.446866375001264,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.1015820000029635,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0617882079968695,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.9344329579907935,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.698163958993973,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 22.67523200000869,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 9.730474832991604,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 41.62453104100132,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 43.958254333992954,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.874405125010526,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.067638458000147,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 15.917727166990517,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 29.702597041003173,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 28.07985487500264,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.90036070899805,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.814194416001556,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.92111599999771,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 3,
+    "elapsed_seconds": 417.79252054200333,
+    "status": "completed",
+    "llm_calls": 22,
+    "tokens_in": 196967,
+    "tokens_out": 64262,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Underweight",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "REJECTED",
+    "acceptance_reasons": [
+      "UNDATED_MARKET_DATA",
+      "NO_DATED_OBSERVATION"
+    ],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.9931700830056798,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.3826036670070607,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.883257749999757,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 9.981267458992079,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 84.73177437500271,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.7046985420020064,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 15.704883958009304,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.668616666996968,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0671392920048675,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.08430300001055,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 22.944764833999216,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.84219079199829,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 39.56400895799743,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 51.09016279199568,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 48.997722500003874,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.414205666005728,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.3676639579935,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 43.618374915997265,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 37.37450208399969,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 23.03764974999649,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.666407665994484,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.988948624988552,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 3,
+    "elapsed_seconds": 323.47714324999833,
+    "status": "completed",
+    "llm_calls": 15,
+    "tokens_in": 81179,
+    "tokens_out": 34110,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.004657750003389,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.298089333999087,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.06478149999748,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.6787308339989977,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0748112500004936,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.880269166998914,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 24.89939679100644,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 34.60154037500615,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 43.2115244170127,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 30.820395625007222,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.304307749989675,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 22.74893775000237,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 33.875467082994874,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.70683595899027,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 25.391053792001912,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 1,
+    "elapsed_seconds": 452.29071445800946,
+    "status": "completed",
+    "llm_calls": 23,
+    "tokens_in": 197957,
+    "tokens_out": 65437,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Underweight",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.6375362499966286,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.959879624992027,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.432416917014052,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.169883166992804,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 55.602143249998335,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.0440605000039795,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.374906083001406,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.9511503340036143,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.863808666006662,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.852244291003444,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.5707492920046207,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 30.001981791996513,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 32.25602758300374,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 39.74362491699867,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 24.134400833005202,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 48.24527716699231,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.2100065410049865,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 46.907235083999694,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 38.06820645800326,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 33.70946487500623,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 16.0713057499961,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.37122274999274,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.603189625006053,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 1,
+    "elapsed_seconds": 334.1377244999894,
+    "status": "completed",
+    "llm_calls": 18,
+    "tokens_in": 90830,
+    "tokens_out": 34527,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.0508821250114124,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.050999667000724,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.6671351669938304,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.935914417001186,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.9959336250030901,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.190580540991505,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 14.589032999996562,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 27.951689041990903,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 34.08894137501193,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.805810457997723,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.0239669579896145,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.60563175000425,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.901235375000397,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 46.666567207998014,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 30.139052250000532,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.126838291005697,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 14.100065165999695,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 16.685893041998497,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 2,
+    "elapsed_seconds": 435.81241337499523,
+    "status": "completed",
+    "llm_calls": 22,
+    "tokens_in": 154229,
+    "tokens_out": 59479,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "REVIEW",
+    "confidence": "medium",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.3495372499892255,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.8395138339983532,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.393997584003955,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.6290612500015413,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 54.72744195901032,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.2285520830046153,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 15.48234941699775,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.5097571250080364,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.1859480410057586,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.6972117080003954,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.24812554199889,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.046492624998791,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 23.550280750001548,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 54.02582262500073,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 59.533478333003586,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 22.31933604099322,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.957476499999757,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 6.319982457993319,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 23.163359042009688,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 59.57558070801315,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 37.326502292009536,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 29.052336915992782,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": [
+        "missing_entry_price",
+        "missing_stop_loss"
+      ]
+    }
+  },
+  {
+    "case": {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 2,
+    "elapsed_seconds": 302.58841729200503,
+    "status": "completed",
+    "llm_calls": 17,
+    "tokens_in": 69047,
+    "tokens_out": 30973,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Hold",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.0560131660022307,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.6128715410013683,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.7766159580060048,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.648616041013156,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.621998624992557,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.0246693329972913,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.833691584004555,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 12.553944208004395,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 23.74599604200921,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 43.117769459000556,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 21.399336040994967,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.115970625003683,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 4.031547874998068,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 18.008603917012806,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 38.87941475000116,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 36.04379520799557,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.003041749994736,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  },
+  {
+    "case": {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "baseline",
+    "repetition": 3,
+    "elapsed_seconds": 367.92230525000195,
+    "status": "completed",
+    "llm_calls": 22,
+    "tokens_in": 192386,
+    "tokens_out": 58457,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "REVIEW",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 20,
+      "analysts": [
+        "market",
+        "social",
+        "news",
+        "fundamentals"
+      ],
+      "profile": null
+    },
+    "failure_reason": null,
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.2535787079978036,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.145392416001414,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.7326852910046,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.652208875006181,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 67.87986237500445,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.721706583994091,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.575868833999266,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.790089916990837,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.85784541699104,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.618684208006016,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 22.502623374995892,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.991849750003894,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 28.259867792003206,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 33.27659737499198,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 20.5804897909984,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 7.9737179999938235,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 47.06025624999893,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 28.003594959009206,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 45.22228866600199,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.899134958002833,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 19.863993417005986,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 13.203916250000475,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": [
+        "missing_entry_price",
+        "missing_stop_loss"
+      ]
+    }
+  },
+  {
+    "case": {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    },
+    "variant": "enhanced",
+    "repetition": 3,
+    "elapsed_seconds": 377.3507839170052,
+    "status": "completed",
+    "llm_calls": 17,
+    "tokens_in": 93160,
+    "tokens_out": 46031,
+    "usage_complete": true,
+    "debate_rounds": 1,
+    "recommendation": "Underweight",
+    "confidence": "low",
+    "pricing": null,
+    "settings": {
+      "llm_provider": "deepseek",
+      "deep_think_provider": "deepseek",
+      "quick_think_provider": "deepseek",
+      "deep_think_llm": "deepseek-flash",
+      "quick_think_llm": "deepseek-flash",
+      "temperature": 0,
+      "data_vendors": {
+        "core_stock_apis": "yfinance",
+        "technical_indicators": "yfinance",
+        "fundamental_data": "sec_edgar,yfinance",
+        "news_data": "yfinance",
+        "macro_data": "fred",
+        "prediction_markets": "polymarket"
+      },
+      "tool_vendors": {},
+      "output_language": "English",
+      "google_thinking_level": null,
+      "openai_reasoning_effort": null,
+      "anthropic_effort": null,
+      "max_tokens": 8192,
+      "llm_max_retries": null,
+      "max_debate_rounds": 1,
+      "max_risk_discuss_rounds": 1,
+      "max_tool_rounds": 3,
+      "analysts": [
+        "market",
+        "news"
+      ],
+      "profile": "quick"
+    },
+    "failure_reason": null,
+    "acceptance_status": "REJECTED",
+    "acceptance_reasons": [
+      "UNDATED_MARKET_DATA",
+      "NO_ANALYST_REFERENCE",
+      "NO_DATED_OBSERVATION"
+    ],
+    "diagnostics": {
+      "calls": [
+        {
+          "status": "completed",
+          "seconds": 2.1967096669977764,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.663937834004173,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.8285108330019284,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 3.5830200420023175,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 1.8150495840091025,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 2.2193021249986487,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 11.778028583998093,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 25.343144917002064,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 33.48439679200237,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 46.33123929200519,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 24.49228900000162,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 5.314628375010216,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        },
+        {
+          "status": "completed",
+          "seconds": 31.072321749990806,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 45.633948542003054,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 42.08844375000626,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 17.305116083007306,
+          "usage_status": "complete",
+          "finish_reason": "stop"
+        },
+        {
+          "status": "completed",
+          "seconds": 26.33202000000165,
+          "usage_status": "complete",
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "run_error_type": null,
+      "decision_review_reasons": []
+    }
+  }
+]

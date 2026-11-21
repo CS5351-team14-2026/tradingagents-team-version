@@ -1,0 +1,28 @@
+{
+  "started_utc": "2026-11-20T08:42:03.250001+00:00",
+  "cases": [
+    {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    {
+      "ticker": "MSFT",
+      "analysis_date": "2026-11-13"
+    }
+  ],
+  "repetitions": 3,
+  "python": "3.13.9",
+  "platform": "Darwin",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "temperature": 0,
+  "timing": "graph construction + propagate + normal persistence, export excluded",
+  "cache_memory": "new private directories per run",
+  "order": "alternating baseline-first/enhanced-first across case and repetition",
+  "target": "TBD",
+  "real_provider": true
+}

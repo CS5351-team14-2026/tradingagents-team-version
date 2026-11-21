@@ -1,13 +1,22 @@
 """REQ-TA-FR-007 / PERF-001: real adapter tested with deterministic fake graph."""
 import copy
 import json
-from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessage
+from langchain_core.outputs import ChatGeneration, LLMResult
 from typer.testing import CliRunner
 
 from tradingagents.evaluation import EvaluationCase
 from tradingagents.evaluation_runner import UsageObserver, prepare_configs, run_comparison
+
+
+def response_with_usage(incoming, outgoing, total=None):
+    """REQ-TA-FR-007: exercise the public normalizer's real response contract."""
+    return LLMResult(generations=[[ChatGeneration(message=AIMessage(
+        content='fixture', usage_metadata={'input_tokens': incoming,
+        'output_tokens': outgoing, 'total_tokens': incoming + outgoing if total is None else total},
+        response_metadata={'finish_reason': 'length'}))]])
 
 
 class FakeGraph:
@@ -20,8 +29,7 @@ class FakeGraph:
 
     def propagate(self, ticker, day):
         self.observer.on_llm_start({}, [], run_id='call')
-        self.observer.on_llm_end(SimpleNamespace(generations=[[SimpleNamespace(
-            message=SimpleNamespace(usage_metadata={'input_tokens': 100, 'output_tokens': 20}))]]), run_id='call')
+        self.observer.on_llm_end(response_with_usage(100, 20), run_id='call')
         return {'investment_debate_state': {'count': 2}}, 'Hold'
 
 
@@ -58,8 +66,7 @@ def test_missing_partial_duplicate_usage():
     observer.on_chat_model_start({}, [], run_id='a')
     assert observer.snapshot()['llm_calls'] == 1
     assert not observer.snapshot()['usage_complete']
-    response = SimpleNamespace(generations=[[SimpleNamespace(message=SimpleNamespace(
-        usage_metadata={'input_tokens': 0, 'output_tokens': 0}))]])
+    response = response_with_usage(0, 0)
     observer.on_llm_end(response, run_id='a')
     assert observer.snapshot()['usage_complete']
     observer.on_llm_start({}, [], run_id='b')
@@ -159,3 +166,72 @@ def test_pricing_refuses_mixed_model_tiers(tmp_path):
         run_comparison([EvaluationCase('AAPL', '2026-01-05')], before, after,
                        tmp_path / 'price', pricing=TokenPricing(1, 2))
     assert not (tmp_path / 'price').exists()
+
+
+@pytest.mark.parametrize('total,complete', [(120, True), (999, False)])
+def test_observer_preserves_shared_usage_conflicts(total, complete):
+    """REQ-TA-FR-007: contradictory provider totals cannot become complete usage."""
+    observer = UsageObserver()
+    observer.on_llm_end(response_with_usage(100, 20, total), run_id='call')
+    assert observer.snapshot()['usage_complete'] is complete
+    call = observer.diagnostics()['calls'][0]
+    assert call['usage_status'] == ('complete' if complete else 'conflict')
+    assert call['finish_reason'] == 'length'
+
+
+def test_observer_error_diagnostics_are_safe():
+    """REQ-TA-PERF-001: recoverable failures stay visible without raw errors."""
+    events = []
+    observer = UsageObserver(progress=events.append)
+    observer.on_llm_start({}, [], run_id='error')
+    observer.on_llm_error(RuntimeError('secret-placeholder'), run_id='error')
+    observer.on_llm_end(response_with_usage(10, 2), run_id='recovery')
+    assert observer.snapshot()['llm_calls'] == 2
+    assert not observer.snapshot()['usage_complete']
+    data = observer.diagnostics()
+    assert data['calls'][0]['error_type'] == 'RuntimeError'
+    assert data['calls'][0]['seconds'] >= 0
+    assert 'secret-placeholder' not in json.dumps(data)
+    assert [e['event'] for e in events] == ['llm_start', 'llm_error', 'llm_end']
+
+
+def test_completed_but_rejected_report_is_not_accepted(tmp_path):
+    """REQ-TA-FR-007 / PERF-001: timing completion is not report acceptance."""
+    class Rejected(FakeGraph):
+        def propagate(self, ticker, day):
+            state, rating = super().propagate(ticker, day)
+            state.update(claim_acceptance={'status': 'REJECTED', 'reasons': ['NO_CLAIM_METADATA']},
+                         decision_review_reasons=['missing_entry_price'])
+            return state, rating
+    before, after = configs()
+    result = run_comparison([EvaluationCase('AAPL', '2026-01-05')], before, after,
+                            tmp_path / 'rejected', graph_factory=Rejected, repetitions=1)
+    data = result.to_dict()
+    assert data['summary']['successful_pairs'] == 1
+    assert data['summary']['accepted_report_pairs'] == 0
+    assert not data['comparisons'][0]['report_pair_accepted']
+    assert result.runs[0].acceptance_reasons == ('NO_CLAIM_METADATA',)
+    assert result.runs[0].diagnostics['decision_review_reasons'] == ['missing_entry_price']
+
+
+def test_cli_smoke_runs_only_one_pair(tmp_path, monkeypatch):
+    """REQ-TA-FR-007: smoke is explicitly one case/one pair, never 18 calls."""
+    import tradingagents.evaluation_runner as adapter
+    from cli.main import app
+    real = adapter.run_comparison
+    monkeypatch.setattr(adapter, 'run_comparison',
+                        lambda *args, **kwargs: real(*args, **kwargs, graph_factory=FakeGraph))
+    case_file, config = tmp_path / 'cases.json', tmp_path / 'config.json'
+    case_file.write_text(json.dumps([{'ticker': 'AAPL', 'analysis_date': '2026-01-05'}]))
+    config.write_text(json.dumps({'temperature': 0, 'max_tokens': 8192}))
+    output = tmp_path / 'output'
+    args = ['compare', '--cases', str(case_file), '--baseline', str(config),
+            '--enhanced', str(config), '--output', str(output), '--live', '--smoke']
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    runs = json.loads((output / 'comparison.json').read_text())['runs']
+    assert len(runs) == 2 and all(r['repetition'] == 1 for r in runs)
+    assert all(json.loads(r['settings'])['max_tokens'] == 8192 for r in runs)
+    assert 'run_start' in result.output and 'run_end' in result.output
+    args.remove('--smoke')
+    assert CliRunner().invoke(app, args).exit_code == 1

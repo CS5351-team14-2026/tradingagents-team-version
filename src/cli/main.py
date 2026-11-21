@@ -212,6 +212,9 @@ def compare(
     output: str = typer.Option(..., help="New output directory (must not exist)"),
     repetitions: int = typer.Option(3, min=1),
     live: bool = typer.Option(False, "--live", help="Confirm real provider calls and costs"),
+    smoke: bool = typer.Option(False, "--smoke", help="One case, one pair; diagnostic only"),
+    resume: bool = typer.Option(False, "--resume", help="Resume only an identical recorded experiment"),
+    retry_failed: bool = typer.Option(False, "--retry-failed", help="With --resume, retry failed runs; retain every attempt"),
     input_price: float | None = typer.Option(None, min=0, help="USD per million input tokens"),
     output_price: float | None = typer.Option(None, min=0, help="USD per million output tokens"),
 ):
@@ -227,8 +230,10 @@ def compare(
         raise typer.Exit(1)
     try:
         case_data = json.loads(Path(cases).read_text(encoding="utf-8"))
-        if not isinstance(case_data, list) or len(case_data) < 3:
-            raise ValueError("provide at least three ticker/date cases")
+        if not isinstance(case_data, list) or len(case_data) < (1 if smoke else 3):
+            raise ValueError("provide at least three cases, or one with --smoke")
+        if smoke and len(case_data) != 1:
+            raise ValueError("smoke requires exactly one case")
         chosen = [EvaluationCase(**item) for item in case_data]
         before, after = prepare_configs(
             DEFAULT_CONFIG, json.loads(Path(baseline).read_text(encoding="utf-8")),
@@ -237,14 +242,30 @@ def compare(
             raise ValueError("provide both input-price and output-price or neither")
         pricing = TokenPricing(input_price, output_price) if input_price is not None else None
         destination = Path(output)
-        if destination.exists():
+        if destination.exists() and not resume:
             raise ValueError("output directory must not already exist")
-        result = run_comparison(chosen, before, after, destination, repetitions,
-                                pricing=pricing)
+        result = run_comparison(chosen, before, after, destination, 1 if smoke else repetitions,
+                                pricing=pricing, progress=lambda event: typer.echo(json.dumps(event)),
+                                resume=resume, retry_failed=retry_failed)
+        if resume:
+            history = destination / "export-history"
+            history.mkdir(exist_ok=True)
+            for name in ("comparison.json", "comparison.csv"):
+                existing = destination / name
+                if existing.exists():
+                    archived = history / f"{len(list(history.iterdir())):06d}-{name}"
+                    existing.rename(archived)
         export_comparison(result, destination / "comparison.json")
         export_comparison(result, destination / "comparison.csv", "csv")
         typer.echo(json.dumps(result.summary(), indent=2))
+        (destination / "experiment.json").write_text(json.dumps({
+            "mode": "smoke" if smoke else "repeated_comparison",
+            "planned_runs": len(chosen) * (1 if smoke else repetitions) * 2,
+            "performance_acceptance": "not_assessed",
+        }, indent=2) + "\n", encoding="utf-8")
         typer.echo("Saved comparison.json and comparison.csv. Performance target remains TBD.")
+        if smoke:
+            typer.echo("Smoke diagnostics only: one pair cannot establish a performance result.")
         if any(r.status == "failed" for r in result.runs):
             raise typer.Exit(2)
     except (ValueError, TypeError, OSError):

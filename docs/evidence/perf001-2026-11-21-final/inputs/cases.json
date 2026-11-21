@@ -1,0 +1,14 @@
+[
+  {
+    "ticker": "AAPL",
+    "analysis_date": "2026-11-13"
+  },
+  {
+    "ticker": "NVDA",
+    "analysis_date": "2026-11-13"
+  },
+  {
+    "ticker": "MSFT",
+    "analysis_date": "2026-11-13"
+  }
+]

@@ -633,3 +633,104 @@ entries:
       graph e2e). ruff check . clean. Full offline suite result recorded with this
       round's report.
     transcript: "Supervised OpenCode session on branch feat/fr004-closeout; retained locally."
+
+  - id: AI-2026-11-20-xiangwen-evaluation-smoke-01
+    date: "2026-11-20"
+    task: "REQ-TA-FR-007 / PERF-001: diagnose the interrupted real trial, distinguish execution from claim acceptance, use shared usage normalization, add per-call safe diagnostics and one-pair smoke mode."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "Human-directed local session; docs/evaluation.md; ADR-002; ADR-004"
+    files:
+      - src/tradingagents/evaluation.py
+      - src/tradingagents/evaluation_runner.py
+      - src/cli/main.py
+      - test/offline/test_evaluation_runner.py
+      - docs/evaluation.md
+      - docs/evidence/perf001-2026-11-20/
+      - docs/evidence/perf001-2026-11-20-smoke-8192/
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      User authorized real provider calls, stopping the uncapped trial and using
+      the same 8192 output-token cap on both configurations. Then requested fixes
+      grounded in trial feedback and smoke checks instead of restarting 18 runs.
+      Git commit/push/PR remain manual. Detailed logs stay outside this repository.
+    verification: >-
+      ruff check . passed. Full offline regression: 1892 passed, 1 optional AWS
+      dependency test skipped, 1 live test deselected, 100 subtests passed.
+      Real capped smoke: baseline 301.27 s / 18 calls / 242809 tokens; Quick
+      270.36 s / 15 calls / 179953 tokens. Both claim audits ACCEPTED, usage
+      complete, no observed call errors or length truncation. Persisted canonical
+      metadata still lacks usage; captured as an integration follow-up. Diagnostic
+      only, not formal PERF-001 acceptance. No thresholds changed.
+    transcript: "Detailed session records retained locally in sibling xiangwen-local-logs/2026-11-20-smoke-fix; not committed."
+
+  - id: AI-2026-11-21-xiangwen-pm-json-formal-01
+    date: "2026-11-21"
+    task: "REQ-TA-FR-004 / FR-007 / PERF-001: human-approved minimal PM JSON retry instruction/schema fix, HTTP-contract regression, and formal repeated real measurements."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "Prompt.md; ADR-003; approved evaluation test plan #39; explicit 2026-11-21 scope approval"
+    files:
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - test/offline/test_pm_json_contract.py
+      - docs/ai-use-log.yaml
+      - docs/evaluation.md
+    human_decision: >-
+      User explicitly permitted the proposed one-file PM JSON retry fix plus
+      regression tests and requested completion of formal testing and submission
+      materials. Shared price/strict-decoding/evidence/budget rules stay unchanged.
+      Previously authorized real DeepSeek calls and the common 8192 output cap.
+      Detailed logs remain outside Git; commit, push and PR remain manual.
+    verification: >-
+      Full offline regression after the fix: 1894 passed, 1 optional AWS test
+      skipped, 1 live test deselected, 100 subtests passed; ruff check . passed.
+      Initial fixed-revision trial stopped after four records: AAPL accepted,
+      NVDA claim-limit rejection and a baseline connection failure. Records are
+      retained outside Git; subsequent integration fixes and the final cohort are
+      documented in AI-2026-11-21-xiangwen-final-qa-02. No thresholds invented.
+    transcript: "Sibling xiangwen-local-logs/2026-11-21-formal-perf-fixed; preceding failure and patch review retained in 2026-11-20-formal-perf."
+
+  - id: AI-2026-11-21-xiangwen-final-qa-02
+    date: "2026-11-21"
+    task: "FR-007 / PERF-001 final preflight against Issue #62 and teacher D1/D2.4/D4: claim bound, canonical usage persistence, typed confidence and durable experiment recovery."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "Issue #62; test-plan #39; ADR-001/003/004; teacher project PDF pp5-6,10; explicit human request to fix all known issues before a final real run"
+    files:
+      - src/tradingagents/evaluation_checkpoint.py
+      - src/tradingagents/evaluation_runner.py
+      - src/cli/main.py
+      - src/tradingagents/agents/schemas.py
+      - src/tradingagents/agents/state.py
+      - src/tradingagents/agents/managers/portfolio_manager.py
+      - src/tradingagents/graph/trading_graph.py
+      - test/offline/test_evaluation_recovery.py
+      - test/offline/test_evaluation_integration_contracts.py
+      - docs/evaluation.md
+      - docs/bug-diary.md
+      - docs/review-memo.md
+      - docs/architecture/adr/005-evaluation-protocol.md
+      - docs/architecture/trace-matrix.md
+      - docs/req/requirements.yaml
+      - docs/req/requirement-candidates.md
+      - docs/ai-use-log.yaml
+      - docs/evidence/perf001-2026-11-21-final/
+    human_decision: >-
+      Human requested the task satisfy teammate/course requirements, explicitly
+      chose offline fixes first followed by one final real experiment with reuse
+      only of protocol-compatible data, and retained manual Git/PR control.
+      Prior minimal PM JSON fix was explicitly approved. The agent did not inspect
+      or echo secret contents or touch human-only rules; authorized requests used
+      the application's existing credential loader. Detailed logs stay outside Git.
+    verification: >-
+      Known failure cases were reproduced and covered with negative regressions.
+      Final preflight: 1905 passed, 1 optional AWS test skipped, 1 live test
+      deselected, 100 subtests passed; full ruff passed. Resume never repeats a
+      completed report, rejects changed source/settings before calls, and keeps
+      failed attempts. Final real cohort: 18/18 completed, 15/18 claim audits
+      ACCEPTED; 0 failed attempts retained. Runtime medians
+      417.79s -> 323.48s (22.57%); token medians
+      250148 -> 121032 (51.62%). Independent
+      statistics/CSV/source/canonical-usage checks passed. Common-cap protocol and
+      proposed target require human review; no remote CI success is claimed.
+    transcript: "Sibling xiangwen-local-logs/2026-11-21-final-qa; earlier cohorts separately retained, never pooled across changed source."

@@ -44,11 +44,13 @@ not implemented here).
 
 | Requirement | Component | Test | Monitor / evidence |
 |---|---|---|---|
-| REQ-TA-FR-007 | `evaluation.py`, `evaluation_runner.py`, `cli/main.py::compare` | `test_evaluation.py`, `test_evaluation_runner.py` | Raw paired JSON/CSV: settings, timings, calls, tokens, ratings, confidence and completion; absent usage explicit |
-| REQ-TA-PERF-001 | `ComparisonResult.summary`, paired runner monotonic timing | `test_evaluation_runner.py::test_three_cases_repeated_and_isolated`, failure retention tests | Successful paired medians/min/max/counts, failed counts; target TBD, real Quick-profile experiment pending |
+| REQ-TA-FR-007 | `evaluation.py`, `evaluation_runner.py`, `evaluation_checkpoint.py`, `cli/main.py::compare` | Offline arithmetic/runner/Quick/recovery/integration tests; [18-run real evidence](../evidence/perf001-2026-11-21-final/README.md) | JSON/CSV, per-attempt journal, acceptance, complete usage/confidence and safe errors; source-matched resume |
+| REQ-TA-PERF-001 | Paired runner monotonic timing; `ComparisonResult.summary`; ADR-005 | [3 cases x 3 repeats x 2 configs](../evidence/perf001-2026-11-21-final/README.md), independent statistics/CSV check | Median baseline 417.79s, Quick 323.48s, reduction 22.57%; min/max/N/failures disclosed; threshold proposal for human review |
 
-Scope: offline-verified tooling; no claim of measured production speedup or full
-PERF-001 acceptance. Public interfaces only; no change to claim/rating semantics.
+Scope: offline-verified tooling and the linked frozen-source common-cap real
+experiment. This is measured execution under recorded conditions, not a universal
+production latency guarantee or approval of rejected investment reports. Targets
+and protocol qualification require human PR review; audit/rating rules stay fail-closed.
 
 ## FR-008 — settings replay from a prior run record
 

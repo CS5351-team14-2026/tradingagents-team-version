@@ -1,0 +1,47 @@
+[
+  {
+    "run": "case-0-repeat-1-baseline",
+    "rating": "REVIEW",
+    "review_reasons": [
+      "missing_entry_price",
+      "missing_stop_loss"
+    ],
+    "acceptance": {
+      "status": "REJECTED",
+      "audit_status": "NOT_ASSESSED",
+      "enforced": true,
+      "reasons": [
+        "NO_CLAIM_METADATA",
+        "PM_FREETEXT_FALLBACK"
+      ],
+      "notice": "This report is not accepted as an evidence-linked recommendation: at least one material claim could not be traced to a source report. Treat the recommendation as unsupported, not as a tradeable call."
+    },
+    "report_lengths": {
+      "market_report": 15632,
+      "news_report": 6459,
+      "sentiment_report": 6771,
+      "fundamentals_report": 13742
+    }
+  },
+  {
+    "run": "case-0-repeat-1-enhanced",
+    "rating": "Hold",
+    "review_reasons": [],
+    "acceptance": {
+      "status": "REJECTED",
+      "audit_status": "NOT_ASSESSED",
+      "enforced": true,
+      "reasons": [
+        "NO_CLAIM_METADATA",
+        "PM_FREETEXT_FALLBACK"
+      ],
+      "notice": "This report is not accepted as an evidence-linked recommendation: at least one material claim could not be traced to a source report. Treat the recommendation as unsupported, not as a tradeable call."
+    },
+    "report_lengths": {
+      "market_report": 13744,
+      "news_report": 4902,
+      "sentiment_report": 0,
+      "fundamentals_report": 0
+    }
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "both_reports_accepted_pairs": 6,
+  "accepted_only_median_seconds": {
+    "baseline": 416.3341454374968,
+    "enhanced": 315.9513626250009
+  },
+  "accepted_only_runtime_reduction_percent": 24.111109769055943,
+  "scope": "Post-measurement descriptive sensitivity only: both report audits ACCEPTED; not a replacement for the preregistered complete-execution cohort or 3 repetitions per case."
+}

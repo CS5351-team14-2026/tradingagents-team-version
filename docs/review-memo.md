@@ -60,3 +60,25 @@ Format for every memo (append below, newest last):
 - Security & efficiency: no secrets; no new dependencies; CI unchanged.
 - Verdict: APPROVE pending human reviewer confirmation of the GOV statements
   and priorities (pre-draft, S1 will finalize).
+
+## 2026-11-21 — FR-007 / PERF-001 local final verification review
+
+Reviewer: Codex automated self-review; human PR approval remains required.
+Scope: comparison telemetry and per-run recovery, plus human-authorized minimal
+integration corrections (PM JSON prompt, existing three-claims bound, canonical
+usage before persistence, typed confidence). Architecture: ADR-001/003/004 and
+proposed ADR-005. Price/strict-NaN/claim acceptance rules remain fail-closed;
+malformed claims are not trimmed. No frozen/rules/credential files, dependency
+metadata or Git state changed.
+
+Verification: full offline 1905 passed, 1 optional AWS skipped, 1 live deselected,
+100 subtests; full lint passed. Earlier failing ledger-call-count regression was
+fixed before the final cohort. Source and inputs freeze for real measurements;
+completed measurements are never repeated to obtain a favorable result, failed
+attempts remain visible. The final 18-run cohort has been independently checked and archived with source, settings, CSV/JSON and canonical metadata verification. All rejected reports remain visible.
+
+Verdict: **APPROVE for manual PR submission (automated self-review only)**. Final real data and documentation are archived under docs/evidence/perf001-2026-11-21-final/. Human review/CI/target adoption remain pending; rejected investment reports are not approved.
+This is not a human approval, a statement about remote CI, or an adoption of a
+numeric performance threshold. Detailed review and prior failures stay in the
+sibling local logs; only sanitized measurements and minimal governance records
+are included in the eventual PR.

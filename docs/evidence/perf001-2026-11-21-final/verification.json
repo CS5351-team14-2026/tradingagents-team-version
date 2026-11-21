@@ -1,0 +1,109 @@
+{
+  "per_case": [
+    {
+      "ticker": "AAPL",
+      "baseline": {
+        "recorded": 3,
+        "completed": 3,
+        "accepted": 2,
+        "median_seconds": 396.8558774999983,
+        "min_seconds": 395.27768604200537,
+        "max_seconds": 459.6191397079965
+      },
+      "enhanced": {
+        "recorded": 3,
+        "completed": 3,
+        "accepted": 3,
+        "median_seconds": 310.6079877910015,
+        "min_seconds": 300.5377562079957,
+        "max_seconds": 350.87345845800155
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "baseline": {
+        "recorded": 3,
+        "completed": 3,
+        "accepted": 2,
+        "median_seconds": 417.79252054200333,
+        "min_seconds": 383.22823412499565,
+        "max_seconds": 444.12983091699425
+      },
+      "enhanced": {
+        "recorded": 3,
+        "completed": 3,
+        "accepted": 3,
+        "median_seconds": 323.47714324999833,
+        "min_seconds": 321.2947374590003,
+        "max_seconds": 337.13006983300147
+      }
+    },
+    {
+      "ticker": "MSFT",
+      "baseline": {
+        "recorded": 3,
+        "completed": 3,
+        "accepted": 3,
+        "median_seconds": 435.81241337499523,
+        "min_seconds": 367.92230525000195,
+        "max_seconds": 452.29071445800946
+      },
+      "enhanced": {
+        "recorded": 3,
+        "completed": 3,
+        "accepted": 2,
+        "median_seconds": 334.1377244999894,
+        "min_seconds": 302.58841729200503,
+        "max_seconds": 377.3507839170052
+      }
+    }
+  ],
+  "latest_statuses": {
+    "completed": 18
+  },
+  "claim_acceptance": {
+    "REJECTED": 3,
+    "ACCEPTED": 15
+  },
+  "claim_rejection_reasons": {
+    "UNDATED_MARKET_DATA": 3,
+    "NO_DATED_OBSERVATION": 3,
+    "NO_ANALYST_REFERENCE": 1
+  },
+  "ratings": {
+    "Hold": 10,
+    "Underweight": 4,
+    "REVIEW": 4
+  },
+  "all_attempts": 18,
+  "failed_attempts": 0,
+  "final_samples": 18,
+  "expected_samples": 18,
+  "all_planned_observations_recorded": true,
+  "canonical_metadata_checked": 18,
+  "source_hashes_match": true,
+  "failed_llm_callbacks": 0,
+  "length_terminations": 0,
+  "no_whole_run_token_budget": true,
+  "baseline": {
+    "paired_completed_runs": 9,
+    "median_seconds": 417.79252054200333,
+    "min_seconds": 367.92230525000195,
+    "max_seconds": 459.6191397079965,
+    "complete_token_samples": 9,
+    "median_total_tokens": 250148
+  },
+  "enhanced": {
+    "paired_completed_runs": 9,
+    "median_seconds": 323.47714324999833,
+    "min_seconds": 300.5377562079957,
+    "max_seconds": 377.3507839170052,
+    "complete_token_samples": 9,
+    "median_total_tokens": 121032
+  },
+  "ratio_of_median_runtimes_reduction_percent": 22.57469261767765,
+  "ratio_of_median_tokens_reduction_percent": 51.61584342069495,
+  "median_of_paired_runtime_reductions_percent": 23.659954918126964,
+  "independent_statistics_and_export_check": "passed",
+  "dependency_versions_match": true
+}

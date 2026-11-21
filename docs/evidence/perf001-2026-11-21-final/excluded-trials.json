@@ -1,0 +1,103 @@
+[
+  {
+    "excluded_cohort": "2026-11-20-formal-perf",
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "repetition": 1,
+    "variant": "baseline",
+    "elapsed_seconds": 306.4315035420004,
+    "status": "completed",
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "usage_complete": true,
+    "run_error_type": null,
+    "excluded_reason": "source changed after diagnosed fixes; not pooled with final cohort"
+  },
+  {
+    "excluded_cohort": "2026-11-20-formal-perf",
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "repetition": 1,
+    "variant": "enhanced",
+    "elapsed_seconds": 293.29080287500256,
+    "status": "completed",
+    "acceptance_status": "REJECTED",
+    "acceptance_reasons": [
+      "NO_CLAIM_METADATA",
+      "PM_FREETEXT_FALLBACK"
+    ],
+    "usage_complete": false,
+    "run_error_type": null,
+    "excluded_reason": "source changed after diagnosed fixes; not pooled with final cohort"
+  },
+  {
+    "excluded_cohort": "2026-11-21-formal-perf-fixed",
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "repetition": 1,
+    "variant": "baseline",
+    "elapsed_seconds": 329.4289275409974,
+    "status": "completed",
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "usage_complete": true,
+    "run_error_type": null,
+    "excluded_reason": "source changed after diagnosed fixes; not pooled with final cohort"
+  },
+  {
+    "excluded_cohort": "2026-11-21-formal-perf-fixed",
+    "case": {
+      "ticker": "AAPL",
+      "analysis_date": "2026-11-13"
+    },
+    "repetition": 1,
+    "variant": "enhanced",
+    "elapsed_seconds": 394.52883208399726,
+    "status": "completed",
+    "acceptance_status": "ACCEPTED",
+    "acceptance_reasons": [],
+    "usage_complete": true,
+    "run_error_type": null,
+    "excluded_reason": "source changed after diagnosed fixes; not pooled with final cohort"
+  },
+  {
+    "excluded_cohort": "2026-11-21-formal-perf-fixed",
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "repetition": 1,
+    "variant": "enhanced",
+    "elapsed_seconds": 430.79502962500555,
+    "status": "completed",
+    "acceptance_status": "REJECTED",
+    "acceptance_reasons": [
+      "CLAIM_LIMIT_EXCEEDED"
+    ],
+    "usage_complete": true,
+    "run_error_type": null,
+    "excluded_reason": "source changed after diagnosed fixes; not pooled with final cohort"
+  },
+  {
+    "excluded_cohort": "2026-11-21-formal-perf-fixed",
+    "case": {
+      "ticker": "NVDA",
+      "analysis_date": "2026-11-13"
+    },
+    "repetition": 1,
+    "variant": "baseline",
+    "elapsed_seconds": 88.46238745800656,
+    "status": "failed",
+    "acceptance_status": "NOT_ASSESSED",
+    "acceptance_reasons": [],
+    "usage_complete": false,
+    "run_error_type": "OpenAIConnectionError",
+    "excluded_reason": "source changed after diagnosed fixes; not pooled with final cohort"
+  }
+]
