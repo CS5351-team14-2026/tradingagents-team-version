@@ -46,7 +46,7 @@ requirements:
     fit_criterion: "profile in {quick, standard, deep}; a valid profile applies the approved profile->settings mapping (analyst set, max_debate_rounds, max_risk_discuss_rounds, max_tool_rounds) exactly; an invalid profile is rejected BEFORE any LLM call with an error naming the legal values; unset profile reproduces v0.7.1 defaults exactly; explicit settings override the profile per key only (precedence rule fixed by ADR and tested); report metadata records requested AND resolved settings."
     enforcing_component: "default_config.py (profile key + TRADINGAGENTS_* env) / graph/setup.py (analyst registry, round caps) / graph/trading_graph.py run_settings() / cli/main.py"
     priority: must
-    status: implement #WuYu
+    status: implemented #WuYu
     source: "requirement-candidates.md CAND-FR-01; introduction p20 'slow and token-burning'; baseline: default_config.py max_debate_rounds/max_risk_discuss_rounds/max_tool_rounds, setup.py analyst map, no profile key in cli/main.py"
     cross_refs:
       cost: [REQ-TA-COST-001]
@@ -84,7 +84,7 @@ requirements:
     fit_criterion: "a final decision is accepted only if its rating resolves to exactly one of {Buy, Overweight, Hold, Underweight, Sell} AND every supplied entry/stop price normalises to a finite, strictly positive float; Buy and Overweight require both prices, Hold, Underweight and Sell accept absent or null; otherwise the run records final_rating=REVIEW with decision_review_reasons drawn from {unresolved_rating, missing_entry_price, missing_stop_loss, invalid_entry_price, invalid_stop_loss} and presents no tradeable call."
     enforcing_component: "agents/rating.py (validate_final_decision, normalise_price), agents/schemas.py (raw price fields, strict JSON decode), agents/managers/portfolio_manager.py, agents/structured.py, graph/trading_graph.py (_log_state)"
     priority: must  # deterministic safety boundary required by project.pdf p3
-    status: implement #Zelin Zhou
+    status: implemented #Zelin Zhou
     source: "requirement-candidates.md CAND-FR-04; baseline: structured output + rating parsing exist; no end-to-end validation gate (free-text fallback path unvalidated)"
     cross_refs:
       inv: [REQ-TA-INV-001]
@@ -95,7 +95,7 @@ requirements:
     fit_criterion: "in a sample report every principal reason carries a source identifier traceable to an analyst/agent output or a dated data observation; reported market data includes its observation date; unsupported claims are labelled as unsupported; the report contains the disclaimer."
     enforcing_component: "reporting.py, report_html.py, agents/state.py, graph/trading_graph.py"
     priority: must
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-FR-05; baseline: reporting.py/report_html.py render sections without per-claim linkage; no disclaimer in src/"
     cross_refs:
       fr: [REQ-TA-FR-003]
@@ -185,7 +185,7 @@ requirements:
     fit_criterion: "every formally defined material claim in an accepted report resolves to a report artifact and a derivable producing agent; any untraceable claim makes the report not accepted (REQ-TA-INV-005); verification: structural audit_material_claims on the fixed sample plus a sampled human checklist."
     enforcing_component: "reporting.py (audit_material_claims), graph/trading_graph.py (claim_audit), human claim-audit step"
     priority: should
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-NFR-04 (paired with FR-05); material-claim definition fixed by ADR-001; baseline sample recorded in ADR-001 §5"
     cross_refs:
       fr: [REQ-TA-FR-005]
@@ -198,7 +198,7 @@ requirements:
     fit_criterion: "zero boundary violations among new components (import-layering assertions/structural tests); 'ruff check .' passes; offline suite passes; LLM/data dependencies replaceable by test doubles in unit tests."
     enforcing_component: "structural tests over src/tradingagents/{agents,graph,dataflows,memory,llm_clients} boundaries; ruff (CI); offline pytest suite (CI)"
     priority: should
-    status: implement #WuYu
+    status: implemented #WuYu
     source: "requirement-candidates.md CAND-NFR-05 (cross-cutting, applies to every chosen candidate)"
     cross_refs: {}
 
@@ -219,7 +219,7 @@ requirements:
     fit_criterion: "offline suite runs with no network access and passes under the repo's default selection in isolation and in random order; any network use in an offline test fails a dedicated guard; verification: run offline suite isolated + randomized; network guard (e.g. socket-disabling test hook)."
     enforcing_component: "test/offline/* (suite-wide), pyproject.toml pytest selection, planned network guard fixture"
     priority: should
-    status: implement #Zelin Zhou
+    status: implemented #Zelin Zhou
     source: "requirement-candidates.md CAND-NFR-08 (cross-cutting); baseline: offline/live separation and 'not integration' default exist, no order-independence guarantee for new work"
     cross_refs: {}
 
@@ -291,7 +291,7 @@ requirements:
     fit_criterion: "zero-tolerance: in every accepted result, each material claim carries a resolvable source reference; an untraceable material claim prevents acceptance (downgrades the status); negative test: an accepted result containing a claim with no source is rejected/downgraded by the checker; fallback: downgrade to warning/review status and label the claim unsupported; depends on the agreed 'material claim' definition (see QR-002)."
     enforcing_component: "reporting.py, graph/trading_graph.py"
     priority: should
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-INV-05; baseline NEW/CLAIMED-ONLY — depends on FR-005"
     cross_refs:
       fr: [REQ-TA-FR-005]

@@ -133,3 +133,21 @@ comparison; free-text fallback confidence remains unavailable.
 ## Recorded final experiment
 
 See [18-run raw evidence](evidence/perf001-2026-11-21-final/README.md). Across 9 completed paired runs/configuration: median runtime 417.79s -> 323.48s (22.57% reduction); median complete paired tokens 250148 -> 121032 (51.62%). Report claim acceptance 15/18; failed execution attempts 0. The common 8192 cap, prior failed trials, every attempt, spread and human target/protocol adoption are explicitly documented.
+
+## Integration reconciliation after the measured cohort
+
+The 18-run archive above belongs to the source fingerprints recorded at measurement
+time, before the subsequent integration merge (local evidence commit `b32a840`).
+The archived JSON/CSV and fingerprints remain unchanged; they are not measurements
+of the newly merged revision. The merge is checked by offline regression only.
+No new paid experiment was started to resolve merge conflicts.
+
+ADR-005 / QR-001 now returns some failures as `(state, REVIEW)` without raising.
+The comparison adapter therefore checks the public `run_settings().run_metadata`
+lifecycle/failure block and returned `run_failure`, marks such measurements as
+failed for comparison, and excludes their pair from speedup statistics. This also
+excludes graceful degradation carrying an explicit failure block even if the graph
+lifecycle is completed. A rejected claim audit or REVIEW rating **alone** remains
+separate and does not invent an execution failure. Raw attempts and observed usage
+are retained; raw provider diagnostics are not copied. ADR-007 describes evaluation
+and recovery; the team's ADR-005 and ADR-006 keep their existing meanings.

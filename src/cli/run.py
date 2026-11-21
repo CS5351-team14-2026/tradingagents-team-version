@@ -26,14 +26,16 @@ from cli.display import (
 )
 from cli.selections import depth_from_env, get_user_selections, requested_profile, unattended_gaps
 from cli.stats_handler import StatsCallbackHandler
-from tradingagents import run_record as record
-from tradingagents.agents.rating import is_review, run_rating
+from tradingagents import __version__ as ta_version, run_record as record
+from tradingagents.agents.rating import RATING_REVIEW, is_review, run_rating
 from tradingagents.dataflows.symbols import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.failure import MissingApiKeyError
 from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.redaction import redact_text
 from tradingagents.reporting import decision_display_text
 from tradingagents.run_budget import RunBudgetContext, RunBudgetTracker
 from tradingagents.run_record import build_usage_summary
@@ -51,6 +53,57 @@ def _run_directory(config: dict, ticker: str, trade_date: str) -> Path:
     ".." here would place the run outside the results directory.
     """
     return Path(config["results_dir"]) / safe_ticker_component(ticker) / trade_date
+
+
+def _terminal_failure(final_state: dict, tracker) -> dict | None:
+    """The CLI's terminal controlled-failure block, mirroring ``_run_graph`` (ADR-005).
+
+    Implements REQ-TA-QR-001 for the CLI stream path (which does not go through
+    ``_run_graph``): if core market data was unavailable, force the result to
+    REVIEW (D-D1) and record ``STOCK_DATA_UNAVAILABLE``; else, a REVIEW produced
+    only because the token budget was exhausted records ``TOKEN_BUDGET_EXHAUSTED``.
+    Returns ``None`` when neither applies.
+    """
+    from tradingagents import data_signal, failure as failure_mod
+
+    if data_signal.core_data_unavailable():
+        final_state["final_rating"] = RATING_REVIEW
+        return failure_mod.build_failure(
+            failure_mod.FailureCode.STOCK_DATA_UNAVAILABLE, phase="analysis")
+    if is_review(run_rating(final_state)) and tracker is not None \
+            and tracker.snapshot().status == "BUDGET_EXHAUSTED":
+        return failure_mod.build_failure(
+            failure_mod.FailureCode.TOKEN_BUDGET_EXHAUSTED, phase="synthesis")
+    return None
+
+
+def _record_startup_failure(config: dict, selections: dict, exc: MissingApiKeyError) -> None:
+    """Write a controlled failure record when a run cannot even be constructed.
+
+    REQ-TA-QR-001 (ADR-005 D-B): a missing API key surfaces before any graph or
+    run exists, so this writes the standalone run record directly to disk with
+    ``status=failed`` and ``run_metadata.failure.code=MISSING_API_KEY``. It never
+    records the key value, an endpoint, or a local path (the run-record allowlist
+    holds). A write failure is swallowed so the CLI diagnostic is still shown.
+    """
+    import json
+
+    try:
+        settings = record.build_run_record(
+            replayable_settings={},
+            status=record.STATUS_FAILED,
+            version=ta_version,
+            failure=exc.to_failure(),
+        ).to_dict()
+        directory = (Path(config["results_dir"])
+                     / safe_ticker_component(selections["ticker"])
+                     / "TradingAgentsStrategy_logs")
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"run_record_{selections['analysis_date']}.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=4, ensure_ascii=False)
+    except Exception:  # never mask the CLI diagnostic with a record-write error
+        pass
 
 
 def _announce_checkpoint_state(graph, ticker: str, trade_date: str) -> None:
@@ -262,14 +315,22 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             explicit_overrides["analysts"] = selected_analyst_keys
         base_analysts = (None if flags.get("analysts") is not None
                          else selected_analyst_keys)
-    graph = TradingAgentsGraph(
-        config=config,
-        debug=True,
-        callbacks=[stats_handler],
-        profile=profile_name,
-        explicit_overrides=explicit_overrides or None,
-        base_analysts=base_analysts,
-    )
+    try:
+        graph = TradingAgentsGraph(
+            config=config,
+            debug=True,
+            callbacks=[stats_handler],
+            profile=profile_name,
+            explicit_overrides=explicit_overrides or None,
+            base_analysts=base_analysts,
+        )
+    except MissingApiKeyError as exc:
+        # REQ-TA-QR-001 (ADR-005 D-B): a missing key at construction is a
+        # controlled failure. Write a standalone run record and stop with a safe
+        # diagnostic; the exception never escapes the CLI.
+        _record_startup_failure(config, selections, exc)
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from None
     # The analysts the graph actually runs with, from the same resolved config.
     effective_analysts = [a for a in ANALYST_ORDER if a in set(graph.selected_analysts)]
     analyst_execution_plan = build_analyst_execution_plan(effective_analysts)
@@ -295,6 +356,9 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             func(*args, **kwargs)
             timestamp, message_type, content = obj.messages[-1]
             content = content.replace("\n", " ")  # Replace newlines with spaces
+            # SEC-001: sanitize at the write boundary; ordinary prompt text is
+            # preserved, only high-confidence secrets/paths are redacted.
+            content = redact_text(content)
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"{timestamp} [{message_type}] {content}\n")
         return wrapper
@@ -307,6 +371,8 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             func(*args, **kwargs)
             timestamp, tool_name, args = obj.tool_calls[-1]
             args_str = ", ".join(f"{k}={v}" for k, v in args.items())
+            # SEC-001: sanitize tool args at the write boundary.
+            args_str = redact_text(args_str)
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"{timestamp} [Tool Call] {tool_name}({args_str})\n")
         return wrapper
@@ -401,6 +467,13 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
         graph._run_budget_tracker = stats_handler.tracker
         _budget_scope = RunBudgetContext(stats_handler.tracker).activate()
         _budget_scope.__enter__()
+
+        # Bind a fresh data-availability holder for this run (REQ-TA-QR-001;
+        # ADR-005). LangGraph step contexts copy from here, so the tool nodes
+        # mutate this holder and _terminal_failure() below reads it.
+        from tradingagents import data_signal
+
+        data_signal.bind()
 
         # Stream the analysis. On resume, feed None so LangGraph continues the
         # interrupted run instead of re-appending the initial state (#1249); the
@@ -521,6 +594,11 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             for chunk in trace:
                 final_state.update(chunk)
 
+            # REQ-TA-QR-001 (ADR-005): apply the same terminal controlled-failure
+            # rules the graph path uses (core data unavailable -> REVIEW +
+            # STOCK_DATA_UNAVAILABLE; budget-only REVIEW -> TOKEN_BUDGET_EXHAUSTED).
+            terminal_failure = _terminal_failure(final_state, stats_handler.tracker)
+
             # Record this run's observational metadata BEFORE the decision is
             # logged, so the persisted record carries the final observations
             # (Implements: REQ-TA-QR-004). Token totals and call counts come from
@@ -533,6 +611,7 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
                     status=record.STATUS_COMPLETED,
                     started_at=_iso_timestamp(start_time),
                     completed_at=_iso_timestamp(time.time()),
+                    failure=terminal_failure,
                 )
 
             # Clean run: log the decision (which persists the record written
@@ -541,13 +620,33 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None, pro
             graph.clear_checkpoint_on_success(
                 selections["ticker"], selections["analysis_date"], selections["asset_type"], portfolio
             )
-        except BaseException:
-            # REQ-TA-QR-004: a run that throws after startup still records
-            # structured metadata with status=failed. The state log cannot be
-            # written (its keys are missing on a partial run), so a standalone
-            # run record is written. The exception is re-raised so checkpoint
-            # teardown and existing failure behaviour are unchanged.
+        except BaseException as exc:
+            # REQ-TA-QR-001 (ADR-005; D-CLI): a *classified* controlled failure
+            # (provider timeout/transport, invalid agent JSON) is handled here —
+            # record it, print a safe diagnostic, and exit without a traceback.
+            # An *unclassified* exception keeps the existing behaviour: record
+            # status=failed and re-raise so a genuine bug stays visible.
+            from tradingagents.failure import classify_exception
+
+            code = classify_exception(exc)
             if hasattr(graph, "set_run_observations"):
+                if code is not None:
+                    from tradingagents import failure as failure_mod
+
+                    failure = failure_mod.build_failure(
+                        code, phase="run", exception_type=type(exc).__name__)
+                    graph.set_run_observations(
+                        usage=build_usage_summary(stats_handler.get_stats()),
+                        status=record.STATUS_FAILED,
+                        started_at=_iso_timestamp(start_time),
+                        completed_at=_iso_timestamp(time.time()),
+                        failure=failure,
+                    )
+                    with suppress(OSError):
+                        graph.write_run_record(selections["ticker"], selections["analysis_date"])
+                    console.print(f"[red]{failure['diagnostic']}[/red]")
+                    raise typer.Exit(code=1) from None
+                # Unclassified: record status=failed, then re-raise as before.
                 graph.set_run_observations(
                     usage=build_usage_summary(stats_handler.get_stats()),
                     status=record.STATUS_FAILED,

@@ -120,4 +120,16 @@ def invoke_structured_or_freetext(
         logger.warning("%s: budget refused the free-text fallback; report left empty",
                        agent_name)
         return ""
-    return plain_llm.invoke(prompt).content
+    try:
+        return plain_llm.invoke(prompt).content
+    except Exception as exc:
+        # The free-text fallback is the last attempt: a provider/parse failure
+        # here must not escape as an uncaught exception (REQ-TA-QR-001; ADR-005).
+        # Return an empty report so the run degrades to REVIEW instead.
+        from tradingagents.failure import classify_exception
+
+        if classify_exception(exc) is not None:
+            logger.warning("%s: free-text fallback failed (%s); report left empty",
+                           agent_name, type(exc).__name__)
+            return ""
+        raise

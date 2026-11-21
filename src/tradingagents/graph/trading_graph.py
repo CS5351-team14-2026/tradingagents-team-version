@@ -10,7 +10,7 @@ from typing import Any
 import tradingagents
 from tradingagents import run_record as record
 from tradingagents.agents.context import build_instrument_context, resolve_instrument_identity
-from tradingagents.agents.rating import run_rating
+from tradingagents.agents.rating import RATING_REVIEW, is_review, run_rating
 from tradingagents.dataflows.config import run_config, run_config_context, set_config
 from tradingagents.dataflows.date_window import get_current_date, is_historical
 from tradingagents.dataflows.symbols import safe_ticker_component
@@ -19,6 +19,7 @@ from tradingagents.llm_clients import create_tier_client, tier_provider
 from tradingagents.llm_clients.usage import UsageCallbackHandler
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
+from tradingagents.redaction import redact_text
 from tradingagents.reporting import (
     audit_material_claims,
     evaluate_claim_acceptance,
@@ -35,6 +36,42 @@ from .propagation import Propagator
 from .setup import GraphSetup
 
 logger = logging.getLogger(__name__)
+
+
+# The state-log fields that carry agent-generated free text (reports, debate
+# histories, plans, decisions). SEC-001 sanitizes exactly these at write time.
+_STATE_LOG_TEXT_KEYS = (
+    "market_report", "sentiment_report", "news_report", "fundamentals_report",
+    "trader_investment_plan", "investment_plan", "final_trade_decision",
+)
+_STATE_LOG_TEXT_NESTED = {
+    "investment_debate_state": ("bull_history", "bear_history", "history", "current_response"),
+    "risk_debate_state": ("aggressive_history", "conservative_history",
+                          "neutral_history", "history"),
+}
+
+
+def _redact_state_log_text(entry: dict) -> dict:
+    """Return a copy of a state-log entry with agent-text fields redacted (SEC-001).
+
+    Keys and structure are preserved; only the report-bearing string values are
+    sanitized via the shared :func:`redact_text`, so ordinary content stays
+    readable. Never mutates the input entry.
+    """
+    out = dict(entry)
+    for key in _STATE_LOG_TEXT_KEYS:
+        value = out.get(key)
+        if isinstance(value, str):
+            out[key] = redact_text(value)
+    for key, fields in _STATE_LOG_TEXT_NESTED.items():
+        nested = out.get(key)
+        if isinstance(nested, dict):
+            scrubbed = dict(nested)
+            for field in fields:
+                if isinstance(scrubbed.get(field), str):
+                    scrubbed[field] = redact_text(scrubbed[field])
+            out[key] = scrubbed
+    return out
 
 
 def _bind_budget_context(tracker) -> None:
@@ -179,8 +216,15 @@ class TradingAgentsGraph:
         os.makedirs(self.config["results_dir"], exist_ok=True)
 
         extra = {"callbacks": self.callbacks} if self.callbacks else {}
+        # REQ-TA-QR-001 (ADR-005 D-B): a missing/invalid provider key raises a
+        # typed MissingApiKeyError (a ValueError subclass), which the CLI turns
+        # into a controlled failure record. The key value is never included.
         self.deep_thinking_llm = create_tier_client(self.config, "deep", **extra).get_llm()
         self.quick_thinking_llm = create_tier_client(self.config, "quick", **extra).get_llm()
+
+        # A controlled failure recorded for this run (REQ-TA-QR-001; ADR-005).
+        # None until a run ends in one; carried into run_settings()["run_metadata"].
+        self._run_failure = None
 
         self.memory_log = TradingMemoryLog(self.config)
 
@@ -537,7 +581,8 @@ class TradingAgentsGraph:
 
     def set_run_observations(self, *, usage=None, status: str | None = None,
                              started_at: str | None = None,
-                             completed_at: str | None = None) -> None:
+                             completed_at: str | None = None,
+                             failure: dict | None = None) -> None:
         """Attach observational data for the current run (REQ-TA-QR-004).
 
         ``usage`` is a :class:`tradingagents.run_record.UsageSummary` (or any
@@ -547,11 +592,16 @@ class TradingAgentsGraph:
         (REQ-TA-FR-008 loads only those). A caller that does not attach usage (a
         bare instance, or a caller with no token accounting) leaves the record's
         usage fields null with ``usage_complete`` false.
+
+        ``failure`` (REQ-TA-QR-001; ADR-005) is an optional allowlisted
+        ``{code, phase, diagnostic, exception_type?}`` block recorded under
+        ``run_metadata.failure``; it never changes the lifecycle ``status``.
         """
         self._run_usage = usage
         self._run_status = status
         self._run_started_at = started_at
         self._run_completed_at = completed_at
+        self._run_failure = failure
 
     def write_run_record(self, ticker: str, trade_date: str) -> Path:
         """Write this run's structured record to a metadata file on disk.
@@ -639,9 +689,10 @@ class TradingAgentsGraph:
             "output_language": cfg.get("output_language"),
             "data_vendors": dict(cfg.get("data_vendors") or {}),
             "tool_vendors": dict(cfg.get("tool_vendors") or {}),
-            # Per-run token budget is a run input, so it belongs to replayable
-            # settings (REQ-TA-FR-002; ADR-004). None = no budget (baseline).
-            "token_budget": cfg.get("token_budget"),
+            # NOTE: ``token_budget`` is deliberately NOT part of the replayable
+            # settings. It is an execution-time safety control owned by
+            # REQ-TA-FR-002, not replayed configuration (REQ-TA-FR-008; see its
+            # trace). It is recorded observationally under ``run_metadata`` below.
         }
 
         usage = getattr(self, "_run_usage", None)
@@ -667,6 +718,9 @@ class TradingAgentsGraph:
             "output_language": replayable_settings["output_language"],
             "data_vendors": replayable_settings["data_vendors"],
             "tool_vendors": replayable_settings["tool_vendors"],
+            # Execution-time control recorded observationally (not replayable):
+            # REQ-TA-FR-002 owns it; REQ-TA-FR-008 must not replay it.
+            "token_budget": cfg.get("token_budget"),
         }
 
         record_obj = record.build_run_record(
@@ -678,6 +732,8 @@ class TradingAgentsGraph:
             version=tradingagents.__version__,
             legacy=legacy,
             budget=self._budget_block(),
+            failure=getattr(self, "_run_failure", None),
+            token_budget=cfg.get("token_budget"),
         )
         return record_obj.to_dict()
 
@@ -756,13 +812,13 @@ class TradingAgentsGraph:
                 note = (f"{len(done.failed)} past decision(s) could not be settled this run "
                         "and stay pending.")
         except Exception as exc:
-            logger.warning("Settling past decisions failed: %s", exc)
+            logger.warning("Settling past decisions failed: %s", redact_text(str(exc)))
             note = f"Past decisions could not be settled this run ({type(exc).__name__}); they stay pending."
         try:
             past_context = self.memory_log.get_past_context(
                 state["company_of_interest"], as_of=self._memory_as_of(state["trade_date"]))
         except Exception as exc:
-            logger.warning("Reading the memory log failed: %s", exc)
+            logger.warning("Reading the memory log failed: %s", redact_text(str(exc)))
             past_context = ""
             note = note or f"The memory log could not be read this run ({type(exc).__name__})."
         return {"past_context": past_context, "memory_note": note}
@@ -816,6 +872,12 @@ class TradingAgentsGraph:
     def _run_graph(self, company_name, trade_date, asset_type: str = "stock",
                    checkpoint_thread_id: str | None = None, portfolio=None):
         """Execute the graph and write the resulting state to disk and memory log."""
+        # Bind a fresh per-run data-availability holder (REQ-TA-QR-001; ADR-005)
+        # before the graph runs, so tool nodes (in copied contexts) mutate the
+        # holder this frame reads at completion.
+        from tradingagents import data_signal
+
+        data_signal.bind()
         init_agent_state = self.create_run_state(company_name, trade_date, asset_type, portfolio)
         args = self.propagator.get_graph_args()
         if getattr(self, "callbacks", None):
@@ -843,13 +905,45 @@ class TradingAgentsGraph:
                         final_state.update(state)
             else:
                 final_state = self.graph.invoke(graph_input, **args)
-        except BaseException:
-            # REQ-TA-QR-004: a run that ends in an exception still records
-            # structured metadata, with status=failed. The state log cannot be
-            # written (its required keys are missing on a partial run), so a
-            # standalone run record is written. The exception is re-raised so
-            # existing failure behaviour is unchanged.
+        except BaseException as exc:
             self._attach_budget_observation()
+            # REQ-TA-QR-001 (ADR-005 D-A): a provider timeout or an exhausted
+            # structured path is a *controlled* failure. Record it and return a
+            # non-tradeable REVIEW result rather than letting the exception
+            # escape. Any other exception keeps the existing re-raise behaviour
+            # (a genuine bug must stay visible, not be silently masked).
+            from tradingagents import failure as failure_mod
+
+            code = failure_mod.classify_exception(exc)
+            if code is not None:
+                failure = failure_mod.build_failure(
+                    code, phase="run", exception_type=type(exc).__name__)
+                self.set_run_observations(
+                    usage=getattr(self, "_run_usage", None),
+                    status=record.STATUS_FAILED,
+                    started_at=getattr(self, "_run_started_at", None) or started_at,
+                    completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+                    failure=failure,
+                )
+                try:
+                    self.write_run_record(company_name, trade_date)
+                except OSError:  # never mask the controlled result with a write error
+                    logger.warning("Could not write the run record for a failed run", exc_info=True)
+                logger.warning("Run for %s on %s ended in a controlled failure: %s (%s)",
+                               company_name, trade_date, failure["code"], type(exc).__name__)
+                controlled_state = {
+                    "company_of_interest": company_name,
+                    "trade_date": str(trade_date),
+                    "final_trade_decision": (
+                        f"No tradeable recommendation could be produced: {failure['diagnostic']}"
+                    ),
+                    "final_rating": RATING_REVIEW,
+                    "run_failure": failure,
+                }
+                return controlled_state, RATING_REVIEW
+
+            # REQ-TA-QR-004: an unclassified exception still records structured
+            # metadata with status=failed, and is re-raised as before.
             self.set_run_observations(
                 usage=getattr(self, "_run_usage", None),
                 status=record.STATUS_FAILED,
@@ -866,18 +960,42 @@ class TradingAgentsGraph:
         # log is written, so the persisted record carries the final observations
         # rather than the pre-observation defaults.
         self._attach_budget_observation()
+        # REQ-TA-QR-001 (ADR-005; D-D1): a run whose CORE market data was
+        # unavailable must not present a confident tradeable call. Record
+        # STOCK_DATA_UNAVAILABLE and force the result to REVIEW (status stays
+        # ``completed`` — a caveated report was produced, D-D). This takes
+        # precedence over the budget mirror: missing data is the more specific
+        # cause.
+        from tradingagents import data_signal, failure as failure_mod
+
+        rating = run_rating(final_state)
+        failure = None
+        if data_signal.core_data_unavailable():
+            final_state["final_rating"] = RATING_REVIEW
+            rating = RATING_REVIEW
+            failure = failure_mod.build_failure(
+                failure_mod.FailureCode.STOCK_DATA_UNAVAILABLE, phase="analysis")
+        else:
+            tracker = getattr(self, "_run_budget_tracker", None)
+            if is_review(rating) and tracker is not None and tracker.snapshot().status == "BUDGET_EXHAUSTED":
+                # A run that produced only a non-tradeable REVIEW because the
+                # token budget was exhausted records a TOKEN_BUDGET_EXHAUSTED
+                # failure mirror (status completed, D-D).
+                failure = failure_mod.build_failure(
+                    failure_mod.FailureCode.TOKEN_BUDGET_EXHAUSTED, phase="synthesis")
         self.set_run_observations(
             usage=getattr(self, "_run_usage", None),
             status=record.STATUS_COMPLETED,
             started_at=getattr(self, "_run_started_at", None) or started_at,
             completed_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            failure=failure,
         )
         self.record_decision(company_name, trade_date, final_state)
 
         # Clear checkpoint on successful completion to avoid stale state.
         self.clear_checkpoint_on_success(company_name, trade_date, asset_type, portfolio)
 
-        return final_state, run_rating(final_state)
+        return final_state, rating
 
     def stream_run(self, graph_input, **args):
         """Stream a run as ``(messages, state)`` pairs.
@@ -971,6 +1089,11 @@ class TradingAgentsGraph:
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{trade_date}.json"
+        # SEC-001: the state log serializes agent-generated report/history text;
+        # sanitize those free-text fields at this write boundary so a secret a
+        # model or tool echoed cannot reach the log. Keys and structure are
+        # unchanged; only the report-bearing string values are redacted.
+        entry = _redact_state_log_text(entry)
         with open(log_path, "w", encoding="utf-8") as f:
             # Reports can be in any language and this file is read by a person.
             json.dump(entry, f, indent=4, ensure_ascii=False)

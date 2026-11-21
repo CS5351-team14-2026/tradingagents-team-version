@@ -10,6 +10,18 @@ Changes that need action when upgrading are listed under "Upgrading from" in the
 
 ### Added
 
+- Controlled failure handling (`REQ-TA-QR-001`; `docs/architecture/ADR-005-controlled-failures.md`):
+  the five controlled failure scenarios (provider timeout, invalid agent JSON,
+  missing API key, stock data unavailable, token budget exhausted) each end with a
+  defined, machine-readable `run_metadata.failure{code, phase, diagnostic,
+  exception_type?}` block (fixed safe diagnostic, no secret/endpoint/path) and
+  **zero uncaught exceptions**. A classified failure (timeout/parse) returns a
+  controlled `(state, REVIEW)` instead of a traceback; a missing API key at
+  construction is caught by the CLI and recorded; an unclassified exception is
+  still re-raised. The `completed`/`failed` lifecycle and the report/`run_metadata`
+  contract are unchanged; `run_metadata.failure` is observational and never
+  replayable, so a record stays replayable by REQ-TA-FR-008. Also reconciles
+  FR-002 so `token_budget` is recorded observationally (not replayable).
 - Per-run token budget (`REQ-TA-FR-002`; `docs/architecture/ADR-004-token-budget.md`):
   a run accepts a maximum token budget `N` (`--token-budget`, `TRADINGAGENTS_TOKEN_BUDGET`,
   or the `token_budget` config key) and starts no further **optional** LLM call once

@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 
+from tradingagents.data_signal import note_result
 from tradingagents.dataflows.date_window import as_of, as_of_window
 from tradingagents.dataflows.errors import NoMarketDataError, VendorUnavailableError
 from tradingagents.dataflows.router import no_data_available, route_to_vendor, vendor_unavailable
@@ -35,7 +36,9 @@ def get_stock_data(
         start_date, end_date = as_of_window(start_date, end_date, trade_date)
     except ValueError as e:
         return str(e)
-    return route_to_vendor("get_stock_data", symbol, start_date, end_date)
+    result = route_to_vendor("get_stock_data", symbol, start_date, end_date)
+    note_result("get_stock_data", result)
+    return result
 
 
 @tool
@@ -63,9 +66,11 @@ def get_indicators(
     results = []
     for ind in indicators:
         try:
-            results.append(route_to_vendor("get_indicators", symbol, ind, curr_date, look_back_days))
+            part = route_to_vendor("get_indicators", symbol, ind, curr_date, look_back_days)
         except ValueError as e:
-            results.append(str(e))
+            part = str(e)
+        note_result("get_indicators", part)
+        results.append(part)
     return "\n\n".join(results)
 
 
@@ -87,11 +92,13 @@ def get_verified_market_snapshot(
     """
     # An exception out of a tool would end the run.
     try:
-        return build_verified_market_snapshot(symbol, as_of(curr_date, trade_date), look_back_days)
+        result = build_verified_market_snapshot(symbol, as_of(curr_date, trade_date), look_back_days)
     except VendorUnavailableError as exc:
-        return vendor_unavailable("get_verified_market_snapshot", exc)
+        result = vendor_unavailable("get_verified_market_snapshot", exc)
     except NoMarketDataError as exc:
-        return no_data_available(exc)
+        result = no_data_available(exc)
+    note_result("get_verified_market_snapshot", result)
+    return result
 
 
 @tool

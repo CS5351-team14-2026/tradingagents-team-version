@@ -8,7 +8,7 @@ entries:
     agent: OpenCode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e2c5c6316ffeMQol8wdW1QhJXV
-    prompt_ref: "transcripts/FR-001-opencode.md#第-4-轮"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-4-轮"
     files:
       - docs/ai-use-log.yaml
       - docs/architecture/ADR-002-analysis-profiles.md
@@ -39,7 +39,7 @@ entries:
       For S5, WuYu required the metadata to distinguish explicit overrides
       from automatically selected analysts and approved the code after review.
       The final round aligned the ADR and traceability record with the implementation.
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-15-a5ynchr0ny-01
     date: "2026-11-15"
     task: "FR-005 / QR-002 / INV-005 local vertical slice: ADR-001, material-claim schema, claim ledger in Markdown and HTML, disclaimer, offline traceability tests"
@@ -61,7 +61,7 @@ entries:
       - test/offline/test_report_disclaimer.py
       - test/offline/test_report_html_claims.py
     human_decision: "Approved ADR-001 decisions: Option A material-claim definition, structural source ids, 3 supporting + 3 opposing claims, producing agent derived from source_id, fail-closed not activated in this slice."
-    transcript: pending
+    transcript: transcripts/61073835-ZHAOHang.md
   - id: AI-2026-11-16-wuyu200501-01
     date: "2026-11-16"
     task: "REQ-TA-QR-003 component-boundary enforcement: AST structural check over agents/graph/dataflows/memory/llm_clients for statically parseable cross-component private imports and alias reads (public and own-component private allowed; absolute/relative private import, private-module imports, and alias/package-alias/full-path reads rejected; scope- and statement-order-aware resolution; dynamic access out of static scope), plus a scripted-LLM + fixed-market-data offline graph run asserting both test doubles are exercised"
@@ -72,17 +72,17 @@ entries:
       - test/offline/test_layering.py
       - test/offline/test_graph_end_to_end.py
       - docs/architecture/trace-matrix.md
-      - transcripts/qr-003-implementation.md
+      - transcripts/60704848-WuYu.md
       - docs/ai-use-log.yaml
     human_decision: "Approved Stage 1 (component-boundary test) and Stage 2 (LLM-double assertion) after iterative review rounds; Windows ruff and full offline suite (1483 passed) confirmed green before acceptance."
-    transcript: transcripts/qr-003-implementation.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-16-wuyu200501-02
     date: "2026-11-16"
     task: "FR-001 delivery: merge origin/integration (f64d0ea) into feat/fr-001-analysis-profiles; resolve report_html.py and ai-use-log.yaml conflicts; keep legacy checkpoint signatures with the reserved claim_enforcement config; renumber the FR-001 ADR to ADR-002 alongside the merged ADR-001."
     agent: opencode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e1b6b37dcffeiyykKwCwMLmeot
-    prompt_ref: "transcripts/FR-001-opencode.md#第-16-轮--合并-originintegrationf64d0ea"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-16-轮--合并-originintegrationf64d0ea"
     files:
       - docs/ai-use-log.yaml
       - docs/architecture/ADR-002-analysis-profiles.md
@@ -91,7 +91,7 @@ entries:
       - src/tradingagents/graph/trading_graph.py
       - src/tradingagents/report_html.py
       - test/offline/test_profiles_graph.py
-      - transcripts/FR-001-opencode.md
+      - transcripts/60704848-WuYu.md
     human_decision: >-
       WuYu approved the two-conflict resolution (report_html keeps both imports;
       ai-use-log keeps both entries in one list), directed that legacy checkpoint
@@ -102,7 +102,7 @@ entries:
       claim_enforcement is a placeholder excluded from the signature for
       compatibility. Approved targeted HTML/checkpoint/ai-use-log checks before
       review. Not committed.
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-16-a5ynchr0ny-01
     date: "2026-11-16"
     task: "FR-005 PM confidence field: schema/prompt/render, tests, and real AAPL validation"
@@ -119,7 +119,7 @@ entries:
       - docs/architecture/adr/001-material-claims.md
       - docs/req/requirements.yaml
     human_decision: "Approved confidence (low/medium/high) and unconditional QR-002; real AAPL run produced medium confidence and 6/6 ACCEPTED."
-    transcript: pending
+    transcript: transcripts/61073835-ZHAOHang.md
   - id: AI-2026-11-17-a5ynchr0ny-01
     date: "2026-11-17"
     task: "ADR-001 §4 activation (fail-closed claim traceability) for REQ-TA-FR-005 / REQ-TA-QR-002 / REQ-TA-INV-005: read-only analysis and execution plan submitted for approval; no source or test code written in this step"
@@ -137,7 +137,7 @@ entries:
       - test/offline/test_claim_acceptance.py
       - test/offline/test_claim_audit_recording.py
     human_decision: "Plan approved 2026-11-17 with amendments (vocabulary ACCEPTED/REJECTED/NOT_ENFORCED; report_html.py whitelisted; S8 docs removed from scope); D1–D5 as recommended"
-    transcript: pending
+    transcript: transcripts/61073835-ZHAOHang.md
   - id: AI-2026-11-17-a5ynchr0ny-02
     date: "2026-11-17"
     task: "ADR-001 §4 fail-closed activation, stages S1-S7: the claim_acceptance verdict (ACCEPTED / REJECTED / NOT_ENFORCED), its recording in the state and the state log, the non-acceptance block in the Markdown and HTML reports, claim_enforcement defaulted to True, and the offline tests for REQ-TA-FR-005 / REQ-TA-QR-002 / REQ-TA-INV-005 with REQ-TA-INV-001 as the regression guard"
@@ -155,7 +155,7 @@ entries:
       - test/offline/test_claim_audit_recording.py
     human_decision: "Approved the plan with amendments 2026-11-17: D1 flip claim_enforcement to True; D2 memory log unchanged; D3 propagate() unchanged; D4 REQ-TA-FR-006 mapping out of scope; D5 test_graph_end_to_end.py untouched. S8 (ADR §4 amendment, trace matrix, registry) retained by the human."
     verification: "ruff check . clean; offline suite: 1481 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
-    transcript: pending
+    transcript: transcripts/61073835-ZHAOHang.md
   - id: AI-2026-11-17-a5ynchr0ny-03
     date: "2026-11-17"
     task: "FR-005 / QR-002 Portfolio Manager prompt: add a 'Primary analyst evidence' section carrying the market, sentiment, news and fundamentals reports (absent-marked via report_or_absent) before the risk debate history, and require at least one of the six material claims to cite a primary analyst report. No change to the audit or to fail-closed enforcement (NO_ANALYST_REFERENCE already covers the requirement)."
@@ -168,7 +168,7 @@ entries:
       - test/offline/test_structured_agent_prompts.py
     human_decision: "Asked for the primary-evidence section and the citation requirement in the PM prompt, with the audit and fail-closed logic explicitly scoped out; commit review pending."
     verification: "ruff check . clean; offline suite: 1484 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration)"
-    transcript: pending
+    transcript: transcripts/61073835-ZHAOHang.md
 
   - id: AI-2026-11-17-a5ynchr0ny-04
     date: "2026-11-17"
@@ -183,20 +183,25 @@ entries:
       - src/tradingagents/graph/trading_graph.py
       - test/offline/test_profiles_graph.py
     human_decision: "Approved resolving PR #31 conflicts and merging after the checks passed."
-    transcript: pending
+    transcript: transcripts/61073835-ZHAOHang.md#part-3-zcode-merge-session
+    transcript_note: >-
+      The /src changes in this session are merge-conflict resolution only
+      (report_html import union, trading_graph comment alignment); no /src code
+      was generated with ZCode. The two test fixture edits in test/ adapt the
+      PM confidence field required by PR #29.
   - id: AI-2026-11-17-wuyu200501-01
     date: "2026-11-17"
     task: "FR-001 PR #31 follow-up (rounds 17-18, one session recorded once): reject a per-analyst tool-round cap below 1 (zero and negative) before any model client is built; preserve resume for both pre-PR#27 and post-PR#27 legacy checkpoints, resuming only on a real run-settings match and clearing the resumed thread on completion; and — even with the current claim_enforcement=True default — still find a checkpoint that PR #27 saved with claim_enforcement=False by folding the historical False into the fallback signature (the default signature drops the key, matching 03e7d48), while the claim-acceptance evidence check keeps running on the live config. Added fixed historical-signature regression tests computed independently from commits 03e7d48 and fba0315, plus no-resume-on-mismatch and clear-on-success coverage."
     agent: opencode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e1785cf59ffeHHJS3UbI6eMjBH
-    prompt_ref: "transcripts/FR-001-opencode.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
     files:
       - src/tradingagents/graph/trading_graph.py
       - test/offline/test_profiles_graph.py
       - test/offline/test_checkpoint_lifecycle.py
       - docs/ai-use-log.yaml
-      - transcripts/FR-001-opencode.md
+      - transcripts/60704848-WuYu.md
     human_decision: >-
       WuYu approved the three review fixes with tests: a tool-round cap below 1
       rejected before model-client creation (0 and negative); resume preserved
@@ -212,21 +217,21 @@ entries:
       clear-on-success, and merged rounds 17-18 into one log entry. Run related
       and full offline tests, Ruff, the AI-use log validation and git diff
       --check; stop before any commit, push or merge.
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-17-wuyu200501-02
     date: "2026-11-17"
     task: "FR-001 delivery wrap-up in the follow-up workspace (new session, recorded separately from the rounds 17-18 session): port the tool-round-cap and legacy-checkpoint fixes from the prior workspace onto the current integration base (9565a96) while keeping teammates' Evidence Linkage and the merged QR-003 work; adapt the completed-run checkpoint-clear test to the dual (default + post-PR#27) signature clear; correct the session id of the old FR-001 delivery entry AI-2026-11-16-wuyu200501-02 to the PR #27 merge-conflict session; and reword the tool-round-cap comment so it states that a cap of 0 or any negative value lets the first tool call exceed the limit and only then reaches the wrap-up check."
     agent: opencode
     model: CS5351/DeepSeek-V4-Flash
     session: ses_e16ace1bdffeUswJq4i4O8jwCJ
-    prompt_ref: "transcripts/FR-001-opencode.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
+    prompt_ref: "transcripts/60704848-WuYu.md#第-1718-轮--pr-31-审核修复与断点兼容收尾同一会话合为一条记录"
     files:
       - src/tradingagents/graph/trading_graph.py
       - test/offline/test_profiles_graph.py
       - test/offline/test_checkpoint_lifecycle.py
       - test/offline/test_portfolio_context.py
       - docs/ai-use-log.yaml
-      - transcripts/FR-001-opencode.md
+      - transcripts/60704848-WuYu.md
     human_decision: >-
       WuYu asked to wrap up the FR-001 delivery record while keeping the existing
       tool-round validation and checkpoint implementation: correct only the
@@ -240,7 +245,7 @@ entries:
       environment, record the final count, and run Ruff, the AI-use log validation
       and git diff --check. Stop before any commit, push or merge.
     verification: "related tests: test_checkpoint_lifecycle.py, test_checkpoint_resume.py, test_profiles_graph.py, test_profiles.py, test_cli_profile.py, test_portfolio_context.py -> 109 passed; full offline suite (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1, isolated venv /tmp/opencode/venv-fr001): 1593 passed, 1 skipped (langchain_aws not installed), 1 deselected (integration), 100 subtests passed; ruff check . clean; AI-use log gate PASSED; git diff --check clean."
-    transcript: transcripts/FR-001-opencode.md
+    transcript: transcripts/60704848-WuYu.md
   - id: AI-2026-11-17-Alex-01
     date: "2026-11-17"
     task: "REQ-TA-QR-004: implement the canonical versioned structured run record (replayable_settings + run_metadata, completed/failed status, timestamps, token totals), failure-path metadata persistence, report-header status/token rendering, and offline tests."
@@ -709,7 +714,7 @@ entries:
       - docs/evaluation.md
       - docs/bug-diary.md
       - docs/review-memo.md
-      - docs/architecture/adr/005-evaluation-protocol.md
+      - docs/architecture/adr/007-evaluation-protocol.md
       - docs/architecture/trace-matrix.md
       - docs/req/requirements.yaml
       - docs/req/requirement-candidates.md
@@ -734,3 +739,119 @@ entries:
       statistics/CSV/source/canonical-usage checks passed. Common-cap protocol and
       proposed target require human review; no remote CI success is claimed.
     transcript: "Sibling xiangwen-local-logs/2026-11-21-final-qa; earlier cohorts separately retained, never pooled across changed source."
+  - id: AI-2026-11-19-xiaokewei001-qr001
+    date: "2026-11-19"
+    task: "REQ-TA-QR-001 Q1-Q2: controlled failure codes and run-record failure block; sync with FR-008 (origin/integration) and reconcile FR-002 token_budget placement."
+    agent: OpenCode
+    model: "CS5351/DeepSeek-V4-Flash"
+    session: "feat/QR001-OpenCode supervised session"
+    prompt_ref: "Human-approved QR-001 plan (Q1-Q2, H-1..H-5) on feat/QR001-OpenCode; staged with a human gate after Q1 and after the FR-008 merge."
+    files:
+      - docs/architecture/ADR-004-token-budget.md
+      - docs/architecture/ADR-005-controlled-failures.md
+      - docs/architecture/QR-001-trace.md
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+      - CHANGELOG.md
+      - src/tradingagents/failure.py
+      - src/tradingagents/run_record.py
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/agents/structured.py
+      - src/tradingagents/llm_clients/openai_client.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/report_html.py
+      - src/cli/run.py
+      - test/offline/test_qr001_missing_api_key.py
+      - test/offline/test_qr001_stock_data_unavailable.py
+      - test/offline/test_qr001_budget_exhausted.py
+      - test/offline/test_qr001_provider_timeout.py
+      - test/offline/test_qr001_invalid_json.py
+      - test/offline/test_qr001_fr008_reconcile.py
+      - test/offline/test_budget_reporting.py
+    human_decision: "Approved the plan with recommendations (D-A: classified failures return controlled (state, REVIEW); D-B: CLI catches missing key; D-C/D-E: {code,phase,diagnostic,exception_type?} with fixed safe messages; D-D: completed for graceful degradation; D-F: new ADR-005; D-G: no registry change). Approved H-1..H-5: move token_budget to run_metadata (not replayable), commit Q1 first, merge origin/integration (FR-008) as a merge commit, keep FR-008 replay branch + QR-001 missing-key wrap, add observational note."
+    verification: "ruff check . clean; full offline suite 1777 passed, 6 skipped, 1 deselected, 100 subtests; only the pre-existing Windows-GBK read_text() locale failures (reproduced on baseline), plus intermittent test_memory_log/test_backtest rotation flakiness that passes in isolation and is unrelated to these changes (memory/log.py untouched). FR-008 reconcile + settings tests green; QR-001 tests green. A post-FR-002 run record replays OK after moving token_budget out of replayable_settings."
+    transcript: "Supervised OpenCode session on branch feat/QR001-OpenCode; retained locally."
+  - id: AI-2026-11-21-Alex-04
+    date: "2026-11-21"
+    task: "REQ-TA-SEC-001: shared redaction utility, sanitized provider/CLI error and warning rendering, message_tool.log write-boundary sanitization, pinned detect-secrets PR gate with reviewed baseline, and deterministic offline tests."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "SEC-001 implementation instructions (approved Issue #50 scope and human decisions)"
+    files:
+      - src/tradingagents/redaction.py
+      - src/cli/main.py
+      - src/cli/run.py
+      - src/tradingagents/graph/trading_graph.py
+      - .github/workflows/ci.yml
+      - .secrets.baseline
+      - pyproject.toml
+      - test/offline/test_sec001_redaction.py
+      - docs/architecture/SEC-001-trace.md
+      - docs/architecture/trace-matrix.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Alex approved: implement SEC-001 only after FR-008 PR #49 merged and Issue
+      #50 got teammate test-approved; include message_tool.log protection limited
+      to the existing write boundaries; use detect-secrets, pinned, with documented
+      reproducible install/baseline/PR-scan/fixture handling; do not change QR-004
+      or FR-008 schemas; INV-006 stays frozen/unclaimed; branch from main and target
+      main for the eventual PR.
+    verification: "reported in the SEC-001 implementation session (focused SEC-001, QR-004, FR-008, QR-001, FR-002 sets; full offline suite; ruff; schema; AI-use; detect-secrets; controlled scanner test)."
+  - id: AI-2026-11-21-Alex-05
+    date: "2026-11-21"
+    task: "REQ-TA-SEC-001 review fixes: ADR-006, report + full-state-log serialization redaction, reports/state-log/run-record proof tests, input_tokens/output_tokens safe keys, and a secret-baseline-approved gate against baseline bypass."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "SEC-001 review-response instructions (must-fix items 1-5)"
+    files:
+      - docs/architecture/adr/006-secret-redaction.md
+      - src/tradingagents/redaction.py
+      - src/tradingagents/reporting.py
+      - src/tradingagents/graph/trading_graph.py
+      - .github/workflows/ci.yml
+      - test/offline/test_sec001_redaction.py
+      - docs/architecture/SEC-001-trace.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Alex accepted the reviewer's four must-fix items plus P2-1: add ADR-006; redact
+      reports and full-state-log serialization; add proof tests for reports,
+      full_state_log, and run records; add input_tokens/output_tokens to safe token
+      keys; prevent baseline bypass by requiring a 'secret-baseline-approved' label
+      and comparing against the base-branch baseline. No QR-004/FR-008 schema change,
+      no logging redesign, no custom-secret detection, no redact_exception redesign,
+      no branch rename.
+    verification: "reported in the SEC-001 review-fix session (SEC-001 focused, regression sets, full offline suite, ruff, schema, AI-use, detect-secrets)."
+
+  - id: AI-2026-11-21-xiangwen-integration-merge-03
+    date: "2026-11-21"
+    task: "Resolve manual integration merge conflicts; preserve QR-001 controlled failures and QR-004 usage persistence; exclude failure returns from FR-007/PERF-001 speedups."
+    agent: Codex
+    model: "GPT-6 (session model; exact deployment identifier unavailable)"
+    prompt_ref: "User's manual merge conflict report; approved integration completion scope; ADR-004/005/006; proposed ADR-007"
+    files:
+      - src/tradingagents/graph/trading_graph.py
+      - src/tradingagents/evaluation_runner.py
+      - test/offline/test_evaluation_controlled_failures.py
+      - docs/review-memo.md
+      - docs/architecture/adr/007-evaluation-protocol.md
+      - docs/architecture/trace-matrix.md
+      - docs/evaluation.md
+      - docs/bug-diary.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      User manually committed evidence and merged origin/integration, then
+      supplied the conflicts for resolution under the earlier approved task.
+      Keep both sides' work; Git completion/push/PR remain manual. No new real
+      provider calls; original paid experiment source cohort stays immutable.
+    verification: >-
+      Text conflicts resolved by retaining both review memos and combining
+      usage attachment with all QR-001 terminal paths. Fifteen negative cases
+      reproduced the missing failure-return bridge before its fix. Initial full
+      offline checks exposed sandbox socket restrictions; outside the sandbox,
+      the loopback test encountered a proxy HTTP502. With localhost-only proxy
+      bypass, final offline regression passed: 1985 passed, 1 optional AWS
+      skipped, 1 live deselected, 100 subtests. Full ruff, registry schema and
+      AI-use log validation passed. Other teammates' registry/log entries and
+      the original evidence checksums are preserved. No paid rerun occurred.
+      No secret contents were inspected or echoed; human-only rules were not modified.
+    transcript: "Sibling xiangwen-local-logs/2026-11-21-merge-integration; detailed records remain local."

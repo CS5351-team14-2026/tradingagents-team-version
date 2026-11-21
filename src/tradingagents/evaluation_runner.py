@@ -219,6 +219,17 @@ def _run_cases(cases, baseline, enhanced, root, repetitions, graph_factory,
                     state, rating = graph.propagate(case.ticker, case.analysis_date)
                     if not isinstance(state, dict) or not isinstance(rating, str):
                         raise ValueError('invalid graph result')
+                    # FR-007 / PERF-001 / QR-001: controlled failures return
+                    # REVIEW without raising. Read the public canonical record;
+                    # never count these short runs as performance successes.
+                    settings_reader = getattr(graph, 'run_settings', None)
+                    record = settings_reader() if callable(settings_reader) else {}
+                    metadata = record.get('run_metadata', {}) if isinstance(record, dict) else {}
+                    if not isinstance(metadata, dict):
+                        metadata = {}
+                    if (metadata.get('status') == 'failed' or state.get('run_failure')
+                            or metadata.get('failure')):
+                        status, reason = 'failed', 'CONTROLLED_FAILURE'
                 except Exception as exc:
                     error_type = type(exc).__name__
                     # REQ-TA-FR-007: never export raw exceptions carrying credentials.

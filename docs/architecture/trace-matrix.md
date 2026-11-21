@@ -44,8 +44,8 @@ not implemented here).
 
 | Requirement | Component | Test | Monitor / evidence |
 |---|---|---|---|
-| REQ-TA-FR-007 | `evaluation.py`, `evaluation_runner.py`, `evaluation_checkpoint.py`, `cli/main.py::compare` | Offline arithmetic/runner/Quick/recovery/integration tests; [18-run real evidence](../evidence/perf001-2026-11-21-final/README.md) | JSON/CSV, per-attempt journal, acceptance, complete usage/confidence and safe errors; source-matched resume |
-| REQ-TA-PERF-001 | Paired runner monotonic timing; `ComparisonResult.summary`; ADR-005 | [3 cases x 3 repeats x 2 configs](../evidence/perf001-2026-11-21-final/README.md), independent statistics/CSV check | Median baseline 417.79s, Quick 323.48s, reduction 22.57%; min/max/N/failures disclosed; threshold proposal for human review |
+| REQ-TA-FR-007 | `evaluation.py`, `evaluation_runner.py`, `evaluation_checkpoint.py`, `cli/main.py::compare` | Offline arithmetic/runner/Quick/recovery/integration tests, `test_evaluation_controlled_failures.py` (QR-001 returned failures excluded); [18-run real evidence](../evidence/perf001-2026-11-21-final/README.md) | JSON/CSV, per-attempt journal, acceptance, complete usage/confidence and safe errors; source-matched resume |
+| REQ-TA-PERF-001 | Paired runner monotonic timing; `ComparisonResult.summary`; ADR-007 | [3 cases x 3 repeats x 2 configs](../evidence/perf001-2026-11-21-final/README.md), independent statistics/CSV check | Median baseline 417.79s, Quick 323.48s, reduction 22.57%; min/max/N/failures disclosed; threshold proposal for human review |
 
 Scope: offline-verified tooling and the linked frozen-source common-cap real
 experiment. This is measured execution under recorded conditions, not a universal
@@ -74,6 +74,19 @@ new invocation (`--token-budget`/env), and it flows through the same FR-002
 `StatsCallbackHandler`/`RunBudgetTracker` construction so there is one ledger
 and no duplicate accounting.
 
+## QR-001 — controlled failure scenarios
+
+| Requirement | Component | Test | Monitor / CI |
+|---|---|---|---|
+| REQ-TA-QR-001 (five controlled failure scenarios end with a defined status + safe diagnostic + zero uncaught exceptions) | `failure.py` (`FailureCode`, `build_failure`, `classify_exception`, `MissingApiKeyError`); `graph/trading_graph.py` (`_run_graph` classify → controlled `(state, REVIEW)`, budget-exhausted REVIEW mirror, missing-key at construction); `agents/structured.py` (parse/fallback no escape); `cli/run.py` (missing-key catch + record); `run_record.py` (`run_metadata.failure` allowlist); `reporting.py` / `report_html.py` (Failure line) | `test_qr001_provider_timeout.py`, `test_qr001_invalid_json.py`, `test_qr001_missing_api_key.py`, `test_qr001_stock_data_unavailable.py`, `test_qr001_budget_exhausted.py`, `test_qr001_fr008_reconcile.py` | `run_metadata.failure{code,phase,diagnostic,exception_type?}`; report `Failure:` line; CI gate 5 full offline suite |
+
+Scope: `run_metadata.failure` is a separate, observational, allowlisted block
+(`completed`/`failed` lifecycle unchanged, QR-004). It is never in
+`replayable_settings`, so a record stays replayable by FR-008. Only *classified*
+failures (timeout/transport, parse) are controlled into `(state, REVIEW)`; an
+unclassified exception is still re-raised (a genuine bug stays visible). The
+budget-exhausted code is a mirror of FR-002's `BUDGET_*` status on the REVIEW
+path; FR-002 logic is unchanged.
 ## FR-004 / INV-001 — final-decision validation
 
 Contract: ADR-003. Approved test plan: Issue #32.
@@ -95,3 +108,15 @@ Approved test plan: Issue #32. Evidence: `docs/evidence/qr005_offline_evidence.t
 | REQ-TA-QR-005 / QR005-04 (default vs seed 42/5351: same set, order differs, seed reproducible) | `tools/ci/pytest_seeded_order.py` (`-p ... --order-seed N`); `tools/ci/compare_orders.py` (junitxml order) | `test/offline/test_seeded_order_plugin.py` (11); `test/offline/test_compare_orders.py` (5, synthetic junitxml) | Final controlled run, `unshare -Urn`, full suite as separate processes: default/42/5351/42-repeat each 1865 passed 1 skipped (exit 0); `compare_orders.py` PASSED (identical sets, default!=42, default!=5351, 42==42-repeat) — see evidence file |
 
 Scope: QR-005 is cross-cutting verification. This slice adds only test tooling under `test/offline/` and `tools/ci/`; it does not change runtime behaviour. The pytest guard is the always-on in-suite layer; the network-namespace egress block (`unshare -Urn`, loopback only) is the independent environment layer. Both the container-style containment and the full-suite random-order run are verified locally in that isolated namespace (see `docs/evidence/qr005_offline_evidence.txt`); the CI `qr005-isolation` job was withdrawn.
+
+## SEC-001 — secret redaction and leakage prevention
+
+| Requirement | Component | Test | Monitor / CI |
+|---|---|---|---|
+| REQ-TA-SEC-001 (no configured secret appears unredacted in logs, reports, prompts, fixtures, commits, transcripts) | `redaction.py` (`redact_text`, `redact`, `redact_exception`, `REDACTED`); `cli/main.py` (sanitized error render); `cli/run.py` (two `message_tool.log` write points); `graph/trading_graph.py` (sanitized warning logs); `.github/workflows/ci.yml` `secret-scan` + `.secrets.baseline` | `test/offline/test_sec001_redaction.py` (37 tests: key/token/header/url/env/pem/path shapes, nested/non-string/unicode/malformed, idempotency, false-positive resistance, message_tool.log boundary, CLI error sanitization, gate logic) | CI job `secret-scan` (pinned detect-secrets 1.5.0, baseline-compared); see `docs/architecture/SEC-001-trace.md` |
+
+Scope: high-confidence secret shapes only; the shared sanitizer copies rather than
+mutates, is safe on malformed input, and does not read environment variables or
+record which value triggered redaction. QR-004 and FR-008 schemas are unchanged;
+their existing secret/path exclusions are regression-tested. The detect-secrets
+gate pages against a reviewed baseline so only NEW findings block a PR.

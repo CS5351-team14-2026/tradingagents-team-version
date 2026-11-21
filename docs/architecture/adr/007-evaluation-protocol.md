@@ -1,4 +1,4 @@
-# ADR-005 — Paired evaluation and durable measurements
+# ADR-007 — Paired evaluation and durable measurements
 
 Status: proposed for team PR review. The human approved the implementation scope
 and final real experiment on 2026-11-21; this document does not invent a teammate

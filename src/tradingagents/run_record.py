@@ -162,6 +162,8 @@ def build_run_record(
     version: str | None = None,
     legacy: dict[str, Any] | None = None,
     budget: dict[str, Any] | None = None,
+    failure: dict[str, Any] | None = None,
+    token_budget: int | None = None,
 ) -> RunRecord:
     """Assemble a :class:`RunRecord` from its parts.
 
@@ -175,6 +177,13 @@ def build_run_record(
     ``status`` and never changes it; a run that completed with optional work
     curtailed keeps lifecycle ``completed`` and reports its budget result
     alongside. When omitted, no ``budget`` key is added (backward compatible).
+
+    ``failure`` (REQ-TA-QR-001; ADR-005) is an optional allowlisted block
+    ``{code, phase, diagnostic, exception_type?}`` placed under
+    ``run_metadata.failure``. It records a controlled failure without inventing
+    a new top-level status; the lifecycle ``status`` keeps its fixed
+    ``completed``/``failed`` vocabulary. When omitted, no ``failure`` key is
+    added.
     """
     if status not in RECORD_STATUSES:
         raise ValueError(
@@ -188,8 +197,15 @@ def build_run_record(
         "completed_at": completed_at,
     }
     run_metadata.update(usage.to_metadata())
+    # ``token_budget`` is an execution-time safety control (REQ-TA-FR-002),
+    # recorded observationally here — never in ``replayable_settings`` (the
+    # REQ-TA-FR-008 replay allowlist deliberately excludes it). ``None`` means
+    # enforcement was off for this run.
+    run_metadata["token_budget"] = token_budget
     if budget is not None:
         run_metadata["budget"] = dict(budget)
+    if failure is not None:
+        run_metadata["failure"] = dict(failure)
     return RunRecord(
         replayable_settings=dict(replayable_settings),
         run_metadata=run_metadata,

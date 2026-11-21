@@ -87,3 +87,17 @@ during implementation rounds.
 Detailed diagnosis, source revisions and raw private reports stay in the sibling
 local log directories per human instruction. Published evidence includes safe
 measurements and limitations, not credentials or private full reports.
+
+## 2026-11-21 — returned controlled failures looked like fast successful runs
+
+- Requirements: REQ-TA-FR-007 / PERF-001; integration REQ-TA-QR-001 / QR-004.
+- Trigger: merge the QR-001 contract, where a provider timeout or structured parse
+  failure returns REVIEW and a safe failure block instead of raising.
+- Gap: the evaluator initially only caught exceptions, so it marked this return
+  as completed. Fifteen new negative cases reproduced the mistake before repair.
+- Fix: inspect public run metadata and returned run_failure; failure-marked runs
+  stay in raw measurements but cannot enter successful-pair speedups. Preserve
+  partial observed tokens and keep ordinary claim rejection separate.
+- Verification: test_evaluation_controlled_failures.py covers all five codes via
+  state/metadata/lifecycle, review-only completion, and real graph timeout usage
+  persistence. Full post-merge regression recorded in the review memo.
