@@ -95,7 +95,7 @@ requirements:
     fit_criterion: "in a sample report every principal reason carries a source identifier traceable to an analyst/agent output or a dated data observation; reported market data includes its observation date; unsupported claims are labelled as unsupported; the report contains the disclaimer."
     enforcing_component: "reporting.py, report_html.py, agents/state.py, graph/trading_graph.py"
     priority: must
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-FR-05; baseline: reporting.py/report_html.py render sections without per-claim linkage; no disclaimer in src/"
     cross_refs:
       fr: [REQ-TA-FR-003]
@@ -185,7 +185,7 @@ requirements:
     fit_criterion: "every formally defined material claim in an accepted report resolves to a report artifact and a derivable producing agent; any untraceable claim makes the report not accepted (REQ-TA-INV-005); verification: structural audit_material_claims on the fixed sample plus a sampled human checklist."
     enforcing_component: "reporting.py (audit_material_claims), graph/trading_graph.py (claim_audit), human claim-audit step"
     priority: should
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-NFR-04 (paired with FR-05); material-claim definition fixed by ADR-001; baseline sample recorded in ADR-001 §5"
     cross_refs:
       fr: [REQ-TA-FR-005]
@@ -291,7 +291,7 @@ requirements:
     fit_criterion: "zero-tolerance: in every accepted result, each material claim carries a resolvable source reference; an untraceable material claim prevents acceptance (downgrades the status); negative test: an accepted result containing a claim with no source is rejected/downgraded by the checker; fallback: downgrade to warning/review status and label the claim unsupported; depends on the agreed 'material claim' definition (see QR-002)."
     enforcing_component: "reporting.py, graph/trading_graph.py"
     priority: should
-    status: implement #a5ync
+    status: implemented #a5ync
     source: "requirement-candidates.md CAND-INV-05; baseline NEW/CLAIMED-ONLY — depends on FR-005"
     cross_refs:
       fr: [REQ-TA-FR-005]
