@@ -266,7 +266,7 @@ def test_reportgen_records_metadata_and_writes_files(tmp_path):
     report = build_report(
         cases, llm_factory=lambda: _L(dec), candidate_sha="deadbeef",
         model_config={"provider": "deepseek", "model": "deepseek-flash",
-                      "temperature": "unset", "api_key": "SHOULD_NOT_APPEAR"},
+                      "temperature": "unset", "api_key": object()},
         repetitions=1,
     )
     assert report["candidate_sha"] == "deadbeef"
