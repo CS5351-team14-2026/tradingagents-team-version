@@ -1,0 +1,160 @@
+[
+  {
+    "id": "valid_dated_claim",
+    "description": "A correctly attributed, dated market claim alongside a qualitative claim. Audit must ACCEPT.",
+    "expected_status": "ACCEPTED",
+    "expected_reasons": [],
+    "state": {
+      "company_of_interest": "NVDA",
+      "trade_date": "2026-11-14",
+      "market_report": "Close was 181.2 on 2026-11-14.",
+      "sentiment_report": "Sentiment positive.",
+      "news_report": "Product launch announced.",
+      "fundamentals_report": "Margins expanded.",
+      "investment_debate_state": {
+        "bull_history": "Bull case.",
+        "bear_history": "Bear case.",
+        "history": "Debate.",
+        "current_response": ""
+      },
+      "investment_plan": "Overweight.",
+      "trader_investment_plan": "Add on weakness.",
+      "risk_debate_state": {
+        "aggressive_history": "Aggressive.",
+        "conservative_history": "Conservative.",
+        "neutral_history": "Neutral.",
+        "history": "Risk debate."
+      },
+      "final_trade_decision": "**Rating**: Overweight",
+      "final_rating": "Overweight",
+      "material_claims": [
+        {
+          "kind": "supporting",
+          "text": "Close was 181.2 on 2026-11-14.",
+          "source_id": "market_report",
+          "observation_date": "2026-11-14"
+        },
+        {
+          "kind": "opposing",
+          "text": "Trader flagged valuation risk.",
+          "source_id": "trader_investment_plan",
+          "observation_date": null
+        }
+      ]
+    }
+  },
+  {
+    "id": "empty_claim",
+    "description": "A single claim whose text is blank. Cannot be traced; audit must report UNTRACEABLE_CLAIM.",
+    "expected_status": "DOWNGRADED",
+    "expected_reasons": ["UNTRACEABLE_CLAIM"],
+    "state": {
+      "company_of_interest": "NVDA",
+      "trade_date": "2026-11-14",
+      "market_report": "Close was 181.2 on 2026-11-14.",
+      "sentiment_report": "Sentiment positive.",
+      "news_report": "News.",
+      "fundamentals_report": "Fundamentals.",
+      "investment_debate_state": {
+        "bull_history": "Bull.",
+        "bear_history": "Bear.",
+        "history": "Debate.",
+        "current_response": ""
+      },
+      "investment_plan": "Plan.",
+      "trader_investment_plan": "Trade.",
+      "risk_debate_state": {
+        "aggressive_history": "Agg.",
+        "conservative_history": "Con.",
+        "neutral_history": "Neu.",
+        "history": "Risk."
+      },
+      "final_trade_decision": "**Rating**: Hold",
+      "final_rating": "Hold",
+      "material_claims": [
+        {
+          "kind": "supporting",
+          "text": "   ",
+          "source_id": "market_report",
+          "observation_date": "2026-11-14"
+        }
+      ]
+    }
+  },
+  {
+    "id": "unknown_source",
+    "description": "A claim cites a source_id that is not a report artifact. Audit must report UNKNOWN_SOURCE.",
+    "expected_status": "DOWNGRADED",
+    "expected_reasons": ["UNKNOWN_SOURCE"],
+    "state": {
+      "company_of_interest": "NVDA",
+      "trade_date": "2026-11-14",
+      "market_report": "Close was 181.2 on 2026-11-14.",
+      "sentiment_report": "Sentiment positive.",
+      "news_report": "News.",
+      "fundamentals_report": "Fundamentals.",
+      "investment_debate_state": {
+        "bull_history": "Bull.",
+        "bear_history": "Bear.",
+        "history": "Debate.",
+        "current_response": ""
+      },
+      "investment_plan": "Plan.",
+      "trader_investment_plan": "Trade.",
+      "risk_debate_state": {
+        "aggressive_history": "Agg.",
+        "conservative_history": "Con.",
+        "neutral_history": "Neu.",
+        "history": "Risk."
+      },
+      "final_trade_decision": "**Rating**: Buy",
+      "final_rating": "Buy",
+      "material_claims": [
+        {
+          "kind": "supporting",
+          "text": "A podcast said so.",
+          "source_id": "podcast_transcript",
+          "observation_date": "2026-11-14"
+        }
+      ]
+    }
+  },
+  {
+    "id": "undated_market_claim",
+    "description": "A market_report claim omits observation_date. Audit must report UNDATED_MARKET_DATA.",
+    "expected_status": "DOWNGRADED",
+    "expected_reasons": ["UNDATED_MARKET_DATA"],
+    "state": {
+      "company_of_interest": "NVDA",
+      "trade_date": "2026-11-14",
+      "market_report": "Close was 181.2.",
+      "sentiment_report": "Sentiment positive.",
+      "news_report": "News.",
+      "fundamentals_report": "Fundamentals.",
+      "investment_debate_state": {
+        "bull_history": "Bull.",
+        "bear_history": "Bear.",
+        "history": "Debate.",
+        "current_response": ""
+      },
+      "investment_plan": "Plan.",
+      "trader_investment_plan": "Trade.",
+      "risk_debate_state": {
+        "aggressive_history": "Agg.",
+        "conservative_history": "Con.",
+        "neutral_history": "Neu.",
+        "history": "Risk."
+      },
+      "final_trade_decision": "**Rating**: Hold",
+      "final_rating": "Hold",
+      "material_claims": [
+        {
+          "kind": "supporting",
+          "text": "Close was 181.2 but no date given.",
+          "source_id": "market_report",
+          "observation_date": null
+        }
+      ]
+    }
+  }
+]

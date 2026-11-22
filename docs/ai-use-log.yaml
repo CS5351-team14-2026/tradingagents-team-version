@@ -945,3 +945,43 @@ entries:
       provenance; ruff clean; full offline suite 1985 passed, 1 skipped. ADR moves
       are pure renames with live references updated.
     transcript: "transcripts/61073835-ZHAOHang.md (Part 4)"
+
+  - id: AI-2026-11-22-gate4-pm-phase1
+    date: "2026-11-22"
+    task: "Gate 4 semantic-eval, Portfolio Manager first version — Phase 1 (offline scaffolding only). Add fixed PM cases under test/fixtures/gate4/pm_cases.json; add tools/sem_eval (reusable trigger matcher + case evaluator reusing tradingagents.reporting.audit_material_claims + a CLI writing result.json/summary). Overall status unified to PASS/FAIL/NOT_APPLICABLE/INFRASTRUCTURE_ERROR with per-case audit status kept separate and exit codes 0/1/2; error evidence is redacted (no raw exception text or credentials). Offline tests cover ACCEPTED/UNTRACEABLE_CLAIM/UNKNOWN_SOURCE/UNDATED_MARKET_DATA in JSON and summary, trigger vs NOT_APPLICABLE for docs-only changes, and normal/mismatch/empty-set/environment-error cases that never report PASS spuriously. Close-out fixes: validate case expected-field types (expected_reasons: null etc. → INFRASTRUCTURE_ERROR/exit 2 with both artefacts written), and reject any mode other than offline_precheck so offline cases cannot be reported as a real semantic_replay pass. Thresholds stay TBD; no baseline evidence generated this round."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "Human Phase 1 instructions in this session (start + interface correction); test plan #81 (labelled test-approved) — confirmed branch feat/gate4-pm-semantic-eval before starting"
+    files:
+      - test/fixtures/gate4/pm_cases.json
+      - tools/sem_eval/__init__.py
+      - tools/sem_eval/triggers.py
+      - tools/sem_eval/evaluator.py
+      - tools/sem_eval/cli.py
+      - test/offline/test_sem_eval_gate4.py
+      - transcripts/60704848-WuYu.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Human approved starting Phase 1 after test plan #81 was labelled
+      test-approved, then corrected the interface: unify the overall status to
+      PASS/FAIL/NOT_APPLICABLE/INFRASTRUCTURE_ERROR (per-case audit status
+      separate), export result.json + a readable summary for the CI wrapper,
+      test normal/mismatch/empty-set/environment-error, redact error evidence,
+      and document the 0/1/2 exit-code mapping. Still restricted to offline
+      implementation and tests (no real model calls, no GitHub Actions or
+      branch-protection changes, no commit/push). Fixtures, thresholds, scorer,
+      trigger rules and the workflow are handed to Phase 2 for separate approval
+      and are not treated as skippable doc changes. Close-out round: human re-ran
+      the tests and CLI, found expected_reasons: null crashes with no result.json,
+      semantic_replay mode falsely passes, and the transcript used a wrong student
+      id (61120001 → 60704848); directed fixing all three, adding regression tests,
+      and merging the Gate 4 record into transcripts/60704848-WuYu.md. Review is
+      pending before Phase 2.
+    verification: >-
+      New tests: 35 passed. CLI against the fixed cases → status PASS, exit 0;
+      malformed expected_reasons → INFRASTRUCTURE_ERROR, exit 2, result.json +
+      summary.txt still written; --mode semantic_replay → INFRASTRUCTURE_ERROR,
+      exit 2 (never PASS). Full offline suite: 2020 passed, 1 skipped
+      (langchain_aws not installed — pre-existing, unrelated), 1 deselected.
+      ruff check .: clean. validate_ai_use_log.py: passed.
+    transcript: "transcripts/60704848-WuYu.md#gate-4-semantic-evaluation--portfolio-manager-first-version-phase-1"
