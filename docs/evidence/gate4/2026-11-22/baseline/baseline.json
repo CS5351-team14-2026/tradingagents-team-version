@@ -1,0 +1,656 @@
+{
+  "mode": "semantic_replay",
+  "status": "OBSERVE",
+  "exit_code": 0,
+  "reason": null,
+  "thresholds": "TBD",
+  "model_config": {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "temperature": "unset"
+  },
+  "cases": [
+    {
+      "id": "baseline_full_evidence_dated",
+      "runs": [
+        {
+          "repetition": 1,
+          "id": "baseline_full_evidence_dated",
+          "audit_status": "ACCEPTED",
+          "observed_status": "ACCEPTED",
+          "observed_reasons": [],
+          "claims_total": 6,
+          "claims_attributed": 6,
+          "unsupported_claim_ids": [],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "fundamentals_report",
+              "observation_date": "2026-11-05",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "news_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "sentiment_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "trader_investment_plan",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "Overweight",
+          "confidence": "medium",
+          "decision_review_reasons": [],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        },
+        {
+          "repetition": 2,
+          "id": "baseline_full_evidence_dated",
+          "audit_status": "ACCEPTED",
+          "observed_status": "ACCEPTED",
+          "observed_reasons": [],
+          "claims_total": 6,
+          "claims_attributed": 6,
+          "unsupported_claim_ids": [],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "fundamentals_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "news_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "trader_investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "sentiment_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "Overweight",
+          "confidence": "medium",
+          "decision_review_reasons": [],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        },
+        {
+          "repetition": 3,
+          "id": "baseline_full_evidence_dated",
+          "audit_status": "ACCEPTED",
+          "observed_status": "ACCEPTED",
+          "observed_reasons": [],
+          "claims_total": 6,
+          "claims_attributed": 6,
+          "unsupported_claim_ids": [],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "fundamentals_report",
+              "observation_date": "2026-11-05",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "news_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "sentiment_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "trader_investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "Overweight",
+          "confidence": "medium",
+          "decision_review_reasons": [],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        }
+      ],
+      "aggregate": {
+        "runs": 3,
+        "status_counts": {
+          "ACCEPTED": 3
+        },
+        "claims_attributed": 18,
+        "claims_total": 18,
+        "errors": 0,
+        "runs_with_date_basis_unverified": 0
+      }
+    },
+    {
+      "id": "baseline_market_report_undated",
+      "runs": [
+        {
+          "repetition": 1,
+          "id": "baseline_market_report_undated",
+          "audit_status": "DOWNGRADED",
+          "observed_status": "DOWNGRADED",
+          "observed_reasons": [
+            "UNDATED_MARKET_DATA",
+            "NO_DATED_OBSERVATION"
+          ],
+          "claims_total": 6,
+          "claims_attributed": 4,
+          "unsupported_claim_ids": [
+            "s1",
+            "o1"
+          ],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNDATED_MARKET_DATA"
+              ]
+            },
+            {
+              "kind": "supporting",
+              "source": "fundamentals_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "sentiment_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNDATED_MARKET_DATA"
+              ]
+            },
+            {
+              "kind": "opposing",
+              "source": "trader_investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "news_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "REVIEW",
+          "confidence": "medium",
+          "decision_review_reasons": [
+            "missing_entry_price",
+            "missing_stop_loss"
+          ],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        },
+        {
+          "repetition": 2,
+          "id": "baseline_market_report_undated",
+          "audit_status": "ACCEPTED",
+          "observed_status": "ACCEPTED",
+          "observed_reasons": [],
+          "claims_total": 6,
+          "claims_attributed": 6,
+          "unsupported_claim_ids": [],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "market_report",
+              "observation_date": "2026-06-19",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "fundamentals_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "sentiment_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "market_report",
+              "observation_date": "2026-06-19",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "news_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "risk_debate_state.neutral_history",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [
+            "date basis unverified"
+          ],
+          "final_rating": "Overweight",
+          "confidence": "medium",
+          "decision_review_reasons": [],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        },
+        {
+          "repetition": 3,
+          "id": "baseline_market_report_undated",
+          "audit_status": "DOWNGRADED",
+          "observed_status": "DOWNGRADED",
+          "observed_reasons": [
+            "UNDATED_MARKET_DATA",
+            "NO_DATED_OBSERVATION"
+          ],
+          "claims_total": 6,
+          "claims_attributed": 4,
+          "unsupported_claim_ids": [
+            "s1",
+            "o2"
+          ],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNDATED_MARKET_DATA"
+              ]
+            },
+            {
+              "kind": "supporting",
+              "source": "fundamentals_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "news_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "trader_investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNDATED_MARKET_DATA"
+              ]
+            },
+            {
+              "kind": "opposing",
+              "source": "sentiment_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "REVIEW",
+          "confidence": "medium",
+          "decision_review_reasons": [
+            "missing_entry_price",
+            "missing_stop_loss"
+          ],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        }
+      ],
+      "aggregate": {
+        "runs": 3,
+        "status_counts": {
+          "DOWNGRADED": 2,
+          "ACCEPTED": 1
+        },
+        "claims_attributed": 14,
+        "claims_total": 18,
+        "errors": 0,
+        "runs_with_date_basis_unverified": 1
+      }
+    },
+    {
+      "id": "baseline_partial_reports",
+      "runs": [
+        {
+          "repetition": 1,
+          "id": "baseline_partial_reports",
+          "audit_status": "DOWNGRADED",
+          "observed_status": "DOWNGRADED",
+          "observed_reasons": [
+            "UNKNOWN_SOURCE"
+          ],
+          "claims_total": 6,
+          "claims_attributed": 4,
+          "unsupported_claim_ids": [
+            "s2",
+            "o2"
+          ],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNKNOWN_SOURCE"
+              ]
+            },
+            {
+              "kind": "supporting",
+              "source": "investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "news_report",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNKNOWN_SOURCE"
+              ]
+            },
+            {
+              "kind": "opposing",
+              "source": "trader_investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "Hold",
+          "confidence": "low",
+          "decision_review_reasons": [],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        },
+        {
+          "repetition": 2,
+          "id": "baseline_partial_reports",
+          "audit_status": "DOWNGRADED",
+          "observed_status": "DOWNGRADED",
+          "observed_reasons": [
+            "UNKNOWN_SOURCE"
+          ],
+          "claims_total": 6,
+          "claims_attributed": 4,
+          "unsupported_claim_ids": [
+            "o2",
+            "o3"
+          ],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "trader_investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "news_report",
+              "observation_date": "2026-11-12",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNKNOWN_SOURCE"
+              ]
+            },
+            {
+              "kind": "opposing",
+              "source": "UNKNOWN",
+              "observation_date": null,
+              "attributed": false,
+              "reasons": [
+                "UNKNOWN_SOURCE"
+              ]
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "Hold",
+          "confidence": "low",
+          "decision_review_reasons": [],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        },
+        {
+          "repetition": 3,
+          "id": "baseline_partial_reports",
+          "audit_status": "ACCEPTED",
+          "observed_status": "ACCEPTED",
+          "observed_reasons": [],
+          "claims_total": 6,
+          "claims_attributed": 6,
+          "unsupported_claim_ids": [],
+          "claims": [
+            {
+              "kind": "supporting",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "news_report",
+              "observation_date": "2026-11-12",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "supporting",
+              "source": "investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "news_report",
+              "observation_date": "2026-11-12",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "market_report",
+              "observation_date": "2026-11-13",
+              "attributed": true,
+              "reasons": []
+            },
+            {
+              "kind": "opposing",
+              "source": "investment_plan",
+              "observation_date": null,
+              "attributed": true,
+              "reasons": []
+            }
+          ],
+          "observation_notes": [],
+          "final_rating": "Hold",
+          "confidence": "low",
+          "decision_review_reasons": [],
+          "matches_expectation": false,
+          "evaluator_exception": false,
+          "error": null
+        }
+      ],
+      "aggregate": {
+        "runs": 3,
+        "status_counts": {
+          "DOWNGRADED": 2,
+          "ACCEPTED": 1
+        },
+        "claims_attributed": 14,
+        "claims_total": 18,
+        "errors": 0,
+        "runs_with_date_basis_unverified": 0
+      }
+    }
+  ]
+}

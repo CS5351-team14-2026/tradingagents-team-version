@@ -1,0 +1,76 @@
+name: Gate 4 — semantic evaluation (advisory)
+
+# Course gate 4 (semantic evaluation). NON-REQUIRED check: this job is NOT in
+# branch protection's required contexts, so it cannot block a merge in this
+# round. It runs on PRs that touch a tracked prompt / model / parsing surface and
+# reports PASS / FAIL / NOT_APPLICABLE / INFRASTRUCTURE_ERROR with exit 0/1/2.
+#
+# This Draft-PR version injects NO model credential: the normal pull_request job
+# runs trigger + offline gate logic only. A triggered PR therefore reports
+# INFRASTRUCTURE_ERROR (missing credential) and never fabricates PASS. The live
+# replay (a report for THIS PR's commit on the candidate's own PM model) is run
+# separately in a trusted execution environment, which supplies only the chosen
+# provider's credential (see docs/evidence/gate4/README.md). No API key is ever
+# stored in this workflow.
+
+on:
+  pull_request:
+
+concurrency:
+  group: gate4-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semantic-eval:
+    name: "gate 4 (advisory): semantic evaluation"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Gate 4 offline self-tests
+        # The adapter/gate logic must be green before it judges anything.
+        run: |
+          pytest -q test/offline/test_sem_eval_ci_entry.py \
+                    test/offline/test_sem_eval_gate_rules.py \
+                    test/offline/test_sem_eval_replay_cli.py \
+                    test/offline/test_sem_eval_replay.py \
+                    test/offline/test_sem_eval_baseline.py \
+                    test/offline/test_sem_eval_gate4.py
+
+      - name: Determine changed paths and gate trigger
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt
+          echo "changed paths:"; sed 's/^/  /' changed.txt
+          python -m tools.sem_eval.ci_trigger_main changed.txt trigger.out
+
+      - name: Decide gate outcome (no credential in this Draft-PR job)
+        # No model credential is injected here. The decide step runs the offline
+        # gate logic; a triggered PR with no credential reports
+        # INFRASTRUCTURE_ERROR (exit 2), never a fabricated PASS. The real live
+        # replay is a separate, trusted-environment step (see the README).
+        run: python -m tools.sem_eval.ci_decide_main changed.txt trigger.out
+
+      - name: Upload gate artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate4-report
+          path: |
+            changed.txt
+            trigger.out
+            gate4-report/report.json
+            gate4-report/summary.txt
+          if-no-files-found: ignore

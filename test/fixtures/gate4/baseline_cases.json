@@ -1,0 +1,84 @@
+[
+  {
+    "id": "baseline_full_evidence_dated",
+    "description": "Complete, dated evidence across all four analyst reports. The market report states prices with explicit dates; the qualitative reports are substantive. This is the richest input: a model can cite dated market data and analyst findings. Expected audit here does not pre-write claims; the runner records what the model actually produces.",
+    "observe": "Whether the model cites at least one dated market figure (observation_date present) and at least one primary analyst report; material claims attributed (source resolved); no UNKNOWN_SOURCE / UNDATED_MARKET_DATA.",
+    "state": {
+      "company_of_interest": "NVDA",
+      "trade_date": "2026-11-14",
+      "market_report": "NVDA closed at 181.20 on 2026-11-13, up 2.4% on volume of 310M shares. 20-day ATR is 4.2. RSI(14) is 58. The 50-day moving average is 176.9 and the 200-day is 158.3, both below the close.",
+      "sentiment_report": "Retail sentiment on 2026-11-13 skewed positive: 62% bullish mentions across tracked social feeds, up from 54% the prior week.",
+      "news_report": "On 2026-11-12 the company announced a data-center accelerator refresh; three broker notes on 2026-11-13 raised price targets.",
+      "fundamentals_report": "FY2026 Q3 (reported 2026-11-05) gross margin expanded to 74.1% from 71.8% a year earlier; data-center revenue grew 41% year over year.",
+      "investment_debate_state": {
+        "bull_history": "Bull: dated momentum and margin expansion support adding.",
+        "bear_history": "Bear: valuation is stretched after the run-up.",
+        "history": "Debate.",
+        "current_response": ""
+      },
+      "investment_plan": "Overweight on the strength of dated momentum and margin expansion.",
+      "trader_investment_plan": "Scale into the position on a pullback toward the 50-day average.",
+      "risk_debate_state": {
+        "aggressive_history": "Aggressive: add on any dip.",
+        "conservative_history": "Conservative: wait for a confirmed breakout.",
+        "neutral_history": "Neutral: size modestly.",
+        "history": "Risk debate."
+      }
+    }
+  },
+  {
+    "id": "baseline_market_report_undated",
+    "source_dates_unverifiable": true,
+    "description": "The market report gives price and indicator levels but NO observation date, while the other reports are present. This isolates the dated-market-data failure mode: a model that cites the market report for a price claim must supply an observation_date or the claim is an UNDATED_MARKET_DATA downgrade. If the model still supplies a date on a market claim, that date is not backed by the source and is marked 'date basis unverified'.",
+    "observe": "Whether a claim citing market_report carries an observation_date. A dated claim is a good outcome; a market-report claim without a date yields UNDATED_MARKET_DATA in the audit. Qualitative claims from the other reports pass regardless.",
+    "state": {
+      "company_of_interest": "NVDA",
+      "trade_date": "2026-11-14",
+      "market_report": "NVDA closed higher, up about 2% recently. 20-day ATR is around 4. RSI is in the high 50s. The 50-day moving average sits below the current price and the 200-day is well below it.",
+      "sentiment_report": "Retail sentiment is moderately positive, with bullish mentions outnumbering bearish ones.",
+      "news_report": "A data-center accelerator refresh was announced recently; several broker notes were positive.",
+      "fundamentals_report": "Gross margin expanded year over year and data-center revenue grew strongly.",
+      "investment_debate_state": {
+        "bull_history": "Bull: momentum and margins favor adding.",
+        "bear_history": "Bear: valuation is stretched.",
+        "history": "Debate.",
+        "current_response": ""
+      },
+      "investment_plan": "Overweight, but confirm the market picture before sizing.",
+      "trader_investment_plan": "Add on a pullback.",
+      "risk_debate_state": {
+        "aggressive_history": "Aggressive: add now.",
+        "conservative_history": "Conservative: wait.",
+        "neutral_history": "Neutral: size modestly.",
+        "history": "Risk debate."
+      }
+    }
+  },
+  {
+    "id": "baseline_partial_reports",
+    "description": "Insufficient evidence: two of the four analyst reports are effectively empty, so the model has thin material to work with. This exercises the 'evidence too thin' path: the model should not fabricate a decisive call, and claims that cite an absent report cannot resolve a source.",
+    "observe": "Whether the model avoids citing the absent reports (sentiment/fundamentals), how many material claims it can actually attribute, and whether the rating stays cautious (Hold/low confidence) when evidence is thin rather than forcing a direction.",
+    "state": {
+      "company_of_interest": "NVDA",
+      "trade_date": "2026-11-14",
+      "market_report": "NVDA closed at 181.20 on 2026-11-13.",
+      "sentiment_report": "",
+      "news_report": "A data-center accelerator refresh was announced on 2026-11-12.",
+      "fundamentals_report": "",
+      "investment_debate_state": {
+        "bull_history": "Bull: the refresh is positive.",
+        "bear_history": "Bear: little to go on.",
+        "history": "Debate.",
+        "current_response": ""
+      },
+      "investment_plan": "Hold; evidence is thin.",
+      "trader_investment_plan": "Wait for more data.",
+      "risk_debate_state": {
+        "aggressive_history": "Aggressive: the refresh justifies adding.",
+        "conservative_history": "Conservative: too little data.",
+        "neutral_history": "Neutral: wait.",
+        "history": "Risk debate."
+      }
+    }
+  }
+]

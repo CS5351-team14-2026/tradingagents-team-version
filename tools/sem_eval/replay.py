@@ -90,6 +90,22 @@ def default_llm_factory(config: Mapping[str, Any] | None = None) -> LlmFactory:
     return _factory
 
 
+def provider_llm_factory(provider: str, model: str) -> LlmFactory:
+    """A factory for an explicit ``provider`` + ``model`` (deep-tier replay).
+
+    The provider client reads its credential from the environment
+    (``llm_clients.api_key_env``); this adapter never takes or stores a key.
+    Built lazily so tests that inject a double never import provider SDKs.
+    """
+    def _factory() -> Any:
+        from tradingagents.llm_clients.factory import create_llm_client
+
+        client = create_llm_client(provider=provider, model=model)
+        return client.get_llm() if hasattr(client, "get_llm") else client
+
+    return _factory
+
+
 def _error_result(case_id: Any, error: str) -> dict[str, Any]:
     """A redacted, typed replay result for one case (never a PASS/observation)."""
     return {
@@ -155,6 +171,7 @@ def run_case(case: Mapping[str, Any], llm_factory: LlmFactory) -> dict[str, Any]
         observed_status == expected_status
         and sorted(audit["reasons"]) == sorted(expected_reasons)
     )
+    notes = _observation_notes(case, audit)
     return {
         "id": case_id,
         "audit_status": audit_status,
@@ -163,6 +180,9 @@ def run_case(case: Mapping[str, Any], llm_factory: LlmFactory) -> dict[str, Any]
         "claims_total": audit["claims_total"],
         "claims_attributed": audit["claims_attributed"],
         "unsupported_claim_ids": list(audit["unsupported_claim_ids"]),
+        # Safe per-claim projection: no raw claim text, prompt, or credential.
+        "claims": _safe_claims(audit),
+        "observation_notes": notes,
         "final_rating": produced.get("final_rating"),
         "confidence": produced.get("pm_confidence"),
         "decision_review_reasons": list(produced.get("decision_review_reasons") or []),
@@ -170,6 +190,47 @@ def run_case(case: Mapping[str, Any], llm_factory: LlmFactory) -> dict[str, Any]
         "evaluator_exception": False,
         "error": None,
     }
+
+
+def _safe_claims(audit: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Per-claim report from the audit, keeping only safe fields.
+
+    ``source_id`` is the resolved source, or the fixed marker ``UNKNOWN`` when the
+    audit could not resolve it; ``observation_date`` is the audit's normalised
+    ISO date (or ``None``); ``attributed`` and ``reasons`` come straight from the
+    audit. The claim's ``text`` is deliberately omitted so no raw model output
+    enters the report.
+    """
+    safe: list[dict[str, Any]] = []
+    for detail in audit.get("claims", []):
+        attributed = bool(detail.get("attributed"))
+        source_id = detail.get("source_id")
+        safe.append({
+            "kind": detail.get("kind"),
+            "source": source_id if attributed and isinstance(source_id, str) else "UNKNOWN",
+            "observation_date": detail.get("observation_date"),
+            "attributed": attributed,
+            "reasons": list(detail.get("reasons", [])),
+        })
+    return safe
+
+
+def _observation_notes(case: Mapping[str, Any], audit: Mapping[str, Any]) -> list[str]:
+    """Non-verdict observation notes (readable, not raw text or expectations).
+
+    On a case whose source reports carry no dates (``source_dates_unverifiable``),
+    a dated market claim that the model supplied is flagged as 'date basis
+    unverified' rather than trusted.
+    """
+    notes: list[str] = []
+    if case.get("source_dates_unverifiable"):
+        dated_market = any(
+            detail.get("source_id") == "market_report" and detail.get("observation_date")
+            for detail in audit.get("claims", [])
+        )
+        if dated_market:
+            notes.append("date basis unverified")
+    return notes
 
 
 def run_replay(
@@ -191,6 +252,82 @@ def run_replay(
     if any(r["evaluator_exception"] for r in results):
         return _report("INFRASTRUCTURE_ERROR", "replay_exception", results)
     return _report(REPLAY_STATUS, None, results)
+
+
+def run_baseline(
+    cases: Iterable[Mapping[str, Any]],
+    *,
+    llm_factory: LlmFactory,
+    repetitions: int,
+    model_config: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Repeat every case ``repetitions`` times and aggregate observations.
+
+    Phase 3A baseline: each case is replayed N times so parse/retry variance is
+    visible. Every per-run result is kept (including infrastructure errors); a
+    run that hits an evaluator/replay error is recorded with its redacted error,
+    never dropped. Overall status is ``OBSERVE`` (thresholds TBD) unless a
+    harness-level problem makes it ``INFRASTRUCTURE_ERROR``.
+
+    ``model_config`` is recorded verbatim as the effective configuration (the
+    CLI currently has no temperature control, so it is whatever the caller
+    passes; the config is reported, not assumed).
+    """
+    cases = list(cases)
+    if repetitions < 1:
+        return _baseline_report("INFRASTRUCTURE_ERROR", "invalid_repetitions", [], model_config)
+    if not cases:
+        return _baseline_report("INFRASTRUCTURE_ERROR", "empty_case_set", [], model_config)
+
+    case_reports: list[dict[str, Any]] = []
+    for case in cases:
+        case_id = case.get("id", "<unknown>")
+        runs = [run_case(case, llm_factory) for _ in range(repetitions)]
+        runs = [{"repetition": index + 1, **run} for index, run in enumerate(runs)]
+        case_reports.append({"id": case_id, "runs": runs, "aggregate": _aggregate(runs)})
+
+    any_error = any(run["evaluator_exception"]
+                    for cr in case_reports for run in cr["runs"])
+    status = "INFRASTRUCTURE_ERROR" if any_error else REPLAY_STATUS
+    reason = "replay_exception" if any_error else None
+    return _baseline_report(status, reason, case_reports, model_config)
+
+
+def _aggregate(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Per-case aggregation of repeated runs (observational, no threshold)."""
+    statuses: dict[str, int] = {}
+    for run in runs:
+        key = run["audit_status"] or "ERROR"
+        statuses[key] = statuses.get(key, 0) + 1
+    attributed = sum(r["claims_attributed"] or 0 for r in runs)
+    total = sum(r["claims_total"] or 0 for r in runs)
+    return {
+        "runs": len(runs),
+        "status_counts": statuses,
+        "claims_attributed": attributed,
+        "claims_total": total,
+        "errors": sum(1 for r in runs if r["evaluator_exception"]),
+        "runs_with_date_basis_unverified": sum(
+            1 for r in runs if "date basis unverified" in (r.get("observation_notes") or [])
+        ),
+    }
+
+
+def _baseline_report(
+    status: str,
+    reason: str | None,
+    cases: list[dict[str, Any]],
+    model_config: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "mode": MODE_SEMANTIC_REPLAY,
+        "status": status,
+        "exit_code": 0 if status != "INFRASTRUCTURE_ERROR" else 2,
+        "reason": reason,
+        "thresholds": "TBD",
+        "model_config": dict(model_config or {}),
+        "cases": cases,
+    }
 
 
 def _report(status: str, reason: str | None, results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -216,6 +353,8 @@ __all__ = [
     "REPLAY_STATUS",
     "build_pm_state",
     "default_llm_factory",
+    "provider_llm_factory",
+    "run_baseline",
     "run_case",
     "run_replay",
 ]
