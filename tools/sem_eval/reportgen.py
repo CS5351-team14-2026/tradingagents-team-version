@@ -185,6 +185,10 @@ def finalize_verdict(report: Mapping[str, Any], ci_result: Mapping[str, Any]) ->
     finalized["final_decision"] = ci_result.get("status")
     finalized["exit_code"] = ci_result.get("exit_code")
     finalized["blocks_merge"] = ci_result.get("blocks_merge")
+    # Preserve the CI reason and the full-evidence cases that did not meet
+    # acceptance (with their run reasons), so the report explains a FAIL.
+    finalized["reason"] = ci_result.get("reason")
+    finalized["unmet_cases"] = list(ci_result.get("unmet_cases") or [])
     gate = ci_result.get("gate") or {}
     cases_view = []
     failed_rules: list[str] = []
@@ -221,8 +225,16 @@ def render_summary(report: Mapping[str, Any]) -> str:
             f"  final_decision: {report.get('final_decision')} "
             f"(exit {report.get('exit_code')}, blocks_merge={report.get('blocks_merge')})"
         )
+        if report.get("reason"):
+            lines.append(f"  reason: {report.get('reason')}")
         failed = report.get("failed_rules") or []
         lines.append(f"  failed_rules: {', '.join(failed) if failed else 'none'}")
+        unmet = report.get("unmet_cases") or []
+        if unmet:
+            lines.append("  unmet_cases:")
+            for case in unmet:
+                why = ", ".join(case.get("reasons") or []) or "-"
+                lines.append(f"    - {case.get('id')}: {why}")
     replay = report.get("replay", {})
     lines.append(f"  replay_status: {replay.get('status')}")
     # Prefer the finalized case view when present; else the replay aggregate.

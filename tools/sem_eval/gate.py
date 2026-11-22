@@ -185,21 +185,29 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
         }
     case_out: list[dict[str, Any]] = []
     overall = "PASS"
+    # Whether every case that declares an acceptance expectation actually met it.
+    full_evidence_ok = True
     for case in cases_in:
         run_decisions = []
         runs_in = case.get("runs") or []
+        expects_pass = bool(case.get("expects_pass", False))
         if not runs_in:
             # A case with no run records cannot be judged: infrastructure error.
-            case_decision = "INFRASTRUCTURE_ERROR"
-            if _severity(case_decision) < _severity(overall):
-                overall = case_decision
+            if _severity("INFRASTRUCTURE_ERROR") < _severity(overall):
+                overall = "INFRASTRUCTURE_ERROR"
+            if expects_pass:
+                full_evidence_ok = False
             case_out.append({
                 "id": case.get("id"),
+                "expects_pass": expects_pass,
                 "runs": [],
-                "decision": case_decision,
+                "decision": "INFRASTRUCTURE_ERROR",
                 "reasons": ["missing_runs"],
+                "meets_acceptance": False,
             })
             continue
+        # Per-run PM decision (rating) and evidence-audit downgrade reasons are
+        # recorded separately so the report shows both.
         for run in runs_in:
             finding = decide_run(run)
             run_decisions.append({
@@ -207,18 +215,39 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
                 "decision": finding["decision"],
                 "reasons": finding["reasons"],
                 "blocks_merge": finding["blocks_merge"],
+                "pm_decision": run.get("final_rating"),
+                "audit_status": run.get("audit_status"),
+                "audit_reasons": list(run.get("observed_reasons") or []),
             })
             if _severity(finding["decision"]) < _severity(overall):
                 overall = finding["decision"]
+        case_decision = _worst(d["decision"] for d in run_decisions)
+        # A case "meets acceptance": for expects_pass cases, every run must be
+        # PASS; for others, no hard defect (REVIEW is a recorded observation).
+        if expects_pass:
+            meets = all(d["decision"] == "PASS" for d in run_decisions)
+            if not meets:
+                full_evidence_ok = False
+        else:
+            meets = case_decision in ("PASS", "REVIEW")
         case_out.append({
             "id": case.get("id"),
+            "expects_pass": expects_pass,
             "runs": run_decisions,
-            "decision": _worst(d["decision"] for d in run_decisions),
+            "decision": case_decision,
+            "meets_acceptance": meets,
         })
+
+    # The whole group is PASS only if no hard failure/infra occurred AND every
+    # full-evidence case met its acceptance condition. REVIEW-only cases stay
+    # non-blocking. Any FAIL/INFRA already lowered ``overall`` above.
+    if overall == "PASS" and not full_evidence_ok:
+        overall = "REVIEW"
     return {
         "thresholds": "TBD",
         "overall_decision": overall,
         "blocks_merge": BLOCKS_MERGE[overall],
+        "full_evidence_met": full_evidence_ok,
         "cases": case_out,
     }
 

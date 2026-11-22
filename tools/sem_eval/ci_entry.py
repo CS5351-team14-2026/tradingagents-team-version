@@ -62,24 +62,57 @@ def evaluate_pr(
 
     decision = decide_baseline(report)
     overall = decision["overall_decision"]
-    # REVIEW is a per-run observation, not one of the four CI statuses (#81). An
-    # all-REVIEW result has no hard defect, so the top-level CI status is PASS
-    # (no FAIL/INFRASTRUCTURE_ERROR); the per-run REVIEW detail stays in ``gate``.
+    full_evidence_met = decision.get("full_evidence_met", True)
+    unmet = _unmet_acceptance(decision)
+    # Map the gate's group decision to one of the four #81 CI statuses.
     if overall == "REVIEW":
-        status = "PASS"
+        if full_evidence_met:
+            # Only thin cases carry a reasoned REVIEW; the full-evidence case met
+            # its acceptance condition. The group passes, with per-case REVIEW
+            # detail preserved in ``gate``.
+            status = "PASS"
+            reason = None
+        else:
+            # The full-evidence case did NOT meet its acceptance condition. This
+            # must NOT become PASS: it is a failure, and the unmet cases/reasons
+            # are named.
+            status = "FAIL"
+            reason = "full_evidence_acceptance_unmet"
     elif overall in ("PASS", "FAIL", "INFRASTRUCTURE_ERROR"):
         status = overall
+        reason = None if status != "INFRASTRUCTURE_ERROR" else "evaluation_infrastructure_error"
     else:
         status = "INFRASTRUCTURE_ERROR"
+        reason = "evaluation_infrastructure_error"
     return {
         "status": status,
         "exit_code": exit_code_for(status),
-        "reason": None if status != "INFRASTRUCTURE_ERROR" else "evaluation_infrastructure_error",
+        "reason": reason,
         "matched_paths": matched,
-        "blocks_merge": decision["blocks_merge"],
+        "blocks_merge": status in ("FAIL", "INFRASTRUCTURE_ERROR"),
         "thresholds": "TBD",
+        "unmet_cases": unmet,
         "gate": decision,
     }
+
+
+def _unmet_acceptance(decision: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Cases that declared ``expects_pass`` but did not meet acceptance.
+
+    Returns ``[{id, reasons}]`` where ``reasons`` are the non-PASS run reasons, so
+    the CI result names which full-evidence case failed and why.
+    """
+    unmet: list[dict[str, Any]] = []
+    for case in decision.get("cases", []):
+        if case.get("expects_pass") and not case.get("meets_acceptance", False):
+            reasons: list[str] = []
+            for run in case.get("runs", []):
+                if run.get("decision") != "PASS":
+                    for reason in run.get("reasons", []):
+                        if reason not in reasons:
+                            reasons.append(reason)
+            unmet.append({"id": case.get("id"), "reasons": reasons})
+    return unmet
 
 
 __all__ = ["MODES", "evaluate_pr"]

@@ -218,18 +218,25 @@ def _safe_claims(audit: Mapping[str, Any]) -> list[dict[str, Any]]:
 def _observation_notes(case: Mapping[str, Any], audit: Mapping[str, Any]) -> list[str]:
     """Non-verdict observation notes (readable, not raw text or expectations).
 
-    On a case whose source reports carry no dates (``source_dates_unverifiable``),
-    a dated market claim that the model supplied is flagged as 'date basis
-    unverified' rather than trusted.
+    A market claim's supplied ``observation_date`` is checked against the case's
+    ``source_supported_dates`` (the dates the source reports actually state). If
+    the model supplies a date the source does not support — or any date when the
+    source stated none (an empty supported set) — the run is flagged
+    ``date basis unverified``, which the gate turns into UNFOUNDED_MARKET_DATE.
+    A correctly supported date, or a missing date, is not flagged.
     """
     notes: list[str] = []
-    if case.get("source_dates_unverifiable"):
-        dated_market = any(
-            detail.get("source_id") == "market_report" and detail.get("observation_date")
-            for detail in audit.get("claims", [])
-        )
-        if dated_market:
+    supported = case.get("source_supported_dates")
+    if supported is None:
+        return notes
+    supported = set(supported)
+    for detail in audit.get("claims", []):
+        if detail.get("source_id") != "market_report":
+            continue
+        date = detail.get("observation_date")
+        if date and date not in supported:
             notes.append("date basis unverified")
+            break
     return notes
 
 
@@ -284,7 +291,14 @@ def run_baseline(
         case_id = case.get("id", "<unknown>")
         runs = [run_case(case, llm_factory) for _ in range(repetitions)]
         runs = [{"repetition": index + 1, **run} for index, run in enumerate(runs)]
-        case_reports.append({"id": case_id, "runs": runs, "aggregate": _aggregate(runs)})
+        report_case = {"id": case_id, "runs": runs, "aggregate": _aggregate(runs)}
+        # Carry the case's acceptance intent so the gate can require a full-evidence
+        # case to actually pass before the whole group may be PASS.
+        if "expects_pass" in case:
+            report_case["expects_pass"] = bool(case["expects_pass"])
+        if case.get("acceptance"):
+            report_case["acceptance"] = case["acceptance"]
+        case_reports.append(report_case)
 
     any_error = any(run["evaluator_exception"]
                     for cr in case_reports for run in cr["runs"])

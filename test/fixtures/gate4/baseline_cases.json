@@ -24,11 +24,15 @@
         "neutral_history": "Neutral: size modestly.",
         "history": "Risk debate."
       }
-    }
+    },
+    "source_supported_dates": [
+      "2026-11-13"
+    ],
+    "expects_pass": true,
+    "acceptance": "every run PASS (all claims attributed, dates grounded)"
   },
   {
     "id": "baseline_market_report_undated",
-    "source_dates_unverifiable": true,
     "description": "The market report gives price and indicator levels but NO observation date, while the other reports are present. This isolates the dated-market-data failure mode: a model that cites the market report for a price claim must supply an observation_date or the claim is an UNDATED_MARKET_DATA downgrade. If the model still supplies a date on a market claim, that date is not backed by the source and is marked 'date basis unverified'.",
     "observe": "Whether a claim citing market_report carries an observation_date. A dated claim is a good outcome; a market-report claim without a date yields UNDATED_MARKET_DATA in the audit. Qualitative claims from the other reports pass regardless.",
     "state": {
@@ -52,7 +56,10 @@
         "neutral_history": "Neutral: size modestly.",
         "history": "Risk debate."
       }
-    }
+    },
+    "source_supported_dates": [],
+    "expects_pass": false,
+    "acceptance": "no unfounded market date; missing-date-only REVIEW is an observation"
   },
   {
     "id": "baseline_partial_reports",
@@ -79,6 +86,11 @@
         "neutral_history": "Neutral: wait.",
         "history": "Risk debate."
       }
-    }
+    },
+    "source_supported_dates": [
+      "2026-11-13"
+    ],
+    "expects_pass": false,
+    "acceptance": "no UNKNOWN_SOURCE; thin-evidence REVIEW is an observation"
   }
 ]

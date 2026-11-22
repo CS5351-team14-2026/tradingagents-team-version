@@ -20,9 +20,46 @@ gate then classifies each run:
 - `INFRASTRUCTURE_ERROR` — the run/report could not be judged (empty report,
   missing fields, evaluator exception, missing credential, unsupported model).
 
-Top-level CI status is one of the four #81 statuses: `PASS` / `FAIL` /
-`NOT_APPLICABLE` / `INFRASTRUCTURE_ERROR`. An all-REVIEW result maps to top-level
-`PASS` (no hard defect) with the per-run `REVIEW` detail preserved.
+## Per-run REVIEW, workflow-level NOT_APPLICABLE, and aggregation
+
+Three levels are kept distinct so a report is never misread:
+
+**Per-run decision (each replay of each fixed case).** `PASS`, `REVIEW`, `FAIL`
+or `INFRASTRUCTURE_ERROR`, as listed above. A `REVIEW` is a *reasoned, non-blocking
+observation* — e.g. a thin-evidence case, or a market claim that simply omits a
+date — and is always recorded with its reason code, never silently dropped. The
+per-run report keeps the **PM decision** (`pm_decision`, the rating) separate from
+the **evidence-audit** result (`audit_status` + `audit_reasons`), so a downgrade
+caused by the audit is visible next to the rating it came with.
+
+**Workflow-level NOT_APPLICABLE.** Before any model config or credential is read,
+the trigger matcher decides whether the PR touches a tracked prompt/model/parsing
+surface. A pure-docs PR is `NOT_APPLICABLE` at the workflow level: the gate does
+not evaluate anything and never claims PASS for work it did not do.
+
+**Aggregation into the final CI verdict (one of the four #81 statuses).**
+1. Each case's runs are decided per-run, then collapsed to a case decision.
+2. A case that declares `expects_pass` (the full-evidence case) must have **every**
+   run PASS to *meet its acceptance*; if it does not, the whole group cannot be
+   PASS.
+3. Any run `FAIL` or `INFRASTRUCTURE_ERROR` makes the group `FAIL` /
+   `INFRASTRUCTURE_ERROR` (most severe wins).
+4. If no hard defect occurred and every full-evidence case met its acceptance, the
+   group is `PASS`; otherwise a residual (acceptance-unmet but no hard defect) is
+   `REVIEW`.
+5. The four CI statuses are `PASS` / `FAIL` / `NOT_APPLICABLE` /
+   `INFRASTRUCTURE_ERROR`. The group decision maps to CI **by cause**, not
+   blanket:
+   - group `REVIEW` **with the full-evidence case met** → CI `PASS` (exit 0); this
+     is the "only thin cases carry a reasoned REVIEW" case, and the per-case
+     `REVIEW` detail stays in the report;
+   - group `REVIEW` **because the full-evidence case did NOT meet its acceptance**
+     → CI `FAIL` (exit 1), reason `full_evidence_acceptance_unmet`, naming each
+     unmet case and its run reasons. This must never be reported as `PASS`;
+   - group `FAIL` / `INFRASTRUCTURE_ERROR` → same CI status (exit 1 / 2).
+   Numeric pass-count / ratio thresholds remain a **draft**
+   (`thresholds-draft.md`, `tools/ci/semantic_eval_thresholds.yaml`) pending
+   independent review.
 
 ## Layout
 

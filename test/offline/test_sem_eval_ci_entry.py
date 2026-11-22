@@ -519,3 +519,117 @@ def test_manual_override_records_config_overridden(tmp_path, monkeypatch):
     assert report["model_config"].get("config_overridden") is True
     assert report["model_config"]["provider"] == "deepseek"
     assert report["model_config"]["model"] == "deepseek-flash"
+
+
+# --- Acceptance gating: group REVIEW must not always map to PASS ---------
+
+_FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "gate4" / "baseline_cases.json"
+
+
+def _gate_decision_factory(date):
+    from tradingagents.agents.schemas import MaterialClaim, PortfolioDecision, PortfolioRating
+
+    dec = PortfolioDecision(
+        rating=PortfolioRating.HOLD, confidence="medium",
+        executive_summary="Hold.", investment_thesis="x",
+        supporting_factors=[MaterialClaim(text="m", source_id="market_report",
+                                          observation_date=date)],
+        opposing_factors=[MaterialClaim(text="v", source_id="investment_plan")],
+    )
+
+    class _S:
+        def invoke(self, p): return dec
+
+    class _L:
+        def with_structured_output(self, schema):
+            return _S()
+
+    return lambda: _L()
+
+
+def _replay_one(case_id, date):
+    from tools.sem_eval.replay import run_baseline
+
+    cases = json.loads(_FIXTURES.read_text(encoding="utf-8"))
+    case = next(c for c in cases if c["id"] == case_id)
+    return run_baseline([case], llm_factory=_gate_decision_factory(date), repetitions=1,
+                        model_config={"provider": "deepseek", "model": "deepseek-flash"})
+
+
+@pytest.mark.unit
+def test_full_evidence_acceptance_unmet_does_not_map_to_pass():
+    # Full-evidence case runs are REVIEW (missing date, no hard defect) -> group
+    # REVIEW but acceptance unmet -> must be FAIL, not PASS; unmet case named.
+    replay = _replay_one("baseline_full_evidence_dated", None)
+    result = evaluate_pr(PROMPT, report=replay)
+    assert result["gate"]["overall_decision"] == "REVIEW"
+    assert result["gate"]["full_evidence_met"] is False
+    assert result["status"] == "FAIL"
+    assert result["exit_code"] == 1
+    assert result["reason"] == "full_evidence_acceptance_unmet"
+    assert result["unmet_cases"][0]["id"] == "baseline_full_evidence_dated"
+    assert result["unmet_cases"][0]["reasons"]
+
+
+@pytest.mark.unit
+def test_full_evidence_pass_plus_thin_review_allows_group_pass():
+    # Full-evidence case PASS; undated case REVIEW (missing date only). The group
+    # is PASS (exit 0) with the REVIEW detail preserved per case.
+    cfg = {"provider": "deepseek", "model": "deepseek-flash"}
+    full = _replay_one("baseline_full_evidence_dated", "2026-11-13")  # PASS
+    und = _replay_one("baseline_market_report_undated", None)         # REVIEW
+    merged = {"status": "OBSERVE", "model_config": cfg,
+              "cases": full["cases"] + und["cases"]}
+    result = evaluate_pr(PROMPT, report=merged)
+    assert result["gate"]["full_evidence_met"] is True
+    assert result["gate"]["overall_decision"] == "REVIEW"
+    assert result["status"] == "PASS"
+    assert result["exit_code"] == 0
+    assert result["unmet_cases"] == []
+    decisions = {c["id"]: c["decision"] for c in result["gate"]["cases"]}
+    assert decisions["baseline_full_evidence_dated"] == "PASS"
+    assert decisions["baseline_market_report_undated"] == "REVIEW"
+
+
+# --- Report output explains a FAIL from acceptance-unmet REVIEW -----------
+
+@pytest.mark.unit
+def test_report_outputs_explain_fail_when_full_evidence_review_only(tmp_path):
+    # Full-evidence case only yields REVIEW -> group REVIEW, acceptance unmet ->
+    # CI FAIL. Both report.json and summary.txt must explain the FAIL.
+    from tools.sem_eval.reportgen import finalize_verdict, write_report
+
+    replay = _replay_one("baseline_full_evidence_dated", None)  # REVIEW-only runs
+    result = evaluate_pr(PROMPT, report=replay)
+    assert result["status"] == "FAIL"
+    assert result["reason"] == "full_evidence_acceptance_unmet"
+    assert result["unmet_cases"][0]["id"] == "baseline_full_evidence_dated"
+
+    envelope = {
+        "schema": 1,
+        "candidate_sha": "review123",
+        "case_version": "basesha",
+        "model_config": {"provider": "deepseek", "model": "deepseek-flash"},
+        "repetitions": 1,
+        "thresholds": "TBD",
+        "replay": replay,
+    }
+    finalized = finalize_verdict(envelope, result)
+    # Verdict metadata preserved.
+    assert finalized["final_decision"] == "FAIL"
+    assert finalized["exit_code"] == 1
+    assert finalized["reason"] == "full_evidence_acceptance_unmet"
+    assert finalized["unmet_cases"][0]["id"] == "baseline_full_evidence_dated"
+
+    json_path, summary_path = write_report(finalized, tmp_path / "out")
+    report_json = json.loads(json_path.read_text(encoding="utf-8"))
+    assert report_json["final_decision"] == "FAIL"
+    assert report_json["reason"] == "full_evidence_acceptance_unmet"
+    assert report_json["unmet_cases"]
+    assert report_json["unmet_cases"][0]["reasons"]
+
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "final_decision: FAIL" in summary
+    assert "reason: full_evidence_acceptance_unmet" in summary
+    assert "unmet_cases:" in summary
+    assert "baseline_full_evidence_dated" in summary
