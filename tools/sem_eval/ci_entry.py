@@ -60,7 +60,25 @@ def evaluate_pr(
             "thresholds": "TBD",
         }
 
-    decision = decide_baseline(report)
+    # Formal CI always enforces the fixed 3-case × 3-run evidence set. A report
+    # that is missing a case, repeats one, runs a case the wrong number of times,
+    # mis-numbers its runs, or omits the full-evidence case's expects_pass is an
+    # INFRASTRUCTURE_ERROR — never a partial PASS.
+    decision = decide_baseline(report, require_complete=True)
+    if decision["overall_decision"] == "INFRASTRUCTURE_ERROR" and (
+        decision.get("reasons") == ["INCOMPLETE_REPORT"]
+    ):
+        return {
+            "status": "INFRASTRUCTURE_ERROR",
+            "exit_code": exit_code_for("INFRASTRUCTURE_ERROR"),
+            "reason": "incomplete_report",
+            "matched_paths": matched,
+            "blocks_merge": True,
+            "thresholds": "TBD",
+            "completeness": decision.get("completeness"),
+            "unmet_cases": [],
+            "gate": decision,
+        }
     overall = decision["overall_decision"]
     full_evidence_met = decision.get("full_evidence_met", True)
     unmet = _unmet_acceptance(decision)

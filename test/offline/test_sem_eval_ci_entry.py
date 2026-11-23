@@ -30,47 +30,89 @@ DOCS = ["docs/evaluation.md", "README.md"]
 PROMPT = ["src/tradingagents/agents/managers/portfolio_manager.py"]
 
 
-def _clean_report():
-    """A report from the current PR where every run is clean (PASS)."""
+def _pass_run(repetition):
     return {
-        "status": "OBSERVE",
-        "cases": [
-            {
-                "id": "case_clean",
-                "runs": [
-                    {
-                        "repetition": 1,
-                        "id": "case_clean",
-                        "audit_status": "ACCEPTED",
-                        "observed_status": "ACCEPTED",
-                        "observed_reasons": [],
-                        "claims_total": 6,
-                        "claims_attributed": 6,
-                        "unsupported_claim_ids": [],
-                        "claims": [
-                            {"kind": "supporting", "source": "market_report",
-                             "observation_date": "2026-11-13", "attributed": True,
-                             "reasons": []},
-                        ],
-                        "observation_notes": [],
-                        "final_rating": "Overweight",
-                        "confidence": "medium",
-                        "decision_review_reasons": [],
-                        "matches_expectation": False,
-                        "evaluator_exception": False,
-                        "error": None,
-                    }
-                ],
-            }
+        "repetition": repetition,
+        "id": "run",
+        "audit_status": "ACCEPTED",
+        "observed_status": "ACCEPTED",
+        "observed_reasons": [],
+        "claims_total": 6,
+        "claims_attributed": 6,
+        "unsupported_claim_ids": [],
+        "claims": [
+            {"kind": "supporting", "source": "market_report",
+             "observation_date": "2026-11-13", "attributed": True,
+             "reasons": []},
         ],
+        "observation_notes": [],
+        "final_rating": "Overweight",
+        "confidence": "medium",
+        "decision_review_reasons": [],
+        "matches_expectation": False,
+        "evaluator_exception": False,
+        "error": None,
     }
 
 
+def _thin_review_run(repetition):
+    """A thin-evidence run: DOWNGRADED, no hard defect -> REVIEW."""
+    return {
+        "repetition": repetition,
+        "id": "run",
+        "audit_status": "DOWNGRADED",
+        "observed_status": "DOWNGRADED",
+        "observed_reasons": ["UNDATED_MARKET_DATA"],
+        "claims_total": 1,
+        "claims_attributed": 0,
+        "unsupported_claim_ids": [],
+        "claims": [
+            {"kind": "supporting", "source": "UNKNOWN",
+             "observation_date": None, "attributed": False,
+             "reasons": ["UNDATED_MARKET_DATA"]},
+        ],
+        "observation_notes": [],
+        "final_rating": "Hold",
+        "confidence": "low",
+        "decision_review_reasons": [],
+        "matches_expectation": False,
+        "evaluator_exception": False,
+        "error": None,
+    }
+
+
+def _complete_report(full_evidence_runs=None):
+    """A complete 3-case × 3-run report (the formal-CI evidence set).
+
+    The full-evidence case declares ``expects_pass`` and defaults to three PASS
+    runs; the two thin cases are non-blocking REVIEW runs. Used to exercise the
+    PASS/FAIL mapping through the real CI entry without tripping completeness.
+    """
+    from tools.sem_eval.gate import REQUIRED_CASE_IDS
+
+    full = "baseline_full_evidence_dated"
+    full_runs = full_evidence_runs or [_pass_run(i) for i in range(1, 4)]
+    cases = [{"id": full, "expects_pass": True, "runs": full_runs}]
+    for case_id in REQUIRED_CASE_IDS:
+        if case_id == full:
+            continue
+        cases.append({"id": case_id, "runs": [_thin_review_run(i) for i in range(1, 4)]})
+    return {"status": "OBSERVE", "cases": cases}
+
+
+def _clean_report():
+    """A complete report from the current PR where every run is clean (PASS)."""
+    return _complete_report()
+
+
 def _degraded_report():
-    """A report where a run has an unfounded market date (FAIL)."""
-    report = _clean_report()
-    report["cases"][0]["runs"][0]["observation_notes"] = ["date basis unverified"]
-    return report
+    """A complete report where the full-evidence case fails (unfounded date)."""
+    failing = []
+    for i in range(1, 4):
+        run = _pass_run(i)
+        run["observation_notes"] = ["date basis unverified"]
+        failing.append(run)
+    return _complete_report(failing)
 
 
 def _infra_report():
@@ -126,13 +168,30 @@ def test_model_config_change_triggers_gate():
 
 
 @pytest.mark.unit
-def test_archived_baseline_as_regression_material_fails_via_ci():
-    # The archived baseline (regression material) carries hard defects, so the
-    # gate verdict over it is FAIL/exit 1 when a triggered change is evaluated.
+def test_archived_baseline_as_regression_material_fails_via_historical_path():
+    # The frozen archived baseline (regression material) carries hard defects, so
+    # the historical per-case decision over it is FAIL. This is the baseline's
+    # original contract and is exercised through ``decide_baseline`` (default
+    # single/historical support), since the frozen artefact predates the
+    # formal-CI completeness rule.
+    from tools.sem_eval.gate import decide_baseline
+
+    report = json.loads(BASELINE.read_text(encoding="utf-8"))
+    decision = decide_baseline(report)
+    assert decision["overall_decision"] == "FAIL"
+
+
+@pytest.mark.unit
+def test_frozen_archived_baseline_is_incomplete_for_formal_ci():
+    # The frozen archived baseline predates the ``expects_pass`` declaration, so
+    # formal CI rejects it as incomplete (INFRASTRUCTURE_ERROR/exit 2) rather
+    # than reporting a partial verdict — never a PASS.
     report = json.loads(BASELINE.read_text(encoding="utf-8"))
     result = evaluate_pr(PROMPT, report=report)
-    assert result["status"] == "FAIL"
-    assert result["exit_code"] == 1
+    assert result["status"] == "INFRASTRUCTURE_ERROR"
+    assert result["exit_code"] == 2
+    assert result["reason"] == "incomplete_report"
+    assert "full_evidence_expects_pass" in result["completeness"]["problems"]
 
 
 # --- CI helper scripts (trigger + decide mains) --------------------------
@@ -196,41 +255,23 @@ def test_workflow_yaml_parses():
 
 # --- REVIEW exit-code fix + real-report path (Phase 3C) ------------------
 
-def _review_run():
-    return {
-        "repetition": 1, "id": "c", "audit_status": "NOT_ASSESSED",
-        "observed_status": "NOT_ASSESSED", "observed_reasons": [],
-        "claims_total": 0, "claims_attributed": 0, "claims": [],
-        "observation_notes": [], "final_rating": "REVIEW", "confidence": None,
-        "decision_review_reasons": ["unresolved_rating"], "matches_expectation": False,
-        "evaluator_exception": False, "error": None,
-    }
-
-
-def _degraded_run():
-    return {
-        "repetition": 1, "id": "c", "audit_status": "DOWNGRADED",
-        "observed_status": "DOWNGRADED", "observed_reasons": ["UNKNOWN_SOURCE"],
-        "claims_total": 1, "claims_attributed": 0,
-        "claims": [{"kind": "supporting", "source": "UNKNOWN",
-                    "observation_date": None, "attributed": False,
-                    "reasons": ["UNKNOWN_SOURCE"]}],
-        "observation_notes": [], "final_rating": "Hold", "confidence": "low",
-        "decision_review_reasons": [], "matches_expectation": False,
-        "evaluator_exception": False, "error": None,
-    }
-
-
 @pytest.mark.unit
 def test_all_review_maps_to_pass_top_level_with_per_run_review_detail():
-    report = {"status": "OBSERVE", "cases": [{"id": "c", "runs": [_review_run()]}]}
+    # A complete report: full-evidence case PASS + thin cases REVIEW -> top-level
+    # PASS (exit 0) with the per-run REVIEW detail preserved in the gate view.
+    report = _complete_report()
     result = evaluate_pr(PROMPT, report=report)
     # Top-level is one of the four CI statuses; REVIEW is not a top-level status.
     assert result["status"] == "PASS"
     assert result["exit_code"] == 0
     assert result["blocks_merge"] is False
-    # Per-run REVIEW detail preserved.
-    assert result["gate"]["cases"][0]["runs"][0]["decision"] == "REVIEW"
+    # Per-run REVIEW detail preserved for the thin cases.
+    decisions = {
+        run["decision"]
+        for case in result["gate"]["cases"]
+        for run in case["runs"]
+    }
+    assert "REVIEW" in decisions
 
 
 @pytest.mark.unit
@@ -523,44 +564,32 @@ def test_manual_override_records_config_overridden(tmp_path, monkeypatch):
 
 # --- Acceptance gating: group REVIEW must not always map to PASS ---------
 
-_FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "gate4" / "baseline_cases.json"
+def _review_full_evidence_runs():
+    """Three full-evidence runs that are REVIEW (missing date, no hard defect)."""
+    from tools.sem_eval.gate import DATE_BASIS_NOTE  # noqa: F401 - documents intent
 
-
-def _gate_decision_factory(date):
-    from tradingagents.agents.schemas import MaterialClaim, PortfolioDecision, PortfolioRating
-
-    dec = PortfolioDecision(
-        rating=PortfolioRating.HOLD, confidence="medium",
-        executive_summary="Hold.", investment_thesis="x",
-        supporting_factors=[MaterialClaim(text="m", source_id="market_report",
-                                          observation_date=date)],
-        opposing_factors=[MaterialClaim(text="v", source_id="investment_plan")],
-    )
-
-    class _S:
-        def invoke(self, p): return dec
-
-    class _L:
-        def with_structured_output(self, schema):
-            return _S()
-
-    return lambda: _L()
-
-
-def _replay_one(case_id, date):
-    from tools.sem_eval.replay import run_baseline
-
-    cases = json.loads(_FIXTURES.read_text(encoding="utf-8"))
-    case = next(c for c in cases if c["id"] == case_id)
-    return run_baseline([case], llm_factory=_gate_decision_factory(date), repetitions=1,
-                        model_config={"provider": "deepseek", "model": "deepseek-flash"})
+    runs = []
+    for i in range(1, 4):
+        run = _pass_run(i)
+        run["audit_status"] = "DOWNGRADED"
+        run["observed_status"] = "DOWNGRADED"
+        run["observed_reasons"] = ["UNDATED_MARKET_DATA"]
+        run["claims_attributed"] = 5
+        run["claims"] = [
+            {"kind": "supporting", "source": "market_report",
+             "observation_date": None, "attributed": False,
+             "reasons": ["UNDATED_MARKET_DATA"]},
+        ]
+        runs.append(run)
+    return runs
 
 
 @pytest.mark.unit
 def test_full_evidence_acceptance_unmet_does_not_map_to_pass():
-    # Full-evidence case runs are REVIEW (missing date, no hard defect) -> group
-    # REVIEW but acceptance unmet -> must be FAIL, not PASS; unmet case named.
-    replay = _replay_one("baseline_full_evidence_dated", None)
+    # A complete report whose full-evidence case runs are REVIEW (missing date,
+    # no hard defect) -> group REVIEW but acceptance unmet -> must be FAIL, not
+    # PASS; the unmet case is named.
+    replay = _complete_report(_review_full_evidence_runs())
     result = evaluate_pr(PROMPT, report=replay)
     assert result["gate"]["overall_decision"] == "REVIEW"
     assert result["gate"]["full_evidence_met"] is False
@@ -573,14 +602,10 @@ def test_full_evidence_acceptance_unmet_does_not_map_to_pass():
 
 @pytest.mark.unit
 def test_full_evidence_pass_plus_thin_review_allows_group_pass():
-    # Full-evidence case PASS; undated case REVIEW (missing date only). The group
-    # is PASS (exit 0) with the REVIEW detail preserved per case.
-    cfg = {"provider": "deepseek", "model": "deepseek-flash"}
-    full = _replay_one("baseline_full_evidence_dated", "2026-11-13")  # PASS
-    und = _replay_one("baseline_market_report_undated", None)         # REVIEW
-    merged = {"status": "OBSERVE", "model_config": cfg,
-              "cases": full["cases"] + und["cases"]}
-    result = evaluate_pr(PROMPT, report=merged)
+    # Complete report: full-evidence case PASS; thin cases REVIEW (no hard
+    # defect). The group is PASS (exit 0) with the REVIEW detail preserved.
+    report = _complete_report()
+    result = evaluate_pr(PROMPT, report=report)
     assert result["gate"]["full_evidence_met"] is True
     assert result["gate"]["overall_decision"] == "REVIEW"
     assert result["status"] == "PASS"
@@ -595,11 +620,12 @@ def test_full_evidence_pass_plus_thin_review_allows_group_pass():
 
 @pytest.mark.unit
 def test_report_outputs_explain_fail_when_full_evidence_review_only(tmp_path):
-    # Full-evidence case only yields REVIEW -> group REVIEW, acceptance unmet ->
-    # CI FAIL. Both report.json and summary.txt must explain the FAIL.
+    # A complete report whose full-evidence case only yields REVIEW -> group
+    # REVIEW, acceptance unmet -> CI FAIL. Both report.json and summary.txt must
+    # explain the FAIL.
     from tools.sem_eval.reportgen import finalize_verdict, write_report
 
-    replay = _replay_one("baseline_full_evidence_dated", None)  # REVIEW-only runs
+    replay = _complete_report(_review_full_evidence_runs())  # REVIEW-only runs
     result = evaluate_pr(PROMPT, report=replay)
     assert result["status"] == "FAIL"
     assert result["reason"] == "full_evidence_acceptance_unmet"

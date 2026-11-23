@@ -24,11 +24,28 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
+from tradingagents.agents.rating import RATINGS_5_TIER, extract_rating
 from tradingagents.reporting import audit_material_claims
 
 # Mode label for replay results; distinct from the offline pre-check.
 MODE_SEMANTIC_REPLAY = "semantic_replay"
 REPLAY_STATUS = "OBSERVE"
+
+# Provenance labels distinguish *where* a run's REVIEW came from:
+# - ``"model_explicit"`` — only with positive evidence the model itself chose
+#   REVIEW (a supplied ``model_rating == "REVIEW"``);
+# - ``"app_validated"`` — the model made a real call (e.g. Buy) that the
+#   application's *price policy* downgraded to REVIEW (a known canonical model
+#   rating, or recorded validation reasons);
+# - ``"unknown"`` — REVIEW with no such evidence (e.g. a missing or unparseable
+#   rating, or a historical record without provenance).
+REVIEW_ORIGIN_MODEL = "model_explicit"
+REVIEW_ORIGIN_APP = "app_validated"
+REVIEW_ORIGIN_UNKNOWN = "unknown"
+
+# The five canonical ratings are the only values ``extract_rating`` may return;
+# it never yields the ``REVIEW`` sentinel (that is not a tradeable rating).
+_CANONICAL_RATINGS = frozenset(RATINGS_5_TIER)
 
 # Output keys the PM node produces. They must be stripped from a fixture input
 # so a replay measures *this* model call, not pre-written claims.
@@ -119,10 +136,58 @@ def _error_result(case_id: Any, error: str) -> dict[str, Any]:
         "final_rating": None,
         "confidence": None,
         "decision_review_reasons": [],
+        # Provenance is unknown on an error: no model intent was recovered.
+        "model_rating": None,
+        "applied_rating": None,
+        "applied_review_reasons": [],
+        "review_origin": REVIEW_ORIGIN_UNKNOWN,
         "matches_expectation": False,
         "evaluator_exception": True,
         "error": error,
     }
+
+
+def _recover_model_rating(produced: Mapping[str, Any]) -> str | None:
+    """The model's own rating, recovered only from a controlled render.
+
+    ``final_trade_decision`` is trustworthy for provenance **only** on the
+    structured / JSON-mode path, where the production node renders a typed
+    decision with :func:`tradingagents.agents.schemas.render_pm_decision`. On the
+    free-text fallback the field holds *raw model prose*, which this adapter must
+    never parse or emit, so the rating is reported unknown. The function returns
+    one of the five canonical ratings, or ``None`` when it cannot be recovered —
+    it never returns the ``REVIEW`` sentinel, which :func:`extract_rating` does
+    not yield.
+    """
+    if produced.get("claim_fallback") is not None:
+        # Free-text fallback: ``final_trade_decision`` is model prose, not a
+        # controlled render. Do not trust it for provenance.
+        return None
+    rating = extract_rating(produced.get("final_trade_decision") or "")
+    return rating if rating in _CANONICAL_RATINGS else None
+
+
+def _review_origin(
+    model_rating: str | None,
+    applied_rating: str | None,
+    applied_review_reasons: list[str],
+) -> str | None:
+    """Classify where an applied ``REVIEW`` came from (see the ``REVIEW_ORIGIN_*``).
+
+    Returns ``None`` when the run was not a REVIEW. ``model_explicit`` is used
+    only with **positive** evidence that the model itself chose REVIEW (a supplied
+    ``model_rating == "REVIEW"``). Otherwise an application validation origin is
+    reported when recorded evidence shows the app downgraded a real call — a known
+    canonical model rating, or recorded validation reasons — and ``unknown`` when
+    there is no such evidence (e.g. a historical record with no provenance).
+    """
+    if applied_rating != "REVIEW":
+        return None
+    if model_rating == "REVIEW":
+        return REVIEW_ORIGIN_MODEL
+    if model_rating in _CANONICAL_RATINGS or applied_review_reasons:
+        return REVIEW_ORIGIN_APP
+    return REVIEW_ORIGIN_UNKNOWN
 
 
 def run_case(case: Mapping[str, Any], llm_factory: LlmFactory) -> dict[str, Any]:
@@ -172,6 +237,14 @@ def run_case(case: Mapping[str, Any], llm_factory: LlmFactory) -> dict[str, Any]
         and sorted(audit["reasons"]) == sorted(expected_reasons)
     )
     notes = _observation_notes(case, audit)
+    # Provenance: distinguish the model's own rating (when safely recoverable),
+    # the application-validated rating and its review reasons, and the
+    # evidence-audit status/reasons. Legacy ``final_rating`` /
+    # ``decision_review_reasons`` keep their exact meaning (validated rating and
+    # app reasons) so existing consumers are unaffected.
+    applied_rating = produced.get("final_rating")
+    applied_review_reasons = list(produced.get("decision_review_reasons") or [])
+    model_rating = _recover_model_rating(produced)
     return {
         "id": case_id,
         "audit_status": audit_status,
@@ -183,9 +256,19 @@ def run_case(case: Mapping[str, Any], llm_factory: LlmFactory) -> dict[str, Any]
         # Safe per-claim projection: no raw claim text, prompt, or credential.
         "claims": _safe_claims(audit),
         "observation_notes": notes,
-        "final_rating": produced.get("final_rating"),
+        # The application-validated rating (identical to legacy ``final_rating``).
+        "final_rating": applied_rating,
         "confidence": produced.get("pm_confidence"),
-        "decision_review_reasons": list(produced.get("decision_review_reasons") or []),
+        # The application's review reasons (identical to legacy field).
+        "decision_review_reasons": applied_review_reasons,
+        # Provenance (S2): model's own rating (or None = unknown), the validated
+        # rating, its reasons, and where a REVIEW originated.
+        "model_rating": model_rating,
+        "applied_rating": applied_rating,
+        "applied_review_reasons": applied_review_reasons,
+        "review_origin": _review_origin(
+            model_rating, applied_rating, applied_review_reasons
+        ),
         "matches_expectation": matches,
         "evaluator_exception": False,
         "error": None,
@@ -293,9 +376,12 @@ def run_baseline(
         runs = [{"repetition": index + 1, **run} for index, run in enumerate(runs)]
         report_case = {"id": case_id, "runs": runs, "aggregate": _aggregate(runs)}
         # Carry the case's acceptance intent so the gate can require a full-evidence
-        # case to actually pass before the whole group may be PASS.
+        # case to actually pass before the whole group may be PASS. The raw value
+        # is preserved (not coerced to bool): a malformed literal such as
+        # ``"false"`` or ``1`` must reach the gate as an incompleteness error, not
+        # be silently turned into ``True`` here.
         if "expects_pass" in case:
-            report_case["expects_pass"] = bool(case["expects_pass"])
+            report_case["expects_pass"] = case["expects_pass"]
         if case.get("acceptance"):
             report_case["acceptance"] = case["acceptance"]
         case_reports.append(report_case)
@@ -365,6 +451,9 @@ def _report(status: str, reason: str | None, results: list[dict[str, Any]]) -> d
 __all__ = [
     "MODE_SEMANTIC_REPLAY",
     "REPLAY_STATUS",
+    "REVIEW_ORIGIN_APP",
+    "REVIEW_ORIGIN_MODEL",
+    "REVIEW_ORIGIN_UNKNOWN",
     "build_pm_state",
     "default_llm_factory",
     "provider_llm_factory",

@@ -292,8 +292,8 @@ def test_complete_report_explicit_review_zero_claims_is_review():
         claims_total=0,
         claims_attributed=0,
         final_rating="REVIEW",
+        model_rating="REVIEW",
         confidence=None,
-        decision_review_reasons=["unresolved_rating"],
     )
     finding = decide_run(run)
     assert finding["decision"] == "REVIEW"

@@ -19,6 +19,15 @@ Decision vocabulary (per run, then aggregated):
   there is **no** hard defect. This is recorded as an observation, not a block.
 - ``PASS`` — every claim is attributed to a real source with grounded dates.
 
+Provenance (S2): a per-run record keeps three things apart — the *model's own*
+rating (``model_rating``, or ``None`` = unknown), the *application-validated*
+rating and its review reasons (``applied_rating`` / ``applied_review_reasons``),
+and the *evidence audit* result (``audit_status`` / ``audit_reasons``). A REVIEW
+downgraded by the application is never labelled ``EXPLICIT_REVIEW``: it carries
+``APP_VALIDATION_REVIEW`` (a real model call rejected for missing/invalid
+prices) or ``UNKNOWN_MODEL_REVIEW`` (model intent not recoverable). Records with
+no provenance (the archived historical baseline) keep their legacy behaviour.
+
 Numeric thresholds remain **TBD**: this module labels each finding block vs
 observe, but nothing is wired to CI or branch protection and nothing blocks yet.
 """
@@ -37,6 +46,20 @@ UNKNOWN_SOURCE_CODE = "UNKNOWN_SOURCE"
 
 # Decision levels, most severe first.
 DECISIONS = ("INFRASTRUCTURE_ERROR", "FAIL", "REVIEW", "PASS")
+
+# The fixed evidence set every *formal CI* evaluation must carry: exactly these
+# case ids, each with its full run budget (S1 completeness contract). A report
+# missing a case, repeating one, running a case the wrong number of times, or
+# mis-numbering its runs is an INFRASTRUCTURE_ERROR — never a (partial) PASS.
+REQUIRED_CASE_IDS: tuple[str, ...] = (
+    "baseline_full_evidence_dated",
+    "baseline_market_report_undated",
+    "baseline_partial_reports",
+)
+# The full-evidence case must declare (and meet) its acceptance expectation.
+FULL_EVIDENCE_CASE_ID = "baseline_full_evidence_dated"
+# Every case is replayed exactly this many times, numbered 1..N.
+REQUIRED_REPETITIONS = 3
 
 # Which decision blocks a merge once thresholds are approved. Thresholds are
 # TBD, so nothing actually blocks in this version; this table is the agreed
@@ -79,14 +102,37 @@ def _missing_required_fields(run: Mapping[str, Any]) -> bool:
     return any(field not in run for field in _REQUIRED_RUN_FIELDS)
 
 
-def _explicit_review_zero_claims(run: Mapping[str, Any]) -> bool:
-    """A complete report where the model explicitly returned REVIEW, no claims.
+def _model_explicit_review(run: Mapping[str, Any]) -> bool:
+    """Whether the run carries *positive* evidence the model itself chose REVIEW.
 
-    This is a valid model outcome (it declined to commit), not a data problem:
-    ``final_rating == "REVIEW"`` with ``claims_total == 0`` on an otherwise
-    complete record.
+    A ``REVIEW`` is a model choice only when a supplied ``model_rating`` is
+    exactly ``"REVIEW"``. A missing/ambiguous rating (``None``), a validated
+    rating produced only by the application, or a historical record with no
+    provenance is **not** positive evidence.
     """
-    return run.get("final_rating") == "REVIEW" and (run.get("claims_total") or 0) == 0
+    return run.get("model_rating") == "REVIEW"
+
+
+def _review_reason_zero_claims(run: Mapping[str, Any]) -> str:
+    """The reason code for a complete, claim-less ``REVIEW`` record.
+
+    A ``REVIEW`` with no claims is a valid, judgeable observation (never an
+    infrastructure error). Its reason reflects *provenance*:
+
+    - ``EXPLICIT_REVIEW`` only with positive evidence the model chose REVIEW;
+    - ``APP_VALIDATION_REVIEW`` when the app downgraded a real call (origin
+      ``app_validated``, or recorded validation reasons show the app's hand);
+    - ``UNKNOWN_MODEL_REVIEW`` otherwise (e.g. a historical record with no
+      provenance, or a missing/ambiguous model rating). A historical record is
+      never labelled ``EXPLICIT_REVIEW`` without positive evidence.
+    """
+    if _model_explicit_review(run):
+        return "EXPLICIT_REVIEW"
+    if run.get("review_origin") == "app_validated" or list(
+        run.get("applied_review_reasons") or run.get("decision_review_reasons") or []
+    ):
+        return "APP_VALIDATION_REVIEW"
+    return "UNKNOWN_MODEL_REVIEW"
 
 
 def decide_run(run: Mapping[str, Any]) -> dict[str, Any]:
@@ -114,17 +160,18 @@ def decide_run(run: Mapping[str, Any]) -> dict[str, Any]:
             "blocks_merge": BLOCKS_MERGE["INFRASTRUCTURE_ERROR"],
         }
 
-    # Complete record, but the model explicitly declined (REVIEW, no claims):
-    # a valid observation, not a data problem.
-    if _explicit_review_zero_claims(run):
-        return {
-            "decision": "REVIEW",
-            "reasons": ["EXPLICIT_REVIEW"],
-            "blocks_merge": BLOCKS_MERGE["REVIEW"],
-        }
-
-    # A complete record with no claims and no explicit REVIEW cannot be judged.
+    # A complete record with no claims is a valid, judgeable REVIEW observation
+    # when the validated rating is REVIEW. Its reason reflects provenance:
+    # EXPLICIT_REVIEW only with positive model evidence, else APP_VALIDATION_REVIEW
+    # (the app downgraded a real call) or UNKNOWN_MODEL_REVIEW (historical/no
+    # evidence). It is never an infrastructure error.
     if not run.get("claims"):
+        if run.get("final_rating") == "REVIEW":
+            return {
+                "decision": "REVIEW",
+                "reasons": [_review_reason_zero_claims(run)],
+                "blocks_merge": BLOCKS_MERGE["REVIEW"],
+            }
         return {
             "decision": "INFRASTRUCTURE_ERROR",
             "reasons": ["EMPTY_REPORT"],
@@ -154,7 +201,104 @@ def decide_run(run: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
+def _is_valid_repetition(value: Any) -> bool:
+    """Whether ``value`` is a genuine run number: an ``int`` that is not a bool.
+
+    ``True``/``False`` are ``int`` subclasses and must not be accepted as 1/0.
+    """
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _repetition_key(value: Any) -> Any:
+    """A hashable comparison key for a repetition value (lists/None included)."""
+    if _is_valid_repetition(value):
+        return ("int", value)
+    return ("other", repr(value))
+
+
+def check_completeness(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Whether a report carries the full fixed evidence set (S1 completeness).
+
+    A *formal CI* report must contain exactly the :data:`REQUIRED_CASE_IDS`,
+    each once, each with exactly :data:`REQUIRED_REPETITIONS` runs numbered
+    ``1..N``, and the full-evidence case (:data:`FULL_EVIDENCE_CASE_ID`) must
+    declare ``expects_pass: true`` (a genuine boolean, not ``"false"``/``1``).
+    Anything else is an INFRASTRUCTURE_ERROR: a missing, duplicated, under-run,
+    mis-numbered or mis-declared report can never be judged PASS. Returns
+    ``{"ok", "problems", <details>}``; ``problems`` is a list of fixed, safe
+    codes naming exactly what is wrong:
+
+    - ``missing_case:<id>`` — a required case is absent;
+    - ``duplicate_case:<id>`` — a required case appears more than once;
+    - ``unexpected_case:<id>`` — a case id outside the fixed set;
+    - ``run_count:<id>=<n>`` — a case does not have the required run count;
+    - ``invalid_repetition:<id>`` — a run number is not an ``int`` (e.g. a
+      bool, string or list);
+    - ``duplicate_repetition:<id>`` — a run number repeats in a case;
+    - ``missing_repetition:<id>`` — run numbers are not exactly ``1..N``;
+    - ``full_evidence_expects_pass`` — the full-evidence case's
+      ``expects_pass`` is not the boolean ``true``.
+
+    Never rewrites its input. This is purely structural; it does not decide the
+    runs (that is :func:`decide_run`).
+    """
+    problems: list[str] = []
+    cases = report.get("cases") or []
+    by_id: dict[Any, list[Mapping[str, Any]]] = {}
+    for case in cases:
+        by_id.setdefault(case.get("id"), []).append(case)
+
+    present_ids = [case.get("id") for case in cases]
+    for case_id in REQUIRED_CASE_IDS:
+        count = present_ids.count(case_id)
+        if count == 0:
+            problems.append(f"missing_case:{case_id}")
+        elif count > 1:
+            problems.append(f"duplicate_case:{case_id}")
+    for case_id in present_ids:
+        if case_id not in REQUIRED_CASE_IDS:
+            problems.append(f"unexpected_case:{case_id}")
+
+    for case_id in REQUIRED_CASE_IDS:
+        for case in by_id.get(case_id, []):
+            runs = case.get("runs") or []
+            if len(runs) != REQUIRED_REPETITIONS:
+                problems.append(f"run_count:{case_id}={len(runs)}")
+            repetitions = [run.get("repetition") for run in runs]
+            # Repetition numbers must be genuine ints ``1..N``. ``True``/``False``
+            # are ``int`` subclasses in Python, so they are rejected explicitly;
+            # any non-int (string, list, ...) is an invalid repetition, never a
+            # crash. Comparing types first keeps the check free of ``TypeError``
+            # on unhashable values like a list.
+            if not all(_is_valid_repetition(r) for r in repetitions):
+                problems.append(f"invalid_repetition:{case_id}")
+            keys = [_repetition_key(r) for r in repetitions]
+            if len(keys) != len(set(keys)):
+                problems.append(f"duplicate_repetition:{case_id}")
+            if sorted(
+                r for r in repetitions if _is_valid_repetition(r)
+            ) != list(range(1, REQUIRED_REPETITIONS + 1)):
+                problems.append(f"missing_repetition:{case_id}")
+            if case_id == FULL_EVIDENCE_CASE_ID and case.get("expects_pass") is not True:
+                problems.append("full_evidence_expects_pass")
+
+    # Deduplicate problem codes while preserving order (a case repeated once may
+    # surface the same missing-case problem twice).
+    seen: set[str] = set()
+    unique = [p for p in problems if not (p in seen or seen.add(p))]
+    return {
+        "ok": not unique,
+        "problems": unique,
+        "required_case_ids": list(REQUIRED_CASE_IDS),
+        "required_repetitions": REQUIRED_REPETITIONS,
+    }
+
+
+def decide_baseline(
+    report: Mapping[str, Any],
+    *,
+    require_complete: bool = False,
+) -> dict[str, Any]:
     """Decide an archived baseline report, per case and aggregated.
 
     ``report`` is the ``baseline.json`` shape: a top-level ``cases`` list, each
@@ -164,7 +308,24 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
     A report that is itself an ``INFRASTRUCTURE_ERROR``, that has no cases, or
     that has a case with no runs, is an INFRASTRUCTURE_ERROR — never a default
     PASS.
+
+    ``require_complete`` is the *formal CI* switch: when true, the report must
+    carry the full fixed evidence set (see :func:`check_completeness`). The
+    default is false so single-case unit tests and the archived historical
+    baseline keep their existing per-case behaviour; the CI entry
+    (:func:`tools.sem_eval.ci_entry.evaluate_pr`) always passes true.
     """
+    completeness = check_completeness(report)
+    if require_complete and not completeness["ok"]:
+        return {
+            "thresholds": "TBD",
+            "overall_decision": "INFRASTRUCTURE_ERROR",
+            "blocks_merge": BLOCKS_MERGE["INFRASTRUCTURE_ERROR"],
+            "cases": [],
+            "reasons": ["INCOMPLETE_REPORT"],
+            "completeness": completeness,
+        }
+
     if report.get("status") == "INFRASTRUCTURE_ERROR" or report.get("evaluator_exception"):
         return {
             "thresholds": "TBD",
@@ -172,6 +333,7 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
             "blocks_merge": BLOCKS_MERGE["INFRASTRUCTURE_ERROR"],
             "cases": [],
             "reasons": ["top_level_infrastructure_error"],
+            "completeness": completeness,
         }
 
     cases_in = report.get("cases") or []
@@ -182,6 +344,7 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
             "blocks_merge": BLOCKS_MERGE["INFRASTRUCTURE_ERROR"],
             "cases": [],
             "reasons": ["empty_report"],
+            "completeness": completeness,
         }
     case_out: list[dict[str, Any]] = []
     overall = "PASS"
@@ -190,7 +353,9 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
     for case in cases_in:
         run_decisions = []
         runs_in = case.get("runs") or []
-        expects_pass = bool(case.get("expects_pass", False))
+        # Strict boolean: a full-evidence case must declare ``expects_pass: true``
+        # explicitly; ``"false"``/``1`` are not acceptance declarations.
+        expects_pass = case.get("expects_pass") is True
         if not runs_in:
             # A case with no run records cannot be judged: infrastructure error.
             if _severity("INFRASTRUCTURE_ERROR") < _severity(overall):
@@ -210,12 +375,24 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
         # recorded separately so the report shows both.
         for run in runs_in:
             finding = decide_run(run)
+            validated_rating = run.get("final_rating")
             run_decisions.append({
                 "repetition": run.get("repetition"),
                 "decision": finding["decision"],
                 "reasons": finding["reasons"],
                 "blocks_merge": finding["blocks_merge"],
-                "pm_decision": run.get("final_rating"),
+                # Legacy ``pm_decision`` stays the *validated* rating.
+                "pm_decision": validated_rating,
+                # Provenance (S2): the model's own rating (or None = unknown),
+                # the validated rating + its reasons, and the audit result.
+                "model_rating": run.get("model_rating"),
+                "applied_rating": run.get("applied_rating", validated_rating),
+                "applied_review_reasons": list(
+                    run.get("applied_review_reasons")
+                    or run.get("decision_review_reasons")
+                    or []
+                ),
+                "review_origin": run.get("review_origin"),
                 "audit_status": run.get("audit_status"),
                 "audit_reasons": list(run.get("observed_reasons") or []),
             })
@@ -249,6 +426,7 @@ def decide_baseline(report: Mapping[str, Any]) -> dict[str, Any]:
         "blocks_merge": BLOCKS_MERGE[overall],
         "full_evidence_met": full_evidence_ok,
         "cases": case_out,
+        "completeness": completeness,
     }
 
 
@@ -267,7 +445,11 @@ __all__ = [
     "BLOCKS_MERGE",
     "DATE_BASIS_NOTE",
     "DECISIONS",
+    "FULL_EVIDENCE_CASE_ID",
+    "REQUIRED_CASE_IDS",
+    "REQUIRED_REPETITIONS",
     "UNKNOWN_SOURCE",
+    "check_completeness",
     "decide_baseline",
     "decide_run",
 ]

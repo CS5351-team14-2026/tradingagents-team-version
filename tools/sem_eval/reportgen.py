@@ -189,16 +189,30 @@ def finalize_verdict(report: Mapping[str, Any], ci_result: Mapping[str, Any]) ->
     # acceptance (with their run reasons), so the report explains a FAIL.
     finalized["reason"] = ci_result.get("reason")
     finalized["unmet_cases"] = list(ci_result.get("unmet_cases") or [])
+    # Surface completeness so a reviewer downloading report.json sees exactly
+    # which fixed cases / run numbers were missing or malformed.
     gate = ci_result.get("gate") or {}
+    completeness = ci_result.get("completeness") or gate.get("completeness")
+    finalized["completeness"] = completeness or {}
     cases_view = []
     failed_rules: list[str] = []
     for case in gate.get("cases", []):
         cases_view.append({
             "id": case.get("id"),
             "decision": case.get("decision"),
-            "runs": [{"repetition": r.get("repetition"),
-                      "decision": r.get("decision"),
-                      "reasons": r.get("reasons")} for r in case.get("runs", [])],
+            "runs": [{
+                "repetition": r.get("repetition"),
+                "decision": r.get("decision"),
+                "reasons": r.get("reasons"),
+                # Provenance: keep the model's own rating, the app-validated
+                # rating + reasons, and the audit result distinct.
+                "model_rating": r.get("model_rating"),
+                "applied_rating": r.get("applied_rating", r.get("pm_decision")),
+                "applied_review_reasons": list(r.get("applied_review_reasons") or []),
+                "review_origin": r.get("review_origin"),
+                "audit_status": r.get("audit_status"),
+                "audit_reasons": list(r.get("audit_reasons") or []),
+            } for r in case.get("runs", [])],
         })
         for run in case.get("runs", []):
             if run.get("decision") == "FAIL":
@@ -208,6 +222,11 @@ def finalize_verdict(report: Mapping[str, Any], ci_result: Mapping[str, Any]) ->
     finalized["failed_rules"] = failed_rules
     finalized["cases"] = cases_view
     return finalized
+
+
+def _has_provenance_view(run: Mapping[str, Any]) -> bool:
+    """Whether a finalized per-run view carries S2 provenance fields."""
+    return any(k in run for k in ("model_rating", "applied_rating", "review_origin"))
 
 
 def render_summary(report: Mapping[str, Any]) -> str:
@@ -227,6 +246,11 @@ def render_summary(report: Mapping[str, Any]) -> str:
         )
         if report.get("reason"):
             lines.append(f"  reason: {report.get('reason')}")
+        completeness = report.get("completeness") or {}
+        if completeness and completeness.get("ok") is False:
+            lines.append("  completeness: INCOMPLETE")
+            for problem in completeness.get("problems") or []:
+                lines.append(f"    - {problem}")
         failed = report.get("failed_rules") or []
         lines.append(f"  failed_rules: {', '.join(failed) if failed else 'none'}")
         unmet = report.get("unmet_cases") or []
@@ -245,6 +269,23 @@ def render_summary(report: Mapping[str, Any]) -> str:
                 f"#{r.get('repetition')}={r.get('decision')}" for r in case.get("runs", [])
             )
             lines.append(f"  case {case.get('id')}: {case.get('decision')} [{run_dec}]")
+            # Provenance: show the model's own rating vs the app-validated rating
+            # vs the audit, so a reviewer can tell an app downgrade from a model
+            # choice without opening the JSON.
+            for run in case.get("runs", []):
+                if not _has_provenance_view(run):
+                    continue
+                model = run.get("model_rating") or "unknown"
+                applied = run.get("applied_rating") or "unknown"
+                applied_why = ", ".join(run.get("applied_review_reasons") or []) or "-"
+                audit = run.get("audit_status") or "unknown"
+                audit_why = ", ".join(run.get("audit_reasons") or []) or "-"
+                origin = run.get("review_origin") or "-"
+                lines.append(
+                    f"    #{run.get('repetition')}: model={model} "
+                    f"validated={applied} ({applied_why}) review_origin={origin} "
+                    f"audit={audit} ({audit_why})"
+                )
     else:
         for case in replay.get("cases", []):
             agg = case.get("aggregate", {})
