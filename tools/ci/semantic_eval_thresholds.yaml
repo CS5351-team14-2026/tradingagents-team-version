@@ -1,0 +1,70 @@
+# Gate 4 semantic-evaluation thresholds — DRAFT (all values TBD)
+#
+# Course gate 4 (REQ-TA-GOV-001 / DEBT-003; test plan #81). This file is the
+# single home for the quality thresholds the gate compares against. Every value
+# is TBD until the team reviews and approves it; while any value is TBD the gate
+# OBSERVES and does NOT block a merge.
+#
+# Schema (per entry):
+#   value:        the threshold value, or the string "TBD"
+#   action:       "block" | "observe"   (intent; enforcement waits for approval)
+#   description:  what the metric means
+#
+# A gate that finds a TBD threshold must treat it as observe-only and must name
+# the threshold it could not enforce, never invent a number (AGENTS.md §8).
+
+schema: 1
+thresholds_tbd: true
+approved_by: null            # set by the team when values are confirmed
+approved_on: null            # ISO date
+
+# Per-run hard rules (currently boolean defect signals).
+hard_rules:
+  unfounded_market_date:
+    value: TBD               # a market claim dated when the source had no date
+    action: block
+    description: "A market_report claim carries an observation_date the source does not support."
+  unresolvable_source:
+    value: TBD               # the audit reported UNKNOWN_SOURCE
+    action: block
+    description: "A material claim's evidence source could not be resolved (UNKNOWN_SOURCE)."
+  empty_or_incomplete_report:
+    value: TBD               # a run missing required fields / no usable claims
+    action: block
+    description: "The run record is incomplete and cannot be judged (infrastructure)."
+  infrastructure_error:
+    value: TBD               # missing credential / unsupported config / evaluator exception
+    action: block
+    description: "The evaluation itself could not run; this is gate correctness, not the model."
+
+# Aggregate quality metrics (observation-only until approved).
+aggregate_metrics:
+  acceptance_rate:
+    value: TBD               # share of runs whose audit status is ACCEPTED
+    action: observe
+    description: "Fraction of runs the claim audit accepted."
+  attribution_rate:
+    value: TBD               # claims_attributed / claims_total across a case
+    action: observe
+    description: "Fraction of material claims resolved to a real source."
+  unfounded_date_rate:
+    value: TBD               # share of runs with an unfounded market date
+    action: observe
+    description: "How often a model invents a date for an undated market claim."
+  unknown_source_rate:
+    value: TBD               # share of runs reporting UNKNOWN_SOURCE
+    action: observe
+    description: "How often a model cites an unresolvable source."
+  json_mode_retry_rate:
+    value: TBD               # share of runs that needed the JSON-mode retry
+    action: observe
+    description: "Parse-stability signal for the structured-output path."
+
+# Fixed case set the thresholds are measured against.
+case_set:
+  offline_audit: "test/fixtures/gate4/pm_cases.json"
+  baseline_inputs: "test/fixtures/gate4/baseline_cases.json"
+  # Reference observation (inputs to the discussion, NOT approved thresholds):
+  # docs/evidence/gate4/2026-11-22/baseline/baseline.json — 9 runs, 0 infra
+  # errors; 3/9 carry a hard defect (one unfounded 2026-06-19 date; two
+  # UNKNOWN_SOURCE); 2/9 missing-date-only (REVIEW).

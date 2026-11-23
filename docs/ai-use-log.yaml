@@ -945,3 +945,84 @@ entries:
       provenance; ruff clean; full offline suite 1985 passed, 1 skipped. ADR moves
       are pure renames with live references updated.
     transcript: "transcripts/61073835-ZHAOHang.md (Part 4)"
+
+  - id: AI-2026-11-22-gate4-pm-phase1
+    date: "2026-11-22"
+    task: "Gate 4 semantic-eval, Portfolio Manager first version — Phase 1 (offline scaffolding only). Add fixed PM cases under test/fixtures/gate4/pm_cases.json; add tools/sem_eval (reusable trigger matcher + case evaluator reusing tradingagents.reporting.audit_material_claims + a CLI writing result.json/summary). Overall status unified to PASS/FAIL/NOT_APPLICABLE/INFRASTRUCTURE_ERROR with per-case audit status kept separate and exit codes 0/1/2; error evidence is redacted (no raw exception text or credentials). Offline tests cover ACCEPTED/UNTRACEABLE_CLAIM/UNKNOWN_SOURCE/UNDATED_MARKET_DATA in JSON and summary, trigger vs NOT_APPLICABLE for docs-only changes, and normal/mismatch/empty-set/environment-error cases that never report PASS spuriously. Close-out fixes: validate case expected-field types (expected_reasons: null etc. → INFRASTRUCTURE_ERROR/exit 2 with both artefacts written), and reject any mode other than offline_precheck so offline cases cannot be reported as a real semantic_replay pass. Thresholds stay TBD; no baseline evidence generated this round."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "Human Phase 1 instructions in this session (start + interface correction); test plan #81 (labelled test-approved) — confirmed branch feat/gate4-pm-semantic-eval before starting"
+    files:
+      - test/fixtures/gate4/pm_cases.json
+      - tools/sem_eval/__init__.py
+      - tools/sem_eval/triggers.py
+      - tools/sem_eval/evaluator.py
+      - tools/sem_eval/cli.py
+      - test/offline/test_sem_eval_gate4.py
+      - transcripts/60704848-WuYu.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Human approved starting Phase 1 after test plan #81 was labelled
+      test-approved, then corrected the interface: unify the overall status to
+      PASS/FAIL/NOT_APPLICABLE/INFRASTRUCTURE_ERROR (per-case audit status
+      separate), export result.json + a readable summary for the CI wrapper,
+      test normal/mismatch/empty-set/environment-error, redact error evidence,
+      and document the 0/1/2 exit-code mapping. Still restricted to offline
+      implementation and tests (no real model calls, no GitHub Actions or
+      branch-protection changes, no commit/push). Fixtures, thresholds, scorer,
+      trigger rules and the workflow are handed to Phase 2 for separate approval
+      and are not treated as skippable doc changes. Close-out round: human re-ran
+      the tests and CLI, found expected_reasons: null crashes with no result.json,
+      semantic_replay mode falsely passes, and the transcript used a wrong student
+      id (61120001 → 60704848); directed fixing all three, adding regression tests,
+      and merging the Gate 4 record into transcripts/60704848-WuYu.md. Review is
+      pending before Phase 2.
+    verification: >-
+      New tests: 35 passed. CLI against the fixed cases → status PASS, exit 0;
+      malformed expected_reasons → INFRASTRUCTURE_ERROR, exit 2, result.json +
+      summary.txt still written; --mode semantic_replay → INFRASTRUCTURE_ERROR,
+      exit 2 (never PASS). Full offline suite: 2020 passed, 1 skipped
+      (langchain_aws not installed — pre-existing, unrelated), 1 deselected.
+      ruff check .: clean. validate_ai_use_log.py: passed.
+    transcript: "transcripts/60704848-WuYu.md#gate-4-semantic-evaluation--portfolio-manager-first-version-phase-1"
+
+  - id: AI-2026-11-23-gate4-pr82-s1-s2
+    date: "2026-11-23"
+    task: "Gate 4 PR #82 fixes (one session, S1 + S2). S1 — formal-CI report completeness: the CI entry now requires exactly the 3 fixed cases, each with exactly 3 runs numbered 1-3, and the full-evidence case's expects_pass to be the boolean true; missing/duplicate/wrong-count/duplicate- or invalid-numbered cases and a non-boolean expects_pass become INFRASTRUCTURE_ERROR (exit 2) with specific reasons written into report.json and summary.txt; decide_baseline keeps single-case/historical support (require_complete defaults false) and only evaluate_pr enforces completeness; pure-docs stays NOT_APPLICABLE. S2 — rating provenance: distinguish, in replay JSON, finalized CI JSON and the readable summary, the model's own rating from the application-validated rating plus its review reasons and the evidence-audit status plus reasons; fix the mislabel where a price-less Buy downgraded by the app to REVIEW was shown as EXPLICIT_REVIEW (a zero-claim REVIEW is now APP_VALIDATION_REVIEW, UNKNOWN_MODEL_REVIEW for historical/no evidence, or EXPLICIT_REVIEW only with positive model evidence model_rating == REVIEW); raw model prose is never parsed/emitted (free-text fallback treated as unknown); legacy pm_decision remains the validated rating. Reviewed against the actual diff and tests; three S2 review findings addressed (removed the price-policy skip that masked regressions; no EXPLICIT_REVIEW without positive evidence; removed the always-false helper/field). Historical baseline, thresholds draft, fixtures, workflows and other members' records preserved."
+    agent: OpenCode
+    model: CS5351/DeepSeek-V4-Flash
+    prompt_ref: "Human PR #82 reproduction request and S1 approval (plan-only, then S1 approval, then three boundary fixes), S2 implementation instruction, S2 review follow-up, and final record request — all in this session; see the two transcript sections."
+    files:
+      - tools/sem_eval/gate.py
+      - tools/sem_eval/ci_entry.py
+      - tools/sem_eval/replay.py
+      - tools/sem_eval/reportgen.py
+      - test/offline/test_sem_eval_ci_entry.py
+      - test/offline/test_sem_eval_gate_rules.py
+      - test/offline/test_sem_eval_completeness.py
+      - test/offline/test_sem_eval_rating_provenance.py
+      - transcripts/60704848-WuYu.md
+      - docs/ai-use-log.yaml
+    human_decision: >-
+      Human asked for a plan only (no code), then approved S1 with the fixed
+      3-case x 3-run constraint, the expects_pass check, and the requirement to
+      keep decide_baseline single-case/historical support while formal CI
+      enforces completeness. After reviewing S1 logic the human required three
+      boundary fixes: expects_pass must be a genuine boolean true (reject
+      "false"/1, no early bool coercion); run numbers must be genuine ints 1/2/3
+      (bool/list invalid -> INFRASTRUCTURE_ERROR/exit 2 with a reason);
+      completeness problems must be written into report.json and summary.txt.
+      Human then approved S2 and, after independent review, required three fixes:
+      delete the _requires_gate4_price_policy skip (it suppressed a real
+      regression); never label a historical/no-evidence REVIEW EXPLICIT_REVIEW
+      without positive evidence; and remove the always-false _model_explicit_review
+      helper/field, allowing EXPLICIT_REVIEW only via an actual supplied
+      model_rating == "REVIEW". No commit or push was requested this round.
+    verification: >-
+      Independent verification (native PowerShell, gate4 src): 168 related Gate 4
+      tests passed. Full offline suite: 2,148 passed, 6 skipped. ruff check .:
+      passed. Preserved src (incl. rating rules), archived historical baseline
+      (docs/evidence/gate4/2026-11-22/baseline/ unchanged, read-only), thresholds
+      draft, fixtures, .github/workflows/, and other members' log/transcript
+      records; no raw model prose in reports. Not committed, not pushed.
+    transcript: "transcripts/60704848-WuYu.md#gate-4--pr-82-s1-formal-ci-report-completeness-3-cases--3-runs ; transcripts/60704848-WuYu.md#gate-4--pr-82-s2-rating-provenance-model-vs-validated-vs-audit"

@@ -1,0 +1,3 @@
+Gate 4 PM replay (single case) — overall status: OBSERVE (exit 0)
+  mode: semantic_replay  thresholds: TBD
+  case valid_dated_claim: audit=ACCEPTED observed=ACCEPTED (-) rating=Overweight

@@ -1,0 +1,29 @@
+{
+  "counts": {
+    "ACCEPTED": 1
+  },
+  "errors": [],
+  "exit_code": 0,
+  "mismatches": [],
+  "mode": "semantic_replay",
+  "reason": null,
+  "results": [
+    {
+      "audit_status": "ACCEPTED",
+      "claims_attributed": 6,
+      "claims_total": 6,
+      "confidence": "medium",
+      "decision_review_reasons": [],
+      "error": null,
+      "evaluator_exception": false,
+      "final_rating": "Overweight",
+      "id": "valid_dated_claim",
+      "matches_expectation": true,
+      "observed_reasons": [],
+      "observed_status": "ACCEPTED",
+      "unsupported_claim_ids": []
+    }
+  ],
+  "status": "OBSERVE",
+  "thresholds": "TBD"
+}
